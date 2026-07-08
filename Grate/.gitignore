@@ -1,0 +1,15 @@
+
+# Build output
+bin/
+obj/
+
+# SQLite databases (created by grate at runtime)
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+
+# IDE
+.vs/
+.idea/
+*.user
+*.suo
