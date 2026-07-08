@@ -1,0 +1,6 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/MailApi.Sdk/MailApi.Sdk.csproj" />
+    <Project Path="src/MailApi/MailApi.csproj" />
+  </Folder>
+</Solution>
