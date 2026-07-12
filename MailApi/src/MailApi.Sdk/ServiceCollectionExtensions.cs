@@ -10,8 +10,14 @@ public static class MailClientServiceCollectionExtensions
         this IServiceCollection services,
         IConfiguration configuration,
         string sectionName = MailClientOptions.SectionName)
+        => services.AddMailClient(configuration.GetSection(sectionName));
+
+    /// <summary>Registers <see cref="MailClient"/> configured from the supplied configuration section.</summary>
+    public static IServiceCollection AddMailClient(
+        this IServiceCollection services,
+        IConfigurationSection configurationSection)
     {
-        services.Configure<MailClientOptions>(configuration.GetSection(sectionName));
+        services.Configure<MailClientOptions>(configurationSection);
         services.AddHttpClient<MailClient>();
         return services;
     }

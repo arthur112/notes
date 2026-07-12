@@ -1,6 +1,13 @@
 <Solution>
   <Folder Name="/src/">
+    <Project Path="src/MailApi.Application/MailApi.Application.csproj" />
+    <Project Path="src/MailApi.Domain/MailApi.Domain.csproj" />
+    <Project Path="src/MailApi.Infrastructure/MailApi.Infrastructure.csproj" />
     <Project Path="src/MailApi.Sdk/MailApi.Sdk.csproj" />
-    <Project Path="src/MailApi/MailApi.csproj" />
+    <Project Path="src/MailApi.Web/MailApi.Web.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/MailApi.Application.Tests/MailApi.Application.Tests.csproj" />
+    <Project Path="tests/MailApi.Web.Tests/MailApi.Web.Tests.csproj" />
   </Folder>
 </Solution>
