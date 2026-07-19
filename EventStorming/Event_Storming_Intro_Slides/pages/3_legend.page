@@ -1,0 +1,183 @@
+pageType: content
+background:
+  type: solid
+  color: "$bg"
+notes: "Walk through each color slowly. This is the only vocabulary needed today. Verb tense is the trick — events are past tense, commands are imperative."
+elements:
+  - elementId: kicker
+    elementType: text
+    bounds: [80, 46, 400, 22]
+    content:
+      style: "$kicker"
+      text: THE VOCABULARY
+  - elementId: title
+    elementType: text
+    bounds: [80, 74, 780, 40]
+    content:
+      style: "$title"
+      fontSize: 28
+      text: Seven stickies — that is all you need
+  - elementId: st-event
+    elementType: shape
+    bounds: [80, 140, 195, 100]
+    shapeName: rect
+    fill: {type: solid, color: "$event"}
+  - elementId: st-event-t
+    elementType: text
+    bounds: [92, 152, 171, 76]
+    content:
+      color: "#2B2620"
+      text: |
+        <p><strong>EVENT</strong></p>
+        <p style="margin-top:4px"><span style="font-size:12px;">something that happened</span></p>
+  - elementId: st-event-d
+    elementType: text
+    bounds: [80, 248, 195, 44]
+    content:
+      style: "$small"
+      text: |
+        <p>Past-tense verb</p>
+        <p><em>"Payment Received"</em></p>
+  - elementId: st-command
+    elementType: shape
+    bounds: [295, 140, 195, 100]
+    shapeName: rect
+    fill: {type: solid, color: "$command"}
+  - elementId: st-command-t
+    elementType: text
+    bounds: [307, 152, 171, 76]
+    content:
+      color: "#FFFFFF"
+      text: |
+        <p><strong>COMMAND</strong></p>
+        <p style="margin-top:4px"><span style="font-size:12px;">an action that causes it</span></p>
+  - elementId: st-command-d
+    elementType: text
+    bounds: [295, 248, 195, 44]
+    content:
+      style: "$small"
+      text: |
+        <p>Imperative verb</p>
+        <p><em>"Submit Order"</em></p>
+  - elementId: st-aggregate
+    elementType: shape
+    bounds: [510, 140, 195, 100]
+    shapeName: rect
+    fill: {type: solid, color: "$aggregate"}
+  - elementId: st-aggregate-t
+    elementType: text
+    bounds: [522, 152, 171, 76]
+    content:
+      color: "#2B2620"
+      text: |
+        <p><strong>AGGREGATE</strong></p>
+        <p style="margin-top:4px"><span style="font-size:12px;">the thing that handles it</span></p>
+  - elementId: st-aggregate-d
+    elementType: text
+    bounds: [510, 248, 195, 44]
+    content:
+      style: "$small"
+      text: |
+        <p>Noun</p>
+        <p><em>"Order"</em></p>
+  - elementId: st-policy
+    elementType: shape
+    bounds: [725, 140, 195, 100]
+    shapeName: rect
+    fill: {type: solid, color: "$policy"}
+  - elementId: st-policy-t
+    elementType: text
+    bounds: [737, 152, 171, 76]
+    content:
+      color: "#2B2620"
+      text: |
+        <p><strong>POLICY</strong></p>
+        <p style="margin-top:4px"><span style="font-size:12px;">a rule that reacts</span></p>
+  - elementId: st-policy-d
+    elementType: text
+    bounds: [725, 248, 195, 44]
+    content:
+      style: "$small"
+      text: |
+        <p>"When X, then Y"</p>
+        <p><em>"When shipped, notify"</em></p>
+  - elementId: st-readmodel
+    elementType: shape
+    bounds: [80, 320, 195, 100]
+    shapeName: rect
+    fill: {type: solid, color: "$readmodel"}
+  - elementId: st-readmodel-t
+    elementType: text
+    bounds: [92, 332, 171, 76]
+    content:
+      color: "#2B2620"
+      text: |
+        <p><strong>READ MODEL</strong></p>
+        <p style="margin-top:4px"><span style="font-size:12px;">info needed to decide</span></p>
+  - elementId: st-readmodel-d
+    elementType: text
+    bounds: [80, 428, 195, 44]
+    content:
+      style: "$small"
+      text: |
+        <p>Noun (a view or list)</p>
+        <p><em>"Stock availability"</em></p>
+  - elementId: st-extsys
+    elementType: shape
+    bounds: [295, 320, 195, 100]
+    shapeName: rect
+    fill: {type: solid, color: "$extsys"}
+  - elementId: st-extsys-t
+    elementType: text
+    bounds: [307, 332, 171, 76]
+    content:
+      color: "#2B2620"
+      text: |
+        <p><strong>EXTERNAL SYSTEM</strong></p>
+        <p style="margin-top:4px"><span style="font-size:12px;">a third party involved</span></p>
+  - elementId: st-extsys-d
+    elementType: text
+    bounds: [295, 428, 195, 44]
+    content:
+      style: "$small"
+      text: |
+        <p>Noun</p>
+        <p><em>"Payment gateway"</em></p>
+  - elementId: st-hotspot
+    elementType: shape
+    bounds: [510, 320, 195, 100]
+    shapeName: rect
+    fill: {type: solid, color: "$hotspot"}
+  - elementId: st-hotspot-t
+    elementType: text
+    bounds: [522, 332, 171, 76]
+    content:
+      color: "#FFFFFF"
+      text: |
+        <p><strong>HOTSPOT</strong></p>
+        <p style="margin-top:4px"><span style="font-size:12px;">a problem or open question</span></p>
+  - elementId: st-hotspot-d
+    elementType: text
+    bounds: [510, 428, 195, 44]
+    content:
+      style: "$small"
+      text: |
+        <p>A question</p>
+        <p><em>"Who approves refunds?"</em></p>
+  - elementId: aside
+    elementType: text
+    bounds: [725, 330, 195, 130]
+    content:
+      style: "$small"
+      fontSize: 13
+      lineHeight: 1.5
+      text: |
+        <p><strong>Remember:</strong> color carries the meaning.</p>
+        <p style="margin-top:6px">Wrong color = confusing story. When unsure, ask.</p>
+  - elementId: pagenum
+    elementType: text
+    bounds: [900, 505, 40, 20]
+    content:
+      style: "$small"
+      align: [right, middle]
+      text: "3"

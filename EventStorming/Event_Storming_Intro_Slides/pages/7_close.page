@@ -1,0 +1,66 @@
+pageType: final
+background:
+  type: solid
+  color: "$bg"
+notes: End with energy. The wall is the deliverable — the photo and hotspot owners make it stick.
+elements:
+  - elementId: kicker
+    elementType: text
+    bounds: [80, 100, 400, 22]
+    content:
+      style: "$kicker"
+      text: BEFORE WE START
+  - elementId: title
+    elementType: text
+    bounds: [80, 128, 800, 50]
+    content:
+      style: "$title"
+      fontSize: 34
+      text: By the end, the wall is the deliverable
+  - elementId: list
+    elementType: text
+    bounds: [80, 210, 560, 160]
+    content:
+      style: "$body"
+      fontSize: 16
+      lineHeight: 1.7
+      text: |
+        <p><strong>A photographed timeline</strong> of how our business actually works</p>
+        <p><strong>Named boundaries</strong> between the parts of the process</p>
+        <p><strong>Hotspots with owners</strong> — every question has someone chasing it</p>
+        <p><strong>One agreed next step</strong>: refine, write stories, or design</p>
+  - elementId: note
+    elementType: text
+    bounds: [80, 430, 800, 60]
+    content:
+      style: "$small"
+      fontSize: 13
+      lineHeight: 1.5
+      text: |
+        <p>Everything on the wall stays a draft. The value is the conversation we are about to have.</p>
+        <p><strong>Grab a marker — let's begin.</strong></p>
+  - elementId: sq1
+    elementType: shape
+    bounds: [720, 200, 76, 76]
+    shapeName: rect
+    rotation: -3
+    fill: {type: solid, color: "$event"}
+  - elementId: sq2
+    elementType: shape
+    bounds: [812, 236, 76, 76]
+    shapeName: rect
+    rotation: 2
+    fill: {type: solid, color: "$command"}
+  - elementId: sq3
+    elementType: shape
+    bounds: [744, 304, 76, 76]
+    shapeName: rect
+    rotation: -1.5
+    fill: {type: solid, color: "$policy"}
+  - elementId: pagenum
+    elementType: text
+    bounds: [900, 505, 40, 20]
+    content:
+      style: "$small"
+      align: [right, middle]
+      text: "7"

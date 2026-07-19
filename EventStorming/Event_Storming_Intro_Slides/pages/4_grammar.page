@@ -1,0 +1,166 @@
+pageType: content
+background:
+  type: solid
+  color: "$bg"
+notes: "Read the chain aloud as a story — seeing stock, a customer submits an order; the Order handles it; 'Order Placed' happens; a policy reacts and triggers the next command. That loop is the whole grammar."
+elements:
+  - elementId: kicker
+    elementType: text
+    bounds: [80, 56, 400, 22]
+    content:
+      style: "$kicker"
+      text: HOW THE NOTES CONNECT
+  - elementId: title
+    elementType: text
+    bounds: [80, 84, 780, 44]
+    content:
+      style: "$title"
+      text: Read the wall like a sentence
+  - elementId: s1
+    elementType: shape
+    bounds: [45, 190, 128, 92]
+    shapeName: rect
+    fill: {type: solid, color: "$readmodel"}
+  - elementId: s1-t
+    elementType: text
+    bounds: [53, 200, 112, 72]
+    content:
+      color: "#2B2620"
+      align: [center, top]
+      text: |
+        <p><span style="font-size:11px;">READ MODEL</span></p>
+        <p style="margin-top:4px"><strong><span style="font-size:14px;">Stock list</span></strong></p>
+  - elementId: a1
+    elementType: text
+    bounds: [170, 212, 30, 48]
+    content:
+      fontSize: 22
+      color: "$muted"
+      align: [center, middle]
+      text: →
+  - elementId: s2
+    elementType: shape
+    bounds: [197, 190, 128, 92]
+    shapeName: rect
+    fill: {type: solid, color: "$command"}
+  - elementId: s2-t
+    elementType: text
+    bounds: [205, 200, 112, 72]
+    content:
+      color: "#FFFFFF"
+      align: [center, top]
+      text: |
+        <p><span style="font-size:11px;">COMMAND</span></p>
+        <p style="margin-top:4px"><strong><span style="font-size:14px;">Submit Order</span></strong></p>
+  - elementId: a2
+    elementType: text
+    bounds: [322, 212, 30, 48]
+    content:
+      fontSize: 22
+      color: "$muted"
+      align: [center, middle]
+      text: →
+  - elementId: s3
+    elementType: shape
+    bounds: [349, 190, 128, 92]
+    shapeName: rect
+    fill: {type: solid, color: "$aggregate"}
+  - elementId: s3-t
+    elementType: text
+    bounds: [357, 200, 112, 72]
+    content:
+      color: "#2B2620"
+      align: [center, top]
+      text: |
+        <p><span style="font-size:11px;">AGGREGATE</span></p>
+        <p style="margin-top:4px"><strong><span style="font-size:14px;">Order</span></strong></p>
+  - elementId: a3
+    elementType: text
+    bounds: [474, 212, 30, 48]
+    content:
+      fontSize: 22
+      color: "$muted"
+      align: [center, middle]
+      text: →
+  - elementId: s4
+    elementType: shape
+    bounds: [501, 190, 128, 92]
+    shapeName: rect
+    fill: {type: solid, color: "$event"}
+  - elementId: s4-t
+    elementType: text
+    bounds: [509, 200, 112, 72]
+    content:
+      color: "#2B2620"
+      align: [center, top]
+      text: |
+        <p><span style="font-size:11px;">EVENT</span></p>
+        <p style="margin-top:4px"><strong><span style="font-size:14px;">Order Placed</span></strong></p>
+  - elementId: a4
+    elementType: text
+    bounds: [626, 212, 30, 48]
+    content:
+      fontSize: 22
+      color: "$muted"
+      align: [center, middle]
+      text: →
+  - elementId: s5
+    elementType: shape
+    bounds: [653, 190, 128, 92]
+    shapeName: rect
+    fill: {type: solid, color: "$policy"}
+  - elementId: s5-t
+    elementType: text
+    bounds: [661, 200, 112, 72]
+    content:
+      color: "#2B2620"
+      align: [center, top]
+      text: |
+        <p><span style="font-size:11px;">POLICY</span></p>
+        <p style="margin-top:4px"><strong><span style="font-size:13px;">then reserve stock</span></strong></p>
+  - elementId: a5
+    elementType: text
+    bounds: [778, 212, 30, 48]
+    content:
+      fontSize: 22
+      color: "$muted"
+      align: [center, middle]
+      text: →
+  - elementId: s6
+    elementType: shape
+    bounds: [805, 190, 128, 92]
+    shapeName: rect
+    fill: {type: solid, color: "$command"}
+  - elementId: s6-t
+    elementType: text
+    bounds: [813, 200, 112, 72]
+    content:
+      color: "#FFFFFF"
+      align: [center, top]
+      text: |
+        <p><span style="font-size:11px;">COMMAND</span></p>
+        <p style="margin-top:4px"><strong><span style="font-size:14px;">Reserve Stock</span></strong></p>
+  - elementId: reading
+    elementType: text
+    bounds: [80, 330, 800, 70]
+    content:
+      style: "$body"
+      lineHeight: 1.6
+      text: |
+        <p>Someone <strong>sees information</strong> → decides to <strong>act</strong> → the system <strong>handles it</strong> → something <strong>happened</strong> → a <strong>rule reacts</strong> → and the story continues.</p>
+  - elementId: watchout
+    elementType: text
+    bounds: [80, 420, 800, 60]
+    content:
+      style: "$small"
+      fontSize: 13
+      lineHeight: 1.5
+      text: |
+        <p><strong>When the story breaks</strong> — a step nobody understands, a rule nobody owns, two versions of the truth — do not debate it. Stick a <span style="color:$hotspot;"><strong>red hotspot</strong></span> and keep going.</p>
+  - elementId: pagenum
+    elementType: text
+    bounds: [900, 505, 40, 20]
+    content:
+      style: "$small"
+      align: [right, middle]
+      text: "4"

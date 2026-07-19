@@ -1,0 +1,79 @@
+pageType: cover
+background:
+  type: solid
+  color: "$bg"
+notes: Welcome everyone. Today we map our business process together on one wall — no slides after this one, just sticky notes.
+elements:
+  - elementId: kicker
+    elementType: text
+    bounds: [80, 120, 500, 24]
+    content:
+      style: "$kicker"
+      text: WORKSHOP KICKOFF
+  - elementId: title
+    elementType: text
+    bounds: [80, 150, 700, 80]
+    content:
+      fontSize: 56
+      bold: true
+      color: "$ink"
+      text: Event Storming
+  - elementId: subtitle
+    elementType: text
+    bounds: [80, 245, 640, 60]
+    content:
+      style: "$body"
+      fontSize: 17
+      color: "$muted"
+      lineHeight: 1.5
+      text: |
+        <p>How we'll map our whole business process on one wall,</p>
+        <p>one sticky note at a time.</p>
+  - elementId: meta
+    elementType: text
+    bounds: [80, 330, 500, 24]
+    content:
+      style: "$small"
+      text: Duration 2.5–3 h · Everyone writes · No laptops
+  - elementId: sq-event
+    elementType: shape
+    bounds: [80, 400, 100, 100]
+    shapeName: rect
+    rotation: -2
+    fill: {type: solid, color: "$event"}
+  - elementId: sq-command
+    elementType: shape
+    bounds: [196, 400, 100, 100]
+    shapeName: rect
+    rotation: 1.5
+    fill: {type: solid, color: "$command"}
+  - elementId: sq-aggregate
+    elementType: shape
+    bounds: [312, 400, 100, 100]
+    shapeName: rect
+    rotation: -1
+    fill: {type: solid, color: "$aggregate"}
+  - elementId: sq-policy
+    elementType: shape
+    bounds: [428, 400, 100, 100]
+    shapeName: rect
+    rotation: 2
+    fill: {type: solid, color: "$policy"}
+  - elementId: sq-readmodel
+    elementType: shape
+    bounds: [544, 400, 100, 100]
+    shapeName: rect
+    rotation: -1.5
+    fill: {type: solid, color: "$readmodel"}
+  - elementId: sq-extsys
+    elementType: shape
+    bounds: [660, 400, 100, 100]
+    shapeName: rect
+    rotation: 1
+    fill: {type: solid, color: "$extsys"}
+  - elementId: sq-hotspot
+    elementType: shape
+    bounds: [776, 400, 100, 100]
+    shapeName: rect
+    rotation: -2
+    fill: {type: solid, color: "$hotspot"}

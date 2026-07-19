@@ -1,0 +1,69 @@
+pageType: content
+background:
+  type: solid
+  color: "$bg"
+notes: One definition to remember. Emphasize that domain experts are the stars — developers mostly listen today.
+elements:
+  - elementId: kicker
+    elementType: text
+    bounds: [80, 56, 400, 22]
+    content:
+      style: "$kicker"
+      text: WHY WE ARE HERE
+  - elementId: title
+    elementType: text
+    bounds: [80, 84, 780, 44]
+    content:
+      style: "$title"
+      text: One wall, the whole story
+  - elementId: def
+    elementType: text
+    bounds: [80, 156, 520, 110]
+    content:
+      fontSize: 20
+      color: "$ink"
+      lineHeight: 1.55
+      text: |
+        <p>Event storming is a workshop where the <strong>whole team</strong> maps a business process as a <strong>timeline of events</strong> — sticky notes on one wall.</p>
+  - elementId: why-list
+    elementType: text
+    bounds: [80, 290, 520, 110]
+    content:
+      style: "$body"
+      lineHeight: 1.6
+      text: |
+        <p><strong>Fast.</strong> Hours, not weeks of interviews and documents.</p>
+        <p><strong>Shared.</strong> Business and tech discover the same picture together.</p>
+        <p><strong>Honest.</strong> Gaps and disagreements surface as notes, not as bugs later.</p>
+  - elementId: divider
+    elementType: shape
+    bounds: [640, 150, 1, 330]
+    shapeName: rect
+    fill: {type: solid, color: "#D8D2C8"}
+  - elementId: leave-title
+    elementType: text
+    bounds: [676, 156, 220, 26]
+    content:
+      fontSize: 14
+      bold: true
+      color: "$ink"
+      text: You will leave with
+  - elementId: leave-list
+    elementType: text
+    bounds: [676, 196, 220, 260]
+    content:
+      style: "$small"
+      fontSize: 13.5
+      color: "$ink"
+      lineHeight: 1.55
+      text: |
+        <p>A timeline of everything that happens in our process</p>
+        <p style="margin-top:12px">The open questions we must answer next</p>
+        <p style="margin-top:12px">The natural seams between parts of the business</p>
+  - elementId: pagenum
+    elementType: text
+    bounds: [900, 505, 40, 20]
+    content:
+      style: "$small"
+      align: [right, middle]
+      text: "2"

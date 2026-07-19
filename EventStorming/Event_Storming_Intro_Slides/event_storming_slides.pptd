@@ -1,0 +1,42 @@
+version: v2
+title: Event Storming — Workshop Kickoff
+size: [960, 540]
+theme:
+  colors:
+    bg: "#FAF7F2"
+    ink: "#2B2620"
+    muted: "#8A8178"
+    accent: "#E8710A"
+    event: "#F4A259"
+    command: "#5B8DEF"
+    aggregate: "#F2D16B"
+    policy: "#B98CD8"
+    readmodel: "#8FBF6F"
+    extsys: "#F2A0C4"
+    hotspot: "#E25B4B"
+  textStyles:
+    kicker:
+      fontSize: 13
+      color: "$accent"
+      bold: true
+      letterSpacing: 2
+    title:
+      fontSize: 30
+      color: "$ink"
+      bold: true
+    body:
+      fontSize: 15
+      color: "$ink"
+      lineHeight: 1.5
+    small:
+      fontSize: 12
+      color: "$muted"
+      lineHeight: 1.4
+pages:
+  - pages/1_cover.page
+  - pages/2_why.page
+  - pages/3_legend.page
+  - pages/4_grammar.page
+  - pages/5_rules.page
+  - pages/6_plan.page
+  - pages/7_close.page

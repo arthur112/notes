@@ -1,0 +1,200 @@
+pageType: content
+background:
+  type: solid
+  color: "$bg"
+notes: Roughly three hours. The first half is events only — orange notes. Breaks happen between phases, not during.
+elements:
+  - elementId: kicker
+    elementType: text
+    bounds: [80, 56, 400, 22]
+    content:
+      style: "$kicker"
+      text: THE PLAN
+  - elementId: title
+    elementType: text
+    bounds: [80, 84, 780, 44]
+    content:
+      style: "$title"
+      text: Eight phases, about three hours
+  - elementId: tl-line
+    elementType: shape
+    bounds: [80, 268, 800, 2]
+    shapeName: rect
+    fill: {type: solid, color: "#C9C2B6"}
+  - elementId: tk1
+    elementType: shape
+    bounds: [86, 262, 14, 14]
+    shapeName: ellipse
+    fill: {type: solid, color: "$accent"}
+  - elementId: tk2
+    elementType: shape
+    bounds: [186, 262, 14, 14]
+    shapeName: ellipse
+    fill: {type: solid, color: "$ink"}
+  - elementId: tk3
+    elementType: shape
+    bounds: [286, 262, 14, 14]
+    shapeName: ellipse
+    fill: {type: solid, color: "$ink"}
+  - elementId: tk4
+    elementType: shape
+    bounds: [386, 262, 14, 14]
+    shapeName: ellipse
+    fill: {type: solid, color: "$ink"}
+  - elementId: tk5
+    elementType: shape
+    bounds: [486, 262, 14, 14]
+    shapeName: ellipse
+    fill: {type: solid, color: "$ink"}
+  - elementId: tk6
+    elementType: shape
+    bounds: [586, 262, 14, 14]
+    shapeName: ellipse
+    fill: {type: solid, color: "$ink"}
+  - elementId: tk7
+    elementType: shape
+    bounds: [686, 262, 14, 14]
+    shapeName: ellipse
+    fill: {type: solid, color: "$ink"}
+  - elementId: tk8
+    elementType: shape
+    bounds: [786, 262, 14, 14]
+    shapeName: ellipse
+    fill: {type: solid, color: "$ink"}
+  - elementId: ph1
+    elementType: text
+    bounds: [48, 218, 90, 40]
+    content:
+      fontSize: 13
+      bold: true
+      color: "$ink"
+      align: [center, bottom]
+      text: Kick off
+  - elementId: ph2
+    elementType: text
+    bounds: [148, 218, 90, 40]
+    content:
+      fontSize: 13
+      bold: true
+      color: "$ink"
+      align: [center, bottom]
+      text: Explore
+  - elementId: ph3
+    elementType: text
+    bounds: [248, 218, 90, 40]
+    content:
+      fontSize: 13
+      bold: true
+      color: "$ink"
+      align: [center, bottom]
+      text: Timeline
+  - elementId: ph4
+    elementType: text
+    bounds: [348, 218, 90, 40]
+    content:
+      fontSize: 13
+      bold: true
+      color: "$ink"
+      align: [center, bottom]
+      text: Hotspots
+  - elementId: ph5
+    elementType: text
+    bounds: [448, 218, 90, 40]
+    content:
+      fontSize: 13
+      bold: true
+      color: "$ink"
+      align: [center, bottom]
+      text: Commands
+  - elementId: ph6
+    elementType: text
+    bounds: [548, 218, 90, 40]
+    content:
+      fontSize: 13
+      bold: true
+      color: "$ink"
+      align: [center, bottom]
+      text: Policies
+  - elementId: ph7
+    elementType: text
+    bounds: [648, 218, 90, 40]
+    content:
+      fontSize: 13
+      bold: true
+      color: "$ink"
+      align: [center, bottom]
+      text: Story walk
+  - elementId: ph8
+    elementType: text
+    bounds: [748, 218, 90, 40]
+    content:
+      fontSize: 13
+      bold: true
+      color: "$ink"
+      align: [center, bottom]
+      text: Wrap up
+  - elementId: tm1
+    elementType: text
+    bounds: [48, 290, 90, 22]
+    content: {style: "$small", align: [center, top], text: 10 min}
+  - elementId: tm2
+    elementType: text
+    bounds: [148, 290, 90, 22]
+    content: {style: "$small", align: [center, top], text: 25 min}
+  - elementId: tm3
+    elementType: text
+    bounds: [248, 290, 90, 22]
+    content: {style: "$small", align: [center, top], text: 15 min}
+  - elementId: tm4
+    elementType: text
+    bounds: [348, 290, 90, 22]
+    content: {style: "$small", align: [center, top], text: 10 min}
+  - elementId: tm5
+    elementType: text
+    bounds: [448, 290, 90, 22]
+    content: {style: "$small", align: [center, top], text: 20 min}
+  - elementId: tm6
+    elementType: text
+    bounds: [548, 290, 90, 22]
+    content: {style: "$small", align: [center, top], text: 15 min}
+  - elementId: tm7
+    elementType: text
+    bounds: [648, 290, 90, 22]
+    content: {style: "$small", align: [center, top], text: 10 min}
+  - elementId: tm8
+    elementType: text
+    bounds: [748, 290, 90, 22]
+    content: {style: "$small", align: [center, top], text: 10 min}
+  - elementId: half1
+    elementType: text
+    bounds: [80, 352, 380, 60]
+    content:
+      style: "$body"
+      fontSize: 14
+      lineHeight: 1.5
+      text: |
+        <p><span style="color:$accent;"><strong>First half — orange only.</strong></span></p>
+        <p>We find and order the events before anything else.</p>
+  - elementId: half2
+    elementType: text
+    bounds: [500, 352, 380, 60]
+    content:
+      style: "$body"
+      fontSize: 14
+      lineHeight: 1.5
+      text: |
+        <p><strong>Second half — the rest.</strong></p>
+        <p>Commands, rules, systems, and the story check.</p>
+  - elementId: foot
+    elementType: text
+    bounds: [80, 448, 800, 24]
+    content:
+      style: "$small"
+      text: Times are guides, not gates — we adjust to the room. Breaks happen between phases.
+  - elementId: pagenum
+    elementType: text
+    bounds: [900, 505, 40, 20]
+    content:
+      style: "$small"
+      align: [right, middle]
+      text: "6"
