@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="src/CertificatCustomProvider/CertificatCustomProvider.csproj" />
+  <Project Path="tools/EncryptSecrets/EncryptSecrets.csproj" />
+  <Project Path="demo/DemoApi/DemoApi.csproj" />
+</Solution>
