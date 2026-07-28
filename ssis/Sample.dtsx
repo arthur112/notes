@@ -1,0 +1,222 @@
+<?xml version="1.0"?>
+<DTS:Executable xmlns:DTS="www.microsoft.com/SqlServer/Dts"
+  DTS:refId="Package"
+  DTS:CreationDate="2024-01-15T10:30:00.0000000+01:00"
+  DTS:CreationName="Microsoft.Package"
+  DTS:CreatorComputerName="DEVBOX"
+  DTS:CreatorName="CONTOSO\developer"
+  DTS:DTSID="{11111111-1111-1111-1111-111111111111}"
+  DTS:ExecutableType="Microsoft.Package"
+  DTS:LastModifiedProductVersion="16.0.1000.6"
+  DTS:ObjectName="Sample"
+  DTS:PackageType="5"
+  DTS:VersionBuild="3"
+  DTS:VersionGUID="{22222222-2222-2222-2222-222222222222}">
+  <DTS:Property DTS:Name="PackageFormatVersion">8</DTS:Property>
+  <DTS:Property DTS:Name="ProtectionLevel">1</DTS:Property>
+  <DTS:ConnectionManagers>
+    <DTS:ConnectionManager
+      DTS:refId="Package.ConnectionManagers[SourceDb]"
+      DTS:CreationName="OLEDB"
+      DTS:DTSID="{33333333-3333-3333-3333-333333333333}"
+      DTS:ObjectName="SourceDb">
+      <DTS:ObjectData>
+        <DTS:ConnectionManager
+          DTS:ConnectionString="Data Source=localhost;Initial Catalog=SourceDb;Integrated Security=SSPI;" />
+      </DTS:ObjectData>
+    </DTS:ConnectionManager>
+    <DTS:ConnectionManager
+      DTS:refId="Package.ConnectionManagers[TargetDb]"
+      DTS:CreationName="OLEDB"
+      DTS:DTSID="{44444444-4444-4444-4444-444444444444}"
+      DTS:ObjectName="TargetDb">
+      <DTS:PropertyExpression DTS:Name="ConnectionString">@[User::TargetConnectionString]</DTS:PropertyExpression>
+      <DTS:ObjectData>
+        <DTS:ConnectionManager
+          DTS:ConnectionString="Data Source=localhost;Initial Catalog=TargetDb;User ID=etl;Password=Sup3rSecret;" />
+      </DTS:ObjectData>
+    </DTS:ConnectionManager>
+  </DTS:ConnectionManagers>
+  <DTS:Variables>
+    <DTS:Variable
+      DTS:CreationName=""
+      DTS:DTSID="{55555555-5555-5555-5555-555555555555}"
+      DTS:IncludeInDebugDump="2345"
+      DTS:Namespace="User"
+      DTS:ObjectName="BatchId">
+      <DTS:VariableValue DTS:DataType="3">0</DTS:VariableValue>
+    </DTS:Variable>
+    <DTS:Variable
+      DTS:CreationName=""
+      DTS:DTSID="{66666666-6666-6666-6666-666666666666}"
+      DTS:IncludeInDebugDump="2345"
+      DTS:Namespace="User"
+      DTS:ObjectName="TargetConnectionString">
+      <DTS:VariableValue DTS:DataType="8">Data Source=localhost;Initial Catalog=TargetDb;</DTS:VariableValue>
+      <DTS:Property DTS:Name="Expression">"Data Source=" + @[User::ServerName]</DTS:Property>
+      <DTS:Property DTS:Name="EvaluateAsExpression">-1</DTS:Property>
+    </DTS:Variable>
+  </DTS:Variables>
+  <DTS:Executables>
+    <DTS:Executable
+      DTS:refId="Package\Truncate staging"
+      DTS:CreationName="Microsoft.ExecuteSQLTask"
+      DTS:Description="Truncates the staging table before load"
+      DTS:DTSID="{77777777-7777-7777-7777-777777777777}"
+      DTS:ExecutableType="Microsoft.ExecuteSQLTask"
+      DTS:LocaleID="-1"
+      DTS:ObjectName="Truncate staging"
+      DTS:TaskContact="Execute SQL Task; Microsoft Corporation; SQL Server 2022; (c) Microsoft Corporation"
+      DTS:ThreadHint="0">
+      <DTS:Variables />
+      <DTS:ObjectData>
+        <SQLTask:SqlTaskData
+          xmlns:SQLTask="www.microsoft.com/sqlserver/dts/tasks/sqltask"
+          SQLTask:Connection="{44444444-4444-4444-4444-444444444444}"
+          SQLTask:SqlStatementSource="TRUNCATE TABLE [stg].[People]" />
+      </DTS:ObjectData>
+    </DTS:Executable>
+    <DTS:Executable
+      DTS:refId="Package\Load people"
+      DTS:CreationName="Microsoft.Pipeline"
+      DTS:Description="Copies people from source to staging with an upper-cased name column"
+      DTS:DTSID="{88888888-8888-8888-8888-888888888888}"
+      DTS:ExecutableType="Microsoft.Pipeline"
+      DTS:LocaleID="-1"
+      DTS:ObjectName="Load people"
+      DTS:TaskContact="Performs high-performance data extraction, transformation and loading;Microsoft Corporation; Microsoft SQL Server; (C) Microsoft Corporation"
+      DTS:ThreadHint="0">
+      <DTS:Variables />
+      <DTS:ObjectData>
+        <pipeline version="1">
+          <components>
+            <component
+              id="2"
+              componentClassID="{2C0A8BE5-1EDC-45F3-99B9-8219FA8F7C44}"
+              contactInfo="OLE DB Source;Microsoft Corporation; Microsoft SQL Server; (C) Microsoft Corporation"
+              description="OLE DB Source"
+              name="People source"
+              usesDispositions="true"
+              version="4">
+              <properties>
+                <property dataType="System.Int32" description="The access mode used to access the database." name="AccessMode">0</property>
+                <property dataType="System.String" description="The SQL command to be executed." name="SqlCommand" uiTypeEditor="Microsoft.DataTransformationServices.Controls.ModalMultilineStringEditor">SELECT [Id], [Name], [Email] FROM [dbo].[People] WHERE [IsActive] = 1</property>
+                <property dataType="System.String" description="The name of the table or the view." name="OpenRowset"></property>
+              </properties>
+              <connections>
+                <connection connectionManagerID="{33333333-3333-3333-3333-333333333333}:external" connectionManagerRefId="Package.ConnectionManagers[SourceDb]" description="" name="OleDbConnection" />
+              </connections>
+              <outputs>
+                <output id="11" exclusionGroup="0" isErrorOut="false" name="People source Output" synchronousInputId="0">
+                  <outputColumns>
+                    <outputColumn id="12" dataType="i4" errorOrTruncationOperation="" errorRowDisposition="FailComponent" externalMetadataColumnId="17" lineageId="12" name="Id" truncationRowDisposition="FailComponent" />
+                    <outputColumn id="13" dataType="str" errorOrTruncationOperation="" errorRowDisposition="FailComponent" externalMetadataColumnId="18" length="100" lineageId="13" name="Name" truncationRowDisposition="FailComponent" />
+                    <outputColumn id="14" dataType="str" errorOrTruncationOperation="" errorRowDisposition="FailComponent" externalMetadataColumnId="19" length="200" lineageId="14" name="Email" truncationRowDisposition="FailComponent" />
+                  </outputColumns>
+                  <externalMetadataColumns isUsed="True">
+                    <externalMetadataColumn id="17" dataType="i4" name="Id" />
+                    <externalMetadataColumn id="18" dataType="str" length="100" name="Name" />
+                    <externalMetadataColumn id="19" dataType="str" length="200" name="Email" />
+                  </externalMetadataColumns>
+                </output>
+                <output id="20" exclusionGroup="0" isErrorOut="true" name="People source Error Output" synchronousInputId="0">
+                  <outputColumns />
+                </output>
+              </outputs>
+            </component>
+            <component
+              id="30"
+              componentClassID="{2932025B-AB99-40F6-B5B8-F783BAA91D5F}"
+              contactInfo="Derived Column;Microsoft Corporation; Microsoft SQL Server; (C) Microsoft Corporation"
+              description="Derived Column"
+              name="Upper-case name"
+              version="6">
+              <properties>
+                <property containsID="true" dataType="System.String" description="Defines the expressions used to create new columns." expressionType="Notify" name="FriendlyExpression">UPPER([Name])</property>
+                <property dataType="System.String" name="Expression">UPPER([Name])</property>
+              </properties>
+              <inputs>
+                <input id="31" hasSideEffects="true" name="Derived Column Input">
+                  <inputColumns>
+                    <inputColumn id="32" cachedDataType="i4" cachedName="Id" lineageId="12" usageType="readOnly" />
+                    <inputColumn id="33" cachedDataType="str" cachedLength="100" cachedName="Name" lineageId="13" usageType="readOnly" />
+                    <inputColumn id="34" cachedDataType="str" cachedLength="200" cachedName="Email" lineageId="14" usageType="readOnly" />
+                  </inputColumns>
+                </input>
+              </inputs>
+              <outputs>
+                <output id="35" exclusionGroup="0" isErrorOut="false" name="Derived Column Output" synchronousInputId="31">
+                  <outputColumns>
+                    <outputColumn id="36" dataType="i4" externalMetadataColumnId="" lineageId="12" name="Id" />
+                    <outputColumn id="37" dataType="str" externalMetadataColumnId="" length="100" lineageId="13" name="Name" />
+                    <outputColumn id="38" dataType="str" externalMetadataColumnId="" length="200" lineageId="14" name="Email" />
+                    <outputColumn id="39" dataType="wstr" errorOrTruncationOperation="Conversion" errorRowDisposition="RedirectRow" length="100" lineageId="39" name="NameUpper" truncationRowDisposition="FailComponent" />
+                  </outputColumns>
+                </output>
+              </outputs>
+            </component>
+            <component
+              id="50"
+              componentClassID="{5A0B62E8-D91D-49F5-94A5-7BE58DE508F0}"
+              contactInfo="OLE DB Destination;Microsoft Corporation; Microsoft SQL Server; (C) Microsoft Corporation"
+              description="OLE DB Destination"
+              name="Staging destination"
+              usesDispositions="true"
+              version="4">
+              <properties>
+                <property dataType="System.Int32" description="The access mode used to access the database." name="AccessMode">0</property>
+                <property dataType="System.String" description="The name of the table or the view." name="OpenRowset">[stg].[People]</property>
+                <property dataType="System.Boolean" description="Indicates whether the values supplied contain identity values." name="KeepIdentity">false</property>
+                <property dataType="System.Boolean" description="Specifies whether null values should be inserted rather than replaced with default values." name="KeepNulls">true</property>
+              </properties>
+              <connections>
+                <connection connectionManagerID="{44444444-4444-4444-4444-444444444444}:external" connectionManagerRefId="Package.ConnectionManagers[TargetDb]" description="" name="OleDbConnection" />
+              </connections>
+              <inputs>
+                <input id="51" hasSideEffects="true" name="Staging destination Input">
+                  <inputColumns>
+                    <inputColumn id="52" cachedDataType="i4" cachedName="Id" externalMetadataColumnId="60" lineageId="12" />
+                    <inputColumn id="53" cachedDataType="str" cachedLength="100" cachedName="Name" externalMetadataColumnId="61" lineageId="13" />
+                    <inputColumn id="54" cachedDataType="str" cachedLength="200" cachedName="Email" externalMetadataColumnId="62" lineageId="14" />
+                    <inputColumn id="55" cachedDataType="wstr" cachedLength="100" cachedName="NameUpper" externalMetadataColumnId="63" lineageId="39" />
+                  </inputColumns>
+                  <externalMetadataColumns isUsed="True">
+                    <externalMetadataColumn id="60" dataType="i4" name="Id" />
+                    <externalMetadataColumn id="61" dataType="str" length="100" name="Name" />
+                    <externalMetadataColumn id="62" dataType="str" length="200" name="Email" />
+                    <externalMetadataColumn id="63" dataType="wstr" length="100" name="NameUpper" />
+                  </externalMetadataColumns>
+                </input>
+              </inputs>
+              <outputs>
+                <output id="56" exclusionGroup="0" isErrorOut="true" name="Staging destination Error Output" synchronousInputId="0">
+                  <outputColumns />
+                </output>
+              </outputs>
+            </component>
+          </components>
+          <paths>
+            <path id="70" name="People source Output" refId="Package\Load people\paths\People source Output" startId="11" endId="31" />
+            <path id="71" name="Derived Column Output" refId="Package\Load people\paths\Derived Column Output" startId="35" endId="51" />
+          </paths>
+        </pipeline>
+      </DTS:ObjectData>
+    </DTS:Executable>
+  </DTS:Executables>
+  <DTS:PrecedenceConstraints>
+    <DTS:PrecedenceConstraint
+      DTS:refId="Package.PrecedenceConstraints[Constraint]"
+      DTS:CreationName=""
+      DTS:DTSID="{99999999-9999-9999-9999-999999999999}"
+      DTS:From="Package\Truncate staging"
+      DTS:LogicalAnd="True"
+      DTS:ObjectName="Constraint"
+      DTS:To="Package\Load people">
+      <DTS:Property DTS:Name="Value">Success</DTS:Property>
+      <DTS:Property DTS:Name="EvalOp">Constraint</DTS:Property>
+    </DTS:PrecedenceConstraint>
+  </DTS:PrecedenceConstraints>
+  <DTS:PackageParameters />
+  <DTS:LogProviders />
+  <DTS:Configurations />
+</DTS:Executable>
