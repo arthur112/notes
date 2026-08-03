@@ -19,6 +19,8 @@ Two file types, generated at runtime (default 10k / 2.5k rows, `--rows 100000` f
 
 ## Architecture
 
+Why hybrid (staging + normalization) instead of importing straight into fully normalized tables? See [ADR-001](ADR-001-hybrid-import-pipeline.md).
+
 ```
                  [TickerFunction("StageFile")]              [TickerFunction("TransformBatch")]
                  streams file (ExcelDataReader)             drains pending rows in chunks of 1000,

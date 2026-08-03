@@ -139,6 +139,6 @@ Excel file  →  staging tables (verbatim, 1NF-free)  →  transform/validate  �
                                               (optional) star schema for reporting
 ```
 
-Staging absorbs the chaos of the input format; normalization makes the stored data correct and queryable; a star schema (when you need analytics) makes it fast to read. Each layer has one job.
+Staging absorbs the chaos of the input format; normalization makes the stored data correct and queryable; a star schema (when you need analytics) makes it fast to read. Each layer has one job. For the reasoning behind keeping both a raw staging layer *and* normalized tables (rather than importing directly into 3NF), see [ADR-001](ADR-001-hybrid-import-pipeline.md).
 
 At scale, the pipeline is driven by background jobs (TickerQ in this note): one job streams the file into staging in chunks (flat memory, no size limit), a chained job then drains pending rows chunk by chunk through the file type's strategy. Because staging rows are durable and carry a status, a crash mid-file just means the next job run resumes where it stopped — normalization correctness doesn't depend on the import finishing in one shot.
