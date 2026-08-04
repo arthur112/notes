@@ -1,4 +1,5 @@
 using ClosedXML.Excel;
+using System.Text;
 
 namespace ExcelImport.Staging;
 
@@ -37,9 +38,20 @@ public static class SampleData
 
     private static readonly string[] Warehouses = ["Lisbon", "Porto", "Madrid"];
 
-    public static void GenerateOrders(string path, int rowCount)
+    public static void GenerateOrders(string path, int rowCount) =>
+        WriteXlsx(path, "Orders", OrderHeaders, OrderRows(rowCount));
+
+    public static void GenerateOrdersCsv(string path, int rowCount) =>
+        WriteCsv(path, OrderHeaders, OrderRows(rowCount));
+
+    public static void GenerateInventory(string path, int rowCount) =>
+        WriteXlsx(path, "Inventory", InventoryHeaders, InventoryRows(rowCount));
+
+    public static void GenerateInventoryCsv(string path, int rowCount) =>
+        WriteCsv(path, InventoryHeaders, InventoryRows(rowCount));
+
+    private static IEnumerable<string[]> OrderRows(int rowCount)
     {
-        var rows = new List<string[]>(rowCount);
         for (var i = 0; i < rowCount; i++)
         {
             var (name, city) = Customers[i % Customers.Length];
@@ -68,27 +80,22 @@ public static class SampleData
                 row[3] = string.Empty;
             }
 
-            rows.Add(row);
+            yield return row;
         }
-
-        Write(path, "Orders", OrderHeaders, rows);
     }
 
-    public static void GenerateInventory(string path, int rowCount)
+    private static IEnumerable<string[]> InventoryRows(int rowCount)
     {
-        var rows = new List<string[]>(rowCount);
         for (var i = 0; i < rowCount; i++)
         {
-            rows.Add(
+            yield return
             [
                 Products[i % Products.Length].Code,
                 Warehouses[i % Warehouses.Length],
                 i % 883 == 882 ? "-3" : (i * 37 % 200).ToString(),
                 (5 + i % 20).ToString()
-            ]);
+            ];
         }
-
-        Write(path, "Inventory", InventoryHeaders, rows);
     }
 
     private static void FillSlot(string[] row, int slot, (string Code, string Price) product, int qty)
@@ -98,7 +105,7 @@ public static class SampleData
         row[5 + slot * 3] = product.Price;
     }
 
-    private static void Write(string path, string sheetName, string[] headers, List<string[]> rows)
+    private static void WriteXlsx(string path, string sheetName, string[] headers, IEnumerable<string[]> rows)
     {
         using var workbook = new XLWorkbook();
         var worksheet = workbook.AddWorksheet(sheetName);
@@ -108,14 +115,26 @@ public static class SampleData
             worksheet.Cell(1, i + 1).Value = headers[i];
         }
 
-        for (var r = 0; r < rows.Count; r++)
+        var r = 2;
+        foreach (var row in rows)
         {
-            for (var c = 0; c < rows[r].Length; c++)
+            for (var c = 0; c < row.Length; c++)
             {
-                worksheet.Cell(r + 2, c + 1).Value = rows[r][c];
+                worksheet.Cell(r, c + 1).Value = row[c];
             }
+            r++;
         }
 
         workbook.SaveAs(path);
+    }
+
+    private static void WriteCsv(string path, string[] headers, IEnumerable<string[]> rows)
+    {
+        using var writer = new StreamWriter(path, append: false, Encoding.UTF8, bufferSize: 1 << 16);
+        writer.WriteLine(string.Join(',', headers));
+        foreach (var row in rows)
+        {
+            writer.WriteLine(string.Join(',', row));
+        }
     }
 }

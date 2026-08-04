@@ -1,7 +1,4 @@
-using ExcelDataReader;
 using Microsoft.EntityFrameworkCore;
-using System.Globalization;
-using System.Text.Json;
 
 namespace ExcelImport.Staging;
 
@@ -22,56 +19,34 @@ public static class StagingLoader
         await db.SaveChangesAsync(cancellationToken);
         db.ChangeTracker.Clear();
 
+        var reader = SelectReader(path);
         var totalRows = 0;
-        using (var stream = File.OpenRead(path))
-        using (var reader = ExcelReaderFactory.CreateReader(stream))
+        var buffer = new List<ImportRow>(ChunkSize);
+        await foreach (var (rowNumber, rawJson) in reader.ReadRowsAsync(path, cancellationToken))
         {
-            if (!reader.Read())
+            totalRows++;
+            buffer.Add(new ImportRow
             {
-                throw new InvalidOperationException($"File '{batch.FileName}' is empty.");
-            }
+                BatchId = batch.Id,
+                RowNumber = rowNumber,
+                RawJson = rawJson,
+                Status = RowStatus.Pending
+            });
 
-            var headers = new string[reader.FieldCount];
-            for (var i = 0; i < headers.Length; i++)
-            {
-                headers[i] = Convert.ToString(reader.GetValue(i), CultureInfo.InvariantCulture) ?? string.Empty;
-            }
-
-            var buffer = new List<ImportRow>(ChunkSize);
-            while (reader.Read())
-            {
-                totalRows++;
-                var values = new Dictionary<string, string>(headers.Length);
-                for (var i = 0; i < headers.Length; i++)
-                {
-                    values[headers[i]] = i < reader.FieldCount
-                        ? Convert.ToString(reader.GetValue(i), CultureInfo.InvariantCulture) ?? string.Empty
-                        : string.Empty;
-                }
-
-                buffer.Add(new ImportRow
-                {
-                    BatchId = batch.Id,
-                    RowNumber = totalRows + 1,
-                    RawJson = JsonSerializer.Serialize(values),
-                    Status = RowStatus.Pending
-                });
-
-                if (buffer.Count == ChunkSize)
-                {
-                    db.Rows.AddRange(buffer);
-                    await db.SaveChangesAsync(cancellationToken);
-                    db.ChangeTracker.Clear();
-                    buffer.Clear();
-                }
-            }
-
-            if (buffer.Count > 0)
+            if (buffer.Count == ChunkSize)
             {
                 db.Rows.AddRange(buffer);
                 await db.SaveChangesAsync(cancellationToken);
                 db.ChangeTracker.Clear();
+                buffer.Clear();
             }
+        }
+
+        if (buffer.Count > 0)
+        {
+            db.Rows.AddRange(buffer);
+            await db.SaveChangesAsync(cancellationToken);
+            db.ChangeTracker.Clear();
         }
 
         await db.Batches.Where(b => b.Id == batch.Id)
@@ -81,6 +56,13 @@ public static class StagingLoader
 
         return batch.Id;
     }
+
+    private static IStagingReader SelectReader(string path) =>
+        Path.GetExtension(path).ToLowerInvariant() switch
+        {
+            ".txt" or ".csv" => new DelimitedStagingReader(),
+            _ => new ExcelStagingReader()
+        };
 
     private static string InferFileType(string path)
     {

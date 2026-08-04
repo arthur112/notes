@@ -27,6 +27,7 @@ internal static class Program
         System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
 
         var reset = Array.Exists(args, a => a is "--reset" or "-r");
+        var useTxt = Array.Exists(args, a => a is "--txt" or "-t");
         var rowsIndex = Array.IndexOf(args, "--rows");
         var rowCount = rowsIndex >= 0 && rowsIndex + 1 < args.Length && int.TryParse(args[rowsIndex + 1], out var n) && n > 0
             ? n
@@ -36,8 +37,8 @@ internal static class Program
         var dbDir = Path.Combine(root, "db");
         Directory.CreateDirectory(dbDir);
         var dbPath = Path.Combine(dbDir, "excelimport.sqlite");
-        var ordersFile = Path.Combine(root, "sample-orders.xlsx");
-        var inventoryFile = Path.Combine(root, "sample-inventory.xlsx");
+        var ordersFile = Path.Combine(root, useTxt ? "sample-orders.txt" : "sample-orders.xlsx");
+        var inventoryFile = Path.Combine(root, useTxt ? "sample-inventory.txt" : "sample-inventory.xlsx");
         var connectionString = $"Data Source={dbPath};Default Timeout=30";
 
         if (reset)
@@ -54,12 +55,26 @@ internal static class Program
 
         if (!File.Exists(ordersFile))
         {
-            SampleData.GenerateOrders(ordersFile, rowCount);
+            if (useTxt)
+            {
+                SampleData.GenerateOrdersCsv(ordersFile, rowCount);
+            }
+            else
+            {
+                SampleData.GenerateOrders(ordersFile, rowCount);
+            }
             Console.WriteLine($"Generated {rowCount:N0}-row file: {ordersFile}");
         }
         if (!File.Exists(inventoryFile))
         {
-            SampleData.GenerateInventory(inventoryFile, rowCount / 4);
+            if (useTxt)
+            {
+                SampleData.GenerateInventoryCsv(inventoryFile, rowCount / 4);
+            }
+            else
+            {
+                SampleData.GenerateInventory(inventoryFile, rowCount / 4);
+            }
             Console.WriteLine($"Generated {rowCount / 4:N0}-row file: {inventoryFile}");
         }
 
@@ -237,7 +252,7 @@ internal static class Program
 
     private static void Correct(ImportRow row, string fileType)
     {
-        var data = JsonSerializer.Deserialize<Dictionary<string, string>>(row.RawJson)!;
+        var data = JsonSerializer.Deserialize(row.RawJson, ImportJsonContext.Default.DictionaryStringString)!;
 
         if (fileType == "orders")
         {
@@ -258,7 +273,7 @@ internal static class Program
             }
         }
 
-        row.RawJson = JsonSerializer.Serialize(data);
+        row.RawJson = JsonSerializer.Serialize(data, ImportJsonContext.Default.DictionaryStringString);
     }
 
     private static async Task PrintVerificationAsync(ImportContext db)

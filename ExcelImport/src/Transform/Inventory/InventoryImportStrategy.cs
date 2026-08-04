@@ -13,7 +13,6 @@ public class InventoryImportStrategy : IImportStrategy
 {
     private const int MaxRowsPerStatement = 500;
 
-    private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
     private readonly InventoryRowValidator _validator = new();
 
     public string FileType => "inventory";
@@ -25,7 +24,7 @@ public class InventoryImportStrategy : IImportStrategy
         {
             try
             {
-                parsed.Add((row, JsonSerializer.Deserialize<InventoryImportRow>(row.RawJson, JsonOptions)!));
+                parsed.Add((row, JsonSerializer.Deserialize(row.RawJson, ImportJsonContext.Default.InventoryImportRow)!));
             }
             catch (Exception ex)
             {

@@ -8,7 +8,6 @@ namespace ExcelImport.Transform.Orders;
 
 public class OrderImportStrategy : IImportStrategy
 {
-    private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
     private readonly OrderRowValidator _validator = new();
 
     public string FileType => "orders";
@@ -20,7 +19,7 @@ public class OrderImportStrategy : IImportStrategy
         {
             try
             {
-                parsed.Add((row, JsonSerializer.Deserialize<OrderImportRow>(row.RawJson, JsonOptions)!));
+                parsed.Add((row, JsonSerializer.Deserialize(row.RawJson, ImportJsonContext.Default.OrderImportRow)!));
             }
             catch (Exception ex)
             {
