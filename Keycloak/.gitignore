@@ -1,0 +1,15 @@
+bin/
+obj/
+
+# Node
+node_modules/
+dist/
+
+# Aspire / user secrets
+.aspire/
+
+# IDE
+.vs/
+.idea/
+*.user
+*.suo

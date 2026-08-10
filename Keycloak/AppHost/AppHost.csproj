@@ -1,0 +1,21 @@
+<Project Sdk="Aspire.AppHost.Sdk/13.4.6">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <UserSecretsId>6e1f8d91-c2c1-4a13-ba0a-c3c1820bc5c6</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Aspire.Hosting.JavaScript" Version="13.4.6" />
+    <PackageReference Include="Aspire.Hosting.Keycloak" Version="13.4.6-preview.1.26319.6" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Api1\Api1.csproj" />
+    <ProjectReference Include="..\Api2\Api2.csproj" />
+  </ItemGroup>
+
+</Project>

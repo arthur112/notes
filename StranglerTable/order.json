@@ -1,0 +1,10 @@
+{
+  "orderNumber": "ORD-2001", "orderDate": "2026-08-10T10:00:00Z", "status": "Placed",
+  "channel": "Web", "currency": "EUR", "subTotal": 10, "tax": 2, "shippingCost": 1,
+  "customer": { "externalRef": "CUST-99", "firstName": "Alan", "lastName": "Turing",
+                "email": "alan@example.com", "segment": "Standard" },
+  "billingAddress":  { "street": "Enigma Way 1", "city": "Bruges", "zip": "8000", "country": "Belgium" },
+  "shippingAddress": { "street": "Bombe St 2", "city": "Leuven", "zip": "3000", "country": "Belgium" },
+  "fulfillment": { "requiresSignature": false },
+  "audit": { "createdBy": "test" }
+}
