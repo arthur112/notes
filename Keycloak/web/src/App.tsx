@@ -1,39 +1,53 @@
 import { useEffect, useRef, useState } from "react";
-import { API1_URL, keycloak } from "./keycloak";
+import type { User } from "oidc-client-ts";
+import { API1_URL, userManager } from "./auth";
 
 async function callApi(path: string): Promise<unknown> {
-  await keycloak.updateToken(30);
+  const user = await userManager.getUser();
+  if (!user || user.expired) {
+    await userManager.signinRedirect();
+    return { redirected: "access token missing or expired, signing in again" };
+  }
   const res = await fetch(`${API1_URL}${path}`, {
-    headers: { Authorization: `Bearer ${keycloak.token}` },
+    headers: { Authorization: `Bearer ${user.access_token}` },
   });
   return { status: res.status, body: await res.json() };
 }
 
 export default function App() {
   const [ready, setReady] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
   const [result, setResult] = useState<unknown>(null);
   const initialized = useRef(false);
 
   useEffect(() => {
     if (initialized.current) return;
     initialized.current = true;
-    keycloak
-      .init({ onLoad: "check-sso" })
-      .then(() => setReady(true))
+    const params = new URLSearchParams(window.location.search);
+    const isCallback = params.has("code") && params.has("state");
+    (isCallback ? userManager.signinRedirectCallback() : userManager.getUser())
+      .then((u) => {
+        if (isCallback) window.history.replaceState(null, "", window.location.pathname);
+        setUser(u ?? null);
+        setReady(true);
+      })
       .catch((err) => setResult({ initError: String(err) }));
   }, []);
 
-  if (!ready) return <p>Contacting Keycloak…</p>;
+  if (!ready) return <p>Contacting identity provider…</p>;
 
   return (
     <main style={{ fontFamily: "system-ui", maxWidth: 720, margin: "2rem auto" }}>
-      <h1>Keycloak + Aspire POC</h1>
+      <h1>OIDC + Aspire POC</h1>
 
-      {keycloak.authenticated ? (
+      {user && !user.expired ? (
         <>
           <p>
-            Signed in as <strong>{keycloak.tokenParsed?.preferred_username}</strong>{" "}
-            <button onClick={() => keycloak.logout()}>Log out</button>
+            Signed in as{" "}
+            <strong>
+              {(user.profile.preferred_username ?? user.profile.upn ?? user.profile.sub) as string}
+            </strong>{" "}
+            <button onClick={() => userManager.signoutRedirect()}>Log out</button>
           </p>
           <p>
             <button onClick={async () => setResult(await callApi("/api/me"))}>
@@ -48,7 +62,7 @@ export default function App() {
           </p>
         </>
       ) : (
-        <button onClick={() => keycloak.login()}>Log in with Keycloak</button>
+        <button onClick={() => userManager.signinRedirect()}>Log in</button>
       )}
 
       {result !== null && <pre>{JSON.stringify(result, null, 2)}</pre>}

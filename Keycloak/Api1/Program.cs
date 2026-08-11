@@ -10,10 +10,16 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
 
+var authority = builder.Configuration["Auth:Authority"] ?? "https://localhost:8080/realms/poc";
+var audience = builder.Configuration["Auth:Audience"] ?? "poc-api";
+var nameClaimType = builder.Configuration["Auth:NameClaimType"] ?? "preferred_username";
+var clientIdClaimType = builder.Configuration["Auth:ClientIdClaimType"] ?? "azp";
+
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddKeycloakJwtBearer("keycloak", realm: "poc", options =>
+    .AddJwtBearer(options =>
     {
-        options.Audience = "poc-api";
+        options.Authority = authority;
+        options.Audience = audience;
         options.RequireHttpsMetadata = false;
         options.SaveToken = true;
         options.MapInboundClaims = false;
@@ -26,7 +32,6 @@ builder.Services.AddCors(options => options.AddDefaultPolicy(policy => policy
     .AllowAnyMethod()));
 
 builder.Services.AddHttpClient("api2", client => client.BaseAddress = new Uri("https+http://api2"));
-builder.Services.AddHttpClient("keycloak", client => client.BaseAddress = new Uri("https+http://keycloak"));
 builder.Services.AddMemoryCache();
 builder.Services.AddSingleton<M2mTokenService>();
 
@@ -38,9 +43,9 @@ app.UseAuthorization();
 
 app.MapGet("/api/me", (ClaimsPrincipal user) => new
 {
-    name = user.FindFirst("preferred_username")?.Value,
+    name = user.FindFirst(nameClaimType)?.Value,
     subject = user.FindFirst("sub")?.Value,
-    client = user.FindFirst("azp")?.Value,
+    client = user.FindFirst(clientIdClaimType)?.Value,
     scopes = user.FindFirst("scope")?.Value
 })
 .RequireAuthorization();
@@ -85,15 +90,18 @@ public class M2mTokenService(IHttpClientFactory httpFactory, IMemoryCache cache,
     {
         if (cache.TryGetValue(CacheKey, out string? cached)) return cached!;
 
-        var keycloak = httpFactory.CreateClient("keycloak");
-        var response = await keycloak.PostAsync(
-            "/realms/poc/protocol/openid-connect/token",
-            new FormUrlEncodedContent(new Dictionary<string, string>
-            {
-                ["grant_type"] = "client_credentials",
-                ["client_id"] = "api1-service",
-                ["client_secret"] = config["M2M:ClientSecret"]!
-            }), ct);
+        var form = new Dictionary<string, string>
+        {
+            ["grant_type"] = "client_credentials",
+            ["client_id"] = config["M2M:ClientId"] ?? "api1-service",
+            ["client_secret"] = config["M2M:ClientSecret"]!
+        };
+        if (config["M2M:Scope"] is { } scope) form["scope"] = scope;
+
+        var http = httpFactory.CreateClient();
+        var response = await http.PostAsync(
+            config["M2M:TokenUrl"] ?? "https://localhost:8080/realms/poc/protocol/openid-connect/token",
+            new FormUrlEncodedContent(form), ct);
 
         response.EnsureSuccessStatusCode();
         var payload = await response.Content.ReadFromJsonAsync<TokenResponse>(cancellationToken: ct);
