@@ -6,10 +6,8 @@ namespace MailApi.Application.Abstractions;
 
 public interface ITemplateRenderer
 {
-    Task<Result<RenderedTemplate, MailError>> RenderAsync(
-        TemplateKey templateKey,
+    Task<Result<string, MailError>> RenderAsync(
+        MailTemplate template,
         IReadOnlyDictionary<string, object?> data,
         CancellationToken cancellationToken);
 }
-
-public sealed record RenderedTemplate(string Html, string? Subject, string? Text);

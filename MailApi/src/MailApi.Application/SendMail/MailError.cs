@@ -4,9 +4,6 @@ public sealed record MailError(MailErrorType Type, string Message, Exception? Ex
 {
     public static MailError Validation(string message) => new(MailErrorType.Validation, message);
 
-    public static MailError TemplateNotFound(string templateKey) =>
-        new(MailErrorType.TemplateNotFound, $"Unknown template '{templateKey}'.");
-
     public static MailError TemplateInvalid(string message, Exception? exception = null) =>
         new(MailErrorType.TemplateInvalid, message, exception);
 
@@ -20,7 +17,6 @@ public sealed record MailError(MailErrorType Type, string Message, Exception? Ex
 public enum MailErrorType
 {
     Validation,
-    TemplateNotFound,
     TemplateInvalid,
     TemplateUnavailable,
     Delivery,

@@ -38,6 +38,36 @@ public sealed class MailApiEndpointTests
     }
 
     [Fact]
+    public async Task WrapsBodiesWithTheSharedHeaderAndFooter()
+    {
+        var sender = new TestEmailSender();
+        using var factory = CreateFactory(sender: sender);
+        using var client = factory.CreateClient();
+        var response = await client.PostAsJsonAsync("/api/mail/send", new
+        {
+            template = "welcome",
+            to = new[] { "ada@example.com" },
+            data = new { name = "Ada", actionUrl = "https://example.com/verify", brand = "Contoso" },
+        });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.NotNull(sender.Email);
+
+        var html = sender.Email.HtmlBody;
+        Assert.StartsWith("<!doctype html>", html);
+        Assert.EndsWith("</html>\n", html);
+        Assert.Contains(">Contoso</span>", html);
+        Assert.Contains("Contoso · This is an automated message", html);
+        Assert.Contains("Welcome, Ada", html);
+        Assert.True(
+            html.IndexOf(">Contoso</span>", StringComparison.Ordinal)
+                < html.IndexOf("Welcome, Ada", StringComparison.Ordinal)
+            && html.IndexOf("Welcome, Ada", StringComparison.Ordinal)
+                < html.IndexOf("Contoso · This is an automated message", StringComparison.Ordinal),
+            "HTML body should sit between the shared header and footer.");
+    }
+
+    [Fact]
     public async Task EncodesTemplateDataInsertedIntoHtml()
     {
         var sender = new TestEmailSender();
@@ -179,11 +209,11 @@ public sealed class MailApiEndpointTests
 
     private sealed class FailingTemplateRenderer(MailError error) : ITemplateRenderer
     {
-        public Task<Result<RenderedTemplate, MailError>> RenderAsync(
-            TemplateKey templateKey,
+        public Task<Result<string, MailError>> RenderAsync(
+            MailTemplate template,
             IReadOnlyDictionary<string, object?> data,
             CancellationToken cancellationToken) => Task.FromResult(
-                Result.Failure<RenderedTemplate, MailError>(error));
+                Result.Failure<string, MailError>(error));
     }
 
     private sealed class TestEmailSender(bool failDelivery = false) : IEmailSender

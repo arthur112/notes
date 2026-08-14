@@ -54,7 +54,7 @@ static IResult ToHttpResult(
     var error = result.Error;
     return error.Type switch
     {
-        MailErrorType.Validation or MailErrorType.TemplateNotFound =>
+        MailErrorType.Validation =>
             Results.BadRequest(new { error = error.Message }),
         MailErrorType.TemplateInvalid => LogAndReturn(
             logger,

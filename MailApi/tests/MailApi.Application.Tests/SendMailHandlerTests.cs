@@ -9,11 +9,11 @@ namespace MailApi.Application.Tests;
 public sealed class SendMailHandlerTests
 {
     [Fact]
-    public async Task UsesRequestSubjectAndSendsRenderedParts()
+    public async Task UsesRequestSubjectAndSendsRenderedHtml()
     {
         var sender = new CapturingEmailSender();
         var handler = new SendMailHandler(
-            new StaticTemplateRenderer(new RenderedTemplate("<p>Hello</p>", "Template subject", "Hello")),
+            new StaticTemplateRenderer("<p>Hello</p>"),
             sender);
 
         var result = await handler.HandleAsync(new SendMailCommand(
@@ -29,18 +29,38 @@ public sealed class SendMailHandlerTests
         Assert.NotNull(sender.Email);
         Assert.Equal("Request subject", sender.Email.Subject);
         Assert.Equal("<p>Hello</p>", sender.Email.HtmlBody);
-        Assert.Equal("Hello", sender.Email.TextBody);
     }
 
     [Fact]
-    public async Task RejectsInvalidTemplateKeyBeforeRendering()
+    public async Task UsesTemplateDefaultSubjectWhenRequestHasNone()
+    {
+        var sender = new CapturingEmailSender();
+        var handler = new SendMailHandler(
+            new StaticTemplateRenderer("<p>Hello</p>"),
+            sender);
+
+        var result = await handler.HandleAsync(new SendMailCommand(
+            "welcome",
+            ["ada@example.com"],
+            [],
+            null,
+            new Dictionary<string, object?>()),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.NotNull(sender.Email);
+        Assert.Equal(MailTemplate.Welcome.DefaultSubject(), sender.Email.Subject);
+    }
+
+    [Fact]
+    public async Task RejectsUnknownTemplateBeforeRendering()
     {
         var handler = new SendMailHandler(
-            new StaticTemplateRenderer(new RenderedTemplate("", null, null)),
+            new StaticTemplateRenderer(""),
             new CapturingEmailSender());
 
         var result = await handler.HandleAsync(new SendMailCommand(
-            "../secret",
+            "newsletter",
             ["ada@example.com"],
             [],
             null,
@@ -55,7 +75,7 @@ public sealed class SendMailHandlerTests
     public async Task RejectsNullRecipients()
     {
         var handler = new SendMailHandler(
-            new StaticTemplateRenderer(new RenderedTemplate("", null, null)),
+            new StaticTemplateRenderer(""),
             new CapturingEmailSender());
 
         var result = await handler.HandleAsync(new SendMailCommand(
@@ -90,22 +110,22 @@ public sealed class SendMailHandlerTests
         Assert.Null(sender.Email);
     }
 
-    private sealed class StaticTemplateRenderer(RenderedTemplate template) : ITemplateRenderer
+    private sealed class StaticTemplateRenderer(string html) : ITemplateRenderer
     {
-        public Task<Result<RenderedTemplate, MailError>> RenderAsync(
-            TemplateKey templateKey,
+        public Task<Result<string, MailError>> RenderAsync(
+            MailTemplate template,
             IReadOnlyDictionary<string, object?> data,
             CancellationToken cancellationToken) => Task.FromResult(
-                Result.Success<RenderedTemplate, MailError>(template));
+                Result.Success<string, MailError>(html));
     }
 
     private sealed class FailingTemplateRenderer(MailError error) : ITemplateRenderer
     {
-        public Task<Result<RenderedTemplate, MailError>> RenderAsync(
-            TemplateKey templateKey,
+        public Task<Result<string, MailError>> RenderAsync(
+            MailTemplate template,
             IReadOnlyDictionary<string, object?> data,
             CancellationToken cancellationToken) => Task.FromResult(
-                Result.Failure<RenderedTemplate, MailError>(error));
+                Result.Failure<string, MailError>(error));
     }
 
     private sealed class CapturingEmailSender : IEmailSender

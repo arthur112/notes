@@ -40,8 +40,6 @@ public sealed class SmtpEmailSender(
                 message.Cc.Add(MailboxAddress.Parse(recipient));
 
             var body = new BodyBuilder { HtmlBody = email.HtmlBody };
-            if (email.TextBody is not null)
-                body.TextBody = email.TextBody;
             message.Body = body.ToMessageBody();
         }
         catch (MimeKit.ParseException)

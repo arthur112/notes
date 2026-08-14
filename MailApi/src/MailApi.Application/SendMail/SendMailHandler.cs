@@ -10,9 +10,9 @@ public sealed class SendMailHandler(ITemplateRenderer templateRenderer, IEmailSe
         SendMailCommand command,
         CancellationToken cancellationToken)
     {
-        if (!TemplateKey.TryCreate(command.Template, out var templateKey))
+        if (!MailTemplateExtensions.TryParse(command.Template, out var template))
             return Result.Failure<string, MailError>(
-                MailError.Validation("'template' must only contain letters, digits, '-' or '_'."));
+                MailError.Validation($"'template' must be one of: {string.Join(", ", Enum.GetNames<MailTemplate>())}."));
 
         if (command.To is null || command.To.Count == 0 || command.To.Any(string.IsNullOrWhiteSpace))
             return Result.Failure<string, MailError>(
@@ -22,20 +22,19 @@ public sealed class SendMailHandler(ITemplateRenderer templateRenderer, IEmailSe
             return Result.Failure<string, MailError>(
                 MailError.Validation("'cc' recipients cannot be empty."));
 
-        var renderedResult = await templateRenderer.RenderAsync(templateKey!, command.Data, cancellationToken);
-        if (renderedResult.IsFailure)
-            return Result.Failure<string, MailError>(renderedResult.Error);
+        var htmlResult = await templateRenderer.RenderAsync(template, command.Data, cancellationToken);
+        if (htmlResult.IsFailure)
+            return Result.Failure<string, MailError>(htmlResult.Error);
 
-        var rendered = renderedResult.Value;
         var subject = (string.IsNullOrWhiteSpace(command.Subject)
-            ? rendered.Subject ?? "(no subject)"
+            ? template.DefaultSubject()
             : command.Subject).Trim();
 
         if (subject.Contains('\r') || subject.Contains('\n'))
             return Result.Failure<string, MailError>(
                 MailError.Validation("The subject cannot contain a line break."));
 
-        var email = new OutboundEmail(command.To, command.Cc ?? [], subject, rendered.Html, rendered.Text);
+        var email = new OutboundEmail(command.To, command.Cc ?? [], subject, htmlResult.Value);
         return await emailSender.SendAsync(email, cancellationToken);
     }
 }

@@ -12,10 +12,6 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddMailInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
-        var templatesPath = Path.Combine(AppContext.BaseDirectory, "templates");
-        if (!Directory.Exists(templatesPath))
-            throw new DirectoryNotFoundException($"Templates directory was not found at '{templatesPath}'.");
-
         services.AddSingleton<IValidateOptions<SmtpOptions>, SmtpOptionsValidator>();
         services.AddOptions<SmtpOptions>()
             .Bind(configuration.GetSection(SmtpOptions.SectionName))
