@@ -4,7 +4,9 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -14,6 +16,7 @@ var authority = builder.Configuration["Auth:Authority"] ?? "https://localhost:80
 var audience = builder.Configuration["Auth:Audience"] ?? "poc-api";
 var nameClaimType = builder.Configuration["Auth:NameClaimType"] ?? "preferred_username";
 var clientIdClaimType = builder.Configuration["Auth:ClientIdClaimType"] ?? "azp";
+var roleClaimType = builder.Configuration["Auth:RoleClaimType"] ?? "role";
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -23,8 +26,23 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         options.RequireHttpsMetadata = false;
         options.SaveToken = true;
         options.MapInboundClaims = false;
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            NameClaimType = nameClaimType,
+            RoleClaimType = roleClaimType
+        };
     });
-builder.Services.AddAuthorization();
+
+builder.Services.AddAuthorization(options =>
+{
+    // Layer 2 — the *user* must have the role (AD group → transform rule / Keycloak group → role mapper).
+    options.AddPolicy("CanSendMail", policy => policy.RequireRole("MailSender"));
+    options.AddPolicy("AdminOnly", policy => policy.RequireRole("Admin"));
+});
+
+// Layer 3 — resource-based authorization lives in code, not in the identity provider.
+builder.Services.AddSingleton<IAuthorizationHandler, ExpenseApprovalHandler>();
+builder.Services.AddSingleton<ExpenseStore>();
 
 builder.Services.AddCors(options => options.AddDefaultPolicy(policy => policy
     .WithOrigins(builder.Configuration["Cors:AllowedOrigin"] ?? "http://localhost:5173")
@@ -46,7 +64,9 @@ app.MapGet("/api/me", (ClaimsPrincipal user) => new
     name = user.FindFirst(nameClaimType)?.Value,
     subject = user.FindFirst("sub")?.Value,
     client = user.FindFirst(clientIdClaimType)?.Value,
-    scopes = user.FindFirst("scope")?.Value
+    scopes = user.FindFirst("scope")?.Value,
+    roles = user.FindAll(roleClaimType).Select(c => c.Value),
+    department = user.FindFirst("department")?.Value
 })
 .RequireAuthorization();
 
@@ -78,9 +98,90 @@ app.MapGet("/api/call-api2-m2m", async (M2mTokenService tokens, IHttpClientFacto
 })
 .AllowAnonymous();
 
+app.MapGet("/api/expenses", (ExpenseStore store) => store.All())
+    .RequireAuthorization();
+
+app.MapPost("/api/expenses/{id}/approve", async (int id, ClaimsPrincipal user,
+    IAuthorizationService authz, ExpenseStore store) =>
+{
+    var expense = store.Get(id);
+    if (expense is null) return Results.NotFound();
+
+    var result = await authz.AuthorizeAsync(user, expense, new ExpenseApprovalRequirement());
+    if (!result.Succeeded) return Results.Forbid();
+
+    expense.Approved = true;
+    return Results.Ok(new { message = $"Expense {id} approved.", approvedBy = user.FindFirst(nameClaimType)?.Value });
+})
+.RequireAuthorization();
+
+// Layer 2 at the route (user needs the MailSender role), Layer 1 on the downstream call
+// (this app's service client carries the mail.send scope).
+app.MapPost("/api/newsletters/send", async (SendNewsletterRequest req, ClaimsPrincipal user,
+    M2mTokenService tokens, IHttpClientFactory httpFactory) =>
+{
+    var token = await tokens.GetTokenAsync();
+    var api2 = httpFactory.CreateClient("api2");
+
+    using var request = new HttpRequestMessage(HttpMethod.Post, "/api/mail/send")
+    {
+        Content = JsonContent.Create(new
+        {
+            req.TemplateId,
+            req.Recipients,
+            RequestedBy = user.FindFirst(nameClaimType)?.Value
+        })
+    };
+    request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+    var response = await api2.SendAsync(request);
+    var payload = await response.Content.ReadFromJsonAsync<JsonElement>();
+    return Results.Json(new { api2Status = (int)response.StatusCode, api2Response = payload });
+})
+.RequireAuthorization("CanSendMail");
+
 app.MapDefaultEndpoints();
 
 app.Run();
+
+public record SendNewsletterRequest(string TemplateId, string[] Recipients);
+
+public class Expense
+{
+    public int Id { get; init; }
+    public required string Department { get; init; }
+    public decimal Amount { get; init; }
+    public required string Description { get; init; }
+    public bool Approved { get; set; }
+}
+
+public class ExpenseStore
+{
+    private readonly List<Expense> _expenses =
+    [
+        new() { Id = 1, Department = "Sales", Amount = 1200m, Description = "Conference tickets" },
+        new() { Id = 2, Department = "Engineering", Amount = 800m, Description = "IDE licenses" }
+    ];
+
+    public IReadOnlyList<Expense> All() => _expenses;
+    public Expense? Get(int id) => _expenses.FirstOrDefault(e => e.Id == id);
+}
+
+public class ExpenseApprovalRequirement : IAuthorizationRequirement { }
+
+public class ExpenseApprovalHandler : AuthorizationHandler<ExpenseApprovalRequirement, Expense>
+{
+    protected override Task HandleRequirementAsync(
+        AuthorizationHandlerContext context,
+        ExpenseApprovalRequirement requirement,
+        Expense expense)
+    {
+        var department = context.User.FindFirst("department")?.Value;
+        if (department == expense.Department || context.User.IsInRole("Admin"))
+            context.Succeed(requirement);
+        return Task.CompletedTask;
+    }
+}
 
 public class M2mTokenService(IHttpClientFactory httpFactory, IMemoryCache cache, IConfiguration config)
 {

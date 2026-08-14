@@ -4,9 +4,18 @@
   "sslRequired": "none",
   "roles": {
     "realm": [
-      { "name": "app-user" }
+      { "name": "app-user" },
+      { "name": "MailSender" },
+      { "name": "Admin" }
     ]
   },
+  "groups": [
+    {
+      "name": "mail-senders",
+      "path": "/mail-senders",
+      "realmRoles": ["MailSender"]
+    }
+  ],
   "users": [
     {
       "username": "test",
@@ -15,8 +24,23 @@
       "emailVerified": true,
       "firstName": "Test",
       "lastName": "User",
+      "attributes": { "department": ["Sales"] },
       "credentials": [
         { "type": "password", "value": "test", "temporary": false }
+      ],
+      "realmRoles": ["app-user"],
+      "groups": ["/mail-senders"]
+    },
+    {
+      "username": "bob",
+      "enabled": true,
+      "email": "bob@poc.local",
+      "emailVerified": true,
+      "firstName": "Bob",
+      "lastName": "Builder",
+      "attributes": { "department": ["Engineering"] },
+      "credentials": [
+        { "type": "password", "value": "bob", "temporary": false }
       ],
       "realmRoles": ["app-user"]
     }
@@ -81,6 +105,48 @@
           }
         }
       ]
+    },
+    {
+      "name": "mail.send",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "false"
+      }
+    },
+    {
+      "name": "poc-roles",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "false",
+        "display.on.consent.screen": "false"
+      },
+      "protocolMappers": [
+        {
+          "name": "realm-roles",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "config": {
+            "claim.name": "role",
+            "jsonType.label": "String",
+            "multivalued": "true",
+            "id.token.claim": "true",
+            "access.token.claim": "true"
+          }
+        },
+        {
+          "name": "department",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "config": {
+            "user.attribute": "department",
+            "claim.name": "department",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true"
+          }
+        }
+      ]
     }
   ],
   "clients": [
@@ -94,7 +160,19 @@
       "attributes": {
         "pkce.code.challenge.method": "S256"
       },
-      "defaultClientScopes": ["basic", "profile", "email", "poc-api-audience"]
+      "defaultClientScopes": ["basic", "profile", "email", "poc-api-audience", "poc-roles"]
+    },
+    {
+      "clientId": "poc-bff",
+      "publicClient": false,
+      "secret": "poc-bff-secret",
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "redirectUris": ["http://localhost:5180/*"],
+      "attributes": {
+        "post.logout.redirect.uris": "http://localhost:5174/*##http://localhost:5180/*"
+      },
+      "defaultClientScopes": ["basic", "profile", "email", "poc-api-audience", "poc-roles"]
     },
     {
       "clientId": "api1-service",
@@ -103,7 +181,16 @@
       "standardFlowEnabled": false,
       "directAccessGrantsEnabled": false,
       "serviceAccountsEnabled": true,
-      "defaultClientScopes": ["poc-api-audience"]
+      "defaultClientScopes": ["poc-api-audience", "poc-roles", "mail.send"]
+    },
+    {
+      "clientId": "bff-service",
+      "publicClient": false,
+      "secret": "bff-service-secret",
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "defaultClientScopes": ["poc-api-audience", "poc-roles", "mail.send"]
     }
   ]
 }
