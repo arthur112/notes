@@ -38,7 +38,7 @@ public sealed class MailApiEndpointTests
     }
 
     [Fact]
-    public async Task WrapsBodiesWithTheSharedHeaderAndFooter()
+    public async Task WrapsBodiesWithTheSharedLayout()
     {
         var sender = new TestEmailSender();
         using var factory = CreateFactory(sender: sender);
@@ -64,7 +64,7 @@ public sealed class MailApiEndpointTests
                 < html.IndexOf("Welcome, Ada", StringComparison.Ordinal)
             && html.IndexOf("Welcome, Ada", StringComparison.Ordinal)
                 < html.IndexOf("Contoso · This is an automated message", StringComparison.Ordinal),
-            "HTML body should sit between the shared header and footer.");
+            "HTML body should sit between the layout header and footer.");
     }
 
     [Fact]

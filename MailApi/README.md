@@ -21,9 +21,8 @@ MailApi/
 │   ├── MailApi.Application/       # send-mail use case + template/sender abstractions
 │   ├── MailApi.Infrastructure/    # Fluid, MailKit, SMTP config, and source templates
 │   │   └── templates/             # copied into Web build and publish output
-│   │       ├── _header.liquid                # shared HTML header (logo, opens the card)
-│   │       ├── _footer.liquid                # shared HTML footer (sign-off, closes the card)
-│   │       ├── welcome.liquid                # HTML body only (inline CSS, Liquid)
+│   │       ├── _layout.liquid                # shared HTML chrome (header, {% renderbody %}, footer)
+│   │       ├── welcome.liquid                # HTML body (inline CSS, Liquid) wrapped in {% layout '_layout' %}
 │   │       └── reset-password.liquid
 │   ├── MailApi.Web/               # minimal HTTP API and composition root
 │   │   ├── Program.cs             # auth → HTTP mapping → send-mail use case
@@ -44,10 +43,10 @@ Mail types are a closed set: the `MailTemplate` enum (`Welcome`, `ResetPassword`
 
 | File | Purpose |
 | --- | --- |
-| `_header.liquid` / `_footer.liquid` | shared HTML chrome wrapped around every body — logo + card wrapper, sign-off + closing markup |
-| `{file-name}.liquid` | HTML body for one `MailTemplate` value (inline CSS, Liquid) |
+| `_layout.liquid` | shared HTML chrome around every body — brand header, `{% renderbody %}` placeholder, sign-off footer |
+| `{file-name}.liquid` | HTML body for one `MailTemplate` value (inline CSS, Liquid); declares `{% layout '_layout' %}` on its first line |
 
-Every mail is rendered as `_header` + body + `_footer` into a single HTML document, so a template only carries its body — pick the `MailTemplate` value and you pick the body. The shared parts receive the same `data` model; the header/footer use `{{ brand | default: "MailApi" }}`, so pass `brand` in `data` to override the wordmark. A missing or unreadable template file is a server error (`500`), not a `400`.
+Every mail is rendered through a custom `{% layout %}` / `{% renderbody %}` tag pair registered on the `FluidParser` — the same pattern Fluid itself documents and uses in its `Fluid.ViewEngine` (`FluidViewParser`). The `layout` tag is an *expression tag* that only records the layout path in the render context; after the body is rendered, the renderer loads the layout file and renders it with the body available to `{% renderbody %}` (an *empty tag* that writes the already-encoded body verbatim). A template still only carries its body — the `{% layout %}` line just names the surrounding chrome. The layout receives the same `data` model; it uses `{{ brand | default: "MailApi" }}`, so pass `brand` in `data` to override the wordmark. A missing or unreadable template file is a server error (`500`), not a `400`.
 
 The `data` object becomes the **root** Liquid model, so reference fields directly: `{{ name }}`, `{{ user.email }}`, `{{ items[0].id }}`. Keys are case-insensitive.
 
@@ -142,5 +141,5 @@ public class WelcomeService(MailApi.Sdk.MailClient mail)
 
 1. Web validates the API key, maps the HTTP DTO, and converts JSON `data` into a case-insensitive dictionary tree.
 2. Application validates the command, resolves `template` to a `MailTemplate` enum value, picks the request or template default subject, and coordinates rendering and delivery through `CSharpFunctionalExtensions.Result<T, MailError>`.
-3. Infrastructure reads `AppContext.BaseDirectory/templates`, renders `_header` + body + `_footer` with Fluid (HTML-encoded output), then constructs and sends the MIME message through MailKit.
+3. Infrastructure reads `AppContext.BaseDirectory/templates`, renders the body with Fluid (HTML-encoded output) and wraps it into the `_layout.liquid` the body names via the custom `{% layout %}` tag, then constructs and sends the MIME message through MailKit.
 4. Domain contains the transport-independent `MailTemplate` and `OutboundEmail` models.
