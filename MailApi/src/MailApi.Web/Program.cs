@@ -1,9 +1,12 @@
+using MailApi.Application.EvaluateMail;
 using MailApi.Application.SendMail;
 using MailApi.Infrastructure;
 using MailApi.Web.Configuration;
 using MailApi.Web.Contracts;
 using MailApi.Web.Mapping;
 using Microsoft.Extensions.Options;
+using Microsoft.OpenApi;
+using Scalar.AspNetCore;
 using FunctionalResult = CSharpFunctionalExtensions.Result;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -11,8 +14,43 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.Configure<MailApiOptions>(builder.Configuration.GetSection(MailApiOptions.SectionName));
 builder.Services.AddMailInfrastructure(builder.Configuration);
 builder.Services.AddScoped<SendMailHandler>();
+builder.Services.AddScoped<EvaluateMailHandler>();
+
+var isApiKeyConfigured = !string.IsNullOrEmpty(
+    builder.Configuration.GetSection(MailApiOptions.SectionName)[nameof(MailApiOptions.ApiKey)]);
+
+builder.Services.AddOpenApi(options =>
+{
+    if (!isApiKeyConfigured)
+        return;
+
+    // Advertise the X-Api-Key header so consumers (Scalar) can set it once.
+    options.AddDocumentTransformer((document, _, _) =>
+    {
+        document.Components ??= new OpenApiComponents();
+        document.Components.SecuritySchemes ??= new Dictionary<string, IOpenApiSecurityScheme>();
+        document.Components.SecuritySchemes["ApiKey"] = new OpenApiSecurityScheme
+        {
+            Type = SecuritySchemeType.ApiKey,
+            In = ParameterLocation.Header,
+            Name = "X-Api-Key",
+            Description = "Shared secret configured in MailApi:ApiKey.",
+        };
+        document.Security =
+        [
+            new OpenApiSecurityRequirement
+            {
+                [new OpenApiSecuritySchemeReference("ApiKey", document)] = [],
+            },
+        ];
+        return Task.CompletedTask;
+    });
+});
 
 var app = builder.Build();
+
+app.MapOpenApi();
+app.MapScalarApiReference();
 
 app.MapPost("/api/mail/send", async (
     SendMailRequest request,
@@ -22,8 +60,7 @@ app.MapPost("/api/mail/send", async (
     ILogger<Program> logger,
     CancellationToken cancellationToken) =>
 {
-    if (!string.IsNullOrEmpty(apiOptions.Value.ApiKey) &&
-        (!httpContext.Request.Headers.TryGetValue("X-Api-Key", out var apiKey) || apiKey != apiOptions.Value.ApiKey))
+    if (!IsAuthorized(httpContext, apiOptions.Value))
         return Results.Unauthorized();
 
     var dataResult = JsonTemplateDataConverter.ToLiquidModel(request.Data);
@@ -40,9 +77,42 @@ app.MapPost("/api/mail/send", async (
         cancellationToken);
 
     return ToHttpResult(result, logger);
-});
+})
+.WithName("SendMail")
+.WithSummary("Renders the named template and sends it via SMTP.")
+.Produces(StatusCodes.Status200OK);
+
+app.MapPost("/api/mail/evaluate", async (
+    EvaluateMailRequest request,
+    HttpContext httpContext,
+    IOptions<MailApiOptions> apiOptions,
+    EvaluateMailHandler handler,
+    ILogger<Program> logger,
+    CancellationToken cancellationToken) =>
+{
+    if (!IsAuthorized(httpContext, apiOptions.Value))
+        return Results.Unauthorized();
+
+    var dataResult = JsonTemplateDataConverter.ToLiquidModel(request.Data);
+    if (dataResult.IsFailure)
+        return ToHttpResult(FunctionalResult.Failure<string, MailError>(dataResult.Error), logger);
+
+    var result = await handler.HandleAsync(
+        new EvaluateMailCommand(request.Template, dataResult.Value),
+        cancellationToken);
+
+    return result.IsSuccess
+        ? Results.Content(result.Value, "text/html")
+        : ToHttpResult(result, logger);
+})
+.WithName("EvaluateMail")
+.WithSummary("Renders the named template and returns the resulting HTML without sending it.");
 
 app.Run();
+
+static bool IsAuthorized(HttpContext httpContext, MailApiOptions options) =>
+    string.IsNullOrEmpty(options.ApiKey) ||
+    (httpContext.Request.Headers.TryGetValue("X-Api-Key", out var apiKey) && apiKey == options.ApiKey);
 
 static IResult ToHttpResult(
     CSharpFunctionalExtensions.Result<string, MailError> result,

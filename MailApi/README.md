@@ -8,7 +8,8 @@ Templates are written in **HTML + inline CSS + Liquid** and rendered with [Fluid
 
 1. Holds SMTP + API-key config.
 2. `POST /api/mail/send` — render the named template with the supplied `data` and send it.
-3. Optionally gate the endpoint behind an `X-Api-Key` shared secret.
+3. `POST /api/mail/evaluate` — render the named template and return the HTML without sending (dry run).
+4. Optionally gate the endpoints behind an `X-Api-Key` shared secret.
 
 ## Layout
 
@@ -18,7 +19,7 @@ MailApi/
 ├── MailApi.slnx
 ├── src/
 │   ├── MailApi.Domain/            # MailTemplate enum + OutboundEmail; no external dependencies
-│   ├── MailApi.Application/       # send-mail use case + template/sender abstractions
+│   ├── MailApi.Application/       # send-mail + evaluate (dry-run render) use cases, template/sender abstractions
 │   ├── MailApi.Infrastructure/    # Fluid, MailKit, SMTP config, and source templates
 │   │   └── templates/             # copied into Web build and publish output
 │   │       ├── _layout.liquid                # shared HTML chrome (header, {% renderbody %}, footer)
@@ -58,6 +59,19 @@ You need an SMTP relay to actually deliver. Anything works locally — [smtp4dev
 cd MailApi
 dotnet build
 dotnet run --project src/MailApi.Web # listens on http://localhost:5255
+```
+
+### Test it in the browser
+
+The API publishes an OpenAPI document (`/openapi/v1.json`) and a [Scalar](https://scalar.com/) UI at **http://localhost:5255/scalar/v1** where you can fire requests directly — set the `X-Api-Key` auth value once if `MailApi:ApiKey` is configured.
+
+The `/api/mail/evaluate` endpoint renders a template and returns the HTML (`text/html`) **without sending** — no SMTP relay needed, ideal for template iteration:
+
+```bash
+curl -X POST http://localhost:5255/api/mail/evaluate \
+  -H "Content-Type: application/json" \
+  -d '{ "template": "welcome", "data": { "name": "Ada", "actionUrl": "https://app.example.com/verify?token=abc" } }'
+# -> 200 text/html — the rendered mail, layout included
 ```
 
 Send a mail (auth disabled by default):
@@ -106,15 +120,23 @@ Header: X-Api-Key: <secret>      (only if MailApi:ApiKey is set)
   "subject": "Override",              // optional; overrides the template's default subject
   "data":    { ... Liquid model ... }
 }
+
+POST /api/mail/evaluate
+Header: X-Api-Key: <secret>      (only if MailApi:ApiKey is set)
+
+{
+  "template": "welcome",         // same template values as /send
+  "data":    { ... Liquid model ... }
+}
 ```
 
 | Status | Meaning |
 | --- | --- |
-| `200` | sent — returns `{ "messageId": "..." }` |
+| `200` | `/send`: sent — returns `{ "messageId": "..." }`; `/evaluate`: rendered — returns the HTML as `text/html` |
 | `400` | bad request (missing fields, invalid address/data, unknown template) |
 | `401` | missing/wrong `X-Api-Key` |
 | `500` | a deployed template is invalid or could not be read from disk |
-| `502` | SMTP failure (relay down / rejected) |
+| `502` | SMTP failure (relay down / rejected) — `/send` only |
 
 ## Using the SDK
 

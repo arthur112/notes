@@ -172,6 +172,66 @@ public sealed class MailApiEndpointTests
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
+    [Fact]
+    public async Task EvaluateRendersHtmlWithoutSendingMail()
+    {
+        var sender = new TestEmailSender();
+        using var factory = CreateFactory(sender: sender);
+        using var client = factory.CreateClient();
+        var response = await client.PostAsJsonAsync("/api/mail/evaluate", new
+        {
+            template = "welcome",
+            data = new { name = "Ada", actionUrl = "https://example.com/verify", brand = "Contoso" },
+        });
+
+        var html = await response.Content.ReadAsStringAsync();
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("text/html", response.Content.Headers.ContentType?.MediaType);
+        Assert.StartsWith("<!doctype html>", html);
+        Assert.Contains(">Contoso</span>", html);
+        Assert.Contains("Welcome, Ada", html);
+        Assert.Null(sender.Email);
+    }
+
+    [Fact]
+    public async Task EvaluateRejectsUnknownTemplates()
+    {
+        using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+        var response = await client.PostAsJsonAsync("/api/mail/evaluate", new
+        {
+            template = "does-not-exist",
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task EvaluateRejectsRequestsWithoutTheConfiguredApiKey()
+    {
+        using var factory = CreateFactory(apiKey: "secret");
+        using var client = factory.CreateClient();
+        var response = await client.PostAsJsonAsync("/api/mail/evaluate", new
+        {
+            template = "welcome",
+        });
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task ServesTheOpenApiDocument()
+    {
+        using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+        var response = await client.GetAsync("/openapi/v1.json");
+
+        var document = await response.Content.ReadAsStringAsync();
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("/api/mail/send", document);
+        Assert.Contains("/api/mail/evaluate", document);
+    }
+
     private static WebApplicationFactory<Program> CreateFactory(
         IEmailSender? sender = null,
         ITemplateRenderer? renderer = null,
