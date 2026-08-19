@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  CORS web.config for a module-federation REMOTE on IIS.
+
+  Only needed when the host and the remote are served from DIFFERENT
+  origins (separate IIS sites, ports, or servers). If everything lives
+  under one site as virtual directories, delete this — same-origin
+  needs no CORS.
+
+  Copy into the remote's public/ folder (so it lands in dist/), set the
+  host origin below, then build. Never use "*" for credentialed setups.
+-->
+<configuration>
+  <system.webServer>
+    <httpProtocol>
+      <customHeaders>
+        <add name="Access-Control-Allow-Origin" value="https://host.example.com" />
+      </customHeaders>
+    </httpProtocol>
+  </system.webServer>
+</configuration>

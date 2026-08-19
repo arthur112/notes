@@ -1,0 +1,15 @@
+{
+  "name": "federation-mf",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "workspaces": [
+    "host",
+    "remote-invoices",
+    "remote-reports"
+  ],
+  "scripts": {
+    "dev": "./dev.sh",
+    "build": "bun run --filter '*' build"
+  }
+}
