@@ -33,6 +33,7 @@ Conventions for every note folder:
 | [`StranglerTable/`](StranglerTable/) | Strangler-fig migration of a wide unnormalized legacy table: normalized domain over one 44-column table via EF Core table splitting (owned types) vs. a hand-written anti-corruption layer, with a phase-2 physical table split | .NET 10 minimal API, EF Core, SQL Server (Docker) |
 | [`Federation/`](Federation/) | Dashboard shell that lazy-loads micro-apps on click — route-level code splitting with TanStack Router (code-based) vs. true Module Federation, with a decision table | React 19, Vite, TanStack Router, @module-federation/vite |
 | [`UxGuide/`](UxGuide/) | UX best practices for dense CRUD pages (30–50 fields) + a smart/dumb component-architecture contract, with the extraction realized: a Storybook 10 prototype of a company component library (`@company/ui`) built from the demo's unedited dumb components | React 19, Vite, Tailwind v4, shadcn/ui, TanStack Router/Table, react-hook-form + zod, Storybook 10 |
+| [`DataMasking/`](DataMasking/) | Data masking at two levels: SQL Server dynamic data masking via per-request connection-string switching on an HttpContext identity property (engine-enforced) vs. an EF Core materialization interceptor + value converter masking `[Masked]` properties in .NET (app-enforced), with a trade-off table | Two .NET 10 minimal APIs, EF Core, SQL Server (Docker) |
 
 ## Working in this repo
 
