@@ -32,6 +32,7 @@ Conventions for every note folder:
 | [`Keycloak/`](Keycloak/) | OIDC/OAuth2 POC with a switchable identity provider (Keycloak container or ADFS): React SPA login (PKCE) via oidc-client-ts **and** a cookie-based BFF variant, the three-layer authorization model (scopes / roles / resource-based), user-token forwarding between APIs (shared audience), machine-to-machine client credentials — orchestrated by Aspire | Aspire 13, Keycloak (container) or ADFS, .NET 10 minimal APIs, React + Vite + oidc-client-ts |
 | [`StranglerTable/`](StranglerTable/) | Strangler-fig migration of a wide unnormalized legacy table: normalized domain over one 44-column table via EF Core table splitting (owned types) vs. a hand-written anti-corruption layer, with a phase-2 physical table split | .NET 10 minimal API, EF Core, SQL Server (Docker) |
 | [`Federation/`](Federation/) | Dashboard shell that lazy-loads micro-apps on click — route-level code splitting with TanStack Router (code-based) vs. true Module Federation, with a decision table | React 19, Vite, TanStack Router, @module-federation/vite |
+| [`UxGuide/`](UxGuide/) | UX best practices for dense CRUD pages (30–50 fields) + a smart/dumb component-architecture contract, with the extraction realized: a Storybook 10 prototype of a company component library (`@company/ui`) built from the demo's unedited dumb components | React 19, Vite, Tailwind v4, shadcn/ui, TanStack Router/Table, react-hook-form + zod, Storybook 10 |
 
 ## Working in this repo
 
