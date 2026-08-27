@@ -27,7 +27,7 @@ export function App() {
       {otherAppEvents.length === 0 ? (
         <p className="hint">Nothing yet — open Invoices and select a row, then come back.</p>
       ) : (
-        <ul>
+        <ul className="event-list">
           {otherAppEvents.map((e) => (
             <li key={e.id}>
               [{e.source}] {e.message} — {e.at.toLocaleTimeString()}

@@ -1,43 +1,41 @@
 import { Suspense } from 'react'
-import { Link, Outlet, useRouterState } from '@tanstack/react-router'
+import { Outlet } from '@tanstack/react-router'
+import { AppSidebar } from '@/components/app-sidebar'
+import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar'
+import { TooltipProvider } from '@/components/ui/tooltip'
 import { ErrorBoundary } from './ErrorBoundary'
 import { useShell } from './ShellProvider'
 
 export function AppFrame() {
-  const { user, events } = useShell()
-  const pathname = useRouterState({ select: (s) => s.location.pathname })
-  const onDashboard = pathname === '/'
+  const { events } = useShell()
 
   return (
-    <div className="frame">
-      <header className="topbar">
-        <Link to="/" className="brand">
-          Acme Suite
-        </Link>
-        {!onDashboard && (
-          <Link to="/" className="back-link">
-            ← Dashboard
-          </Link>
-        )}
-        <span className="user">
-          {user.name} · {user.role}
-        </span>
-      </header>
-      <main className="content">
-        <ErrorBoundary>
-          <Suspense fallback={<div className="loading">Loading application…</div>}>
-            <Outlet />
-          </Suspense>
-        </ErrorBoundary>
-      </main>
-      <footer className="eventbar">
-        Shell event bus: {events.length === 0 ? 'no events yet' : `${events.length} event(s) — latest: `}
-        {events.length > 0 && (
-          <em>
-            [{events[events.length - 1].source}] {events[events.length - 1].message}
-          </em>
-        )}
-      </footer>
-    </div>
+    <TooltipProvider>
+      <SidebarProvider>
+        <AppSidebar />
+        <SidebarInset>
+          <header className="flex h-12 shrink-0 items-center px-4">
+            <SidebarTrigger className="-ml-1 text-muted-foreground" />
+          </header>
+          <main className="flex-1 px-6 py-10">
+            <ErrorBoundary>
+              <Suspense fallback={<div className="loading">Loading application…</div>}>
+                <Outlet />
+              </Suspense>
+            </ErrorBoundary>
+          </main>
+          <footer className="border-t border-border/60 px-6 py-3 font-mono text-xs text-muted-foreground">
+            {events.length === 0 ? (
+              'event bus · idle'
+            ) : (
+              <>
+                event bus · {events.length} event(s) · latest: [{events[events.length - 1].source}]{' '}
+                {events[events.length - 1].message}
+              </>
+            )}
+          </footer>
+        </SidebarInset>
+      </SidebarProvider>
+    </TooltipProvider>
   )
 }
