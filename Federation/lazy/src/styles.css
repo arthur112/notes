@@ -3,34 +3,6 @@
 
 @custom-variant dark (&:is(.dark *));
 
-@theme {
-  /* Neutral grays */
-  --color-neutral-50: oklch(98.5% 0 0);
-  --color-neutral-100: oklch(97% 0 0);
-  --color-neutral-200: oklch(92.2% 0 0);
-  --color-neutral-300: oklch(87% 0 0);
-  --color-neutral-400: oklch(70.8% 0 0);
-  --color-neutral-500: oklch(55.6% 0 0);
-  --color-neutral-600: oklch(43.9% 0 0);
-  --color-neutral-700: oklch(37.1% 0 0);
-  --color-neutral-800: oklch(26.9% 0 0);
-  --color-neutral-900: oklch(20.5% 0 0);
-  --color-neutral-950: oklch(14.5% 0 0);
-
-  /* Muted indigo accent */
-  --color-indigo-50: oklch(96.2% 0.018 272.31);
-  --color-indigo-100: oklch(93% 0.034 272.79);
-  --color-indigo-200: oklch(87% 0.065 274.04);
-  --color-indigo-300: oklch(78.5% 0.115 274.71);
-  --color-indigo-400: oklch(67.3% 0.182 276.97);
-  --color-indigo-500: oklch(58.5% 0.233 277.12);
-  --color-indigo-600: oklch(51.1% 0.262 276.97);
-  --color-indigo-700: oklch(45.7% 0.24 277.02);
-  --color-indigo-800: oklch(39.8% 0.195 277.37);
-  --color-indigo-900: oklch(35.9% 0.144 278.7);
-  --color-indigo-950: oklch(25.7% 0.09 281.29);
-}
-
 @theme inline {
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
@@ -72,39 +44,79 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
+/*
+ * Verdant palette: primary #006F4E · secondary #009598, over green-tinted
+ * neutrals. `accent` is a soft green tint because it drives hover/focus
+ * states (sidebar items, dropdown rows) — the red brand accent (#ED1C24)
+ * only survives as `destructive`.
+ */
 :root {
-  --background: oklch(100% 0 0);
-  --foreground: var(--color-neutral-900);
-  --card: oklch(100% 0 0);
-  --card-foreground: var(--color-neutral-900);
-  --popover: oklch(100% 0 0);
-  --popover-foreground: var(--color-neutral-900);
-  --primary: var(--color-indigo-600);
-  --primary-foreground: oklch(100% 0 0);
-  --secondary: var(--color-neutral-100);
-  --secondary-foreground: var(--color-neutral-900);
-  --muted: var(--color-neutral-100);
-  --muted-foreground: var(--color-neutral-500);
-  --accent: var(--color-indigo-50);
-  --accent-foreground: var(--color-indigo-950);
-  --destructive: oklch(57.7% 0.245 27.325);
-  --border: var(--color-neutral-200);
-  --input: var(--color-neutral-200);
-  --ring: var(--color-indigo-500);
-  --chart-1: var(--color-indigo-500);
-  --chart-2: var(--color-indigo-400);
-  --chart-3: var(--color-neutral-400);
-  --chart-4: var(--color-indigo-300);
-  --chart-5: var(--color-neutral-300);
+  --background: hsl(0 0% 100%);
+  --foreground: hsl(162 30% 8%);
+  --card: hsl(0 0% 100%);
+  --card-foreground: hsl(162 30% 8%);
+  --popover: hsl(0 0% 100%);
+  --popover-foreground: hsl(162 30% 8%);
+  --primary: hsl(162 100% 22%);
+  --primary-foreground: hsl(0 0% 100%);
+  --secondary: hsl(181 100% 30%);
+  --secondary-foreground: hsl(0 0% 100%);
+  --muted: hsl(162 20% 95%);
+  --muted-foreground: hsl(162 8% 42%);
+  --accent: hsl(162 40% 92%);
+  --accent-foreground: hsl(162 100% 18%);
+  --destructive: hsl(358 85% 52%);
+  --border: hsl(162 15% 90%);
+  --input: hsl(162 15% 90%);
+  --ring: hsl(162 100% 22%);
+  --chart-1: hsl(162 100% 22%);
+  --chart-2: hsl(181 100% 30%);
+  --chart-3: hsl(162 15% 60%);
+  --chart-4: hsl(162 45% 45%);
+  --chart-5: hsl(181 40% 55%);
   --radius: 0.625rem;
-  --sidebar: var(--color-neutral-50);
-  --sidebar-foreground: var(--color-neutral-900);
-  --sidebar-primary: var(--color-indigo-600);
-  --sidebar-primary-foreground: oklch(100% 0 0);
-  --sidebar-accent: var(--color-indigo-100);
-  --sidebar-accent-foreground: var(--color-indigo-950);
-  --sidebar-border: var(--color-neutral-200);
-  --sidebar-ring: var(--color-indigo-500);
+  --sidebar: hsl(162 25% 97%);
+  --sidebar-foreground: hsl(162 20% 18%);
+  --sidebar-primary: hsl(162 100% 22%);
+  --sidebar-primary-foreground: hsl(0 0% 100%);
+  --sidebar-accent: hsl(162 40% 92%);
+  --sidebar-accent-foreground: hsl(162 100% 18%);
+  --sidebar-border: hsl(162 15% 88%);
+  --sidebar-ring: hsl(181 100% 30%);
+}
+
+.dark {
+  --background: hsl(162 25% 6%);
+  --foreground: hsl(0 0% 96%);
+  --card: hsl(162 22% 9%);
+  --card-foreground: hsl(0 0% 96%);
+  --popover: hsl(162 22% 9%);
+  --popover-foreground: hsl(0 0% 96%);
+  --primary: hsl(158 85% 42%);
+  --primary-foreground: hsl(162 100% 6%);
+  --secondary: hsl(181 90% 40%);
+  --secondary-foreground: hsl(181 100% 6%);
+  --muted: hsl(162 15% 15%);
+  --muted-foreground: hsl(162 10% 60%);
+  --accent: hsl(162 20% 15%);
+  --accent-foreground: hsl(0 0% 96%);
+  --destructive: hsl(358 90% 58%);
+  --border: hsl(162 15% 16%);
+  --input: hsl(162 15% 16%);
+  --ring: hsl(158 85% 42%);
+  --chart-1: hsl(158 85% 42%);
+  --chart-2: hsl(181 90% 40%);
+  --chart-3: hsl(162 10% 55%);
+  --chart-4: hsl(158 50% 55%);
+  --chart-5: hsl(181 45% 50%);
+  --sidebar: hsl(162 28% 8%);
+  --sidebar-foreground: hsl(162 10% 85%);
+  --sidebar-primary: hsl(158 85% 42%);
+  --sidebar-primary-foreground: hsl(162 100% 6%);
+  --sidebar-accent: hsl(162 20% 15%);
+  --sidebar-accent-foreground: hsl(0 0% 96%);
+  --sidebar-border: hsl(162 15% 15%);
+  --sidebar-ring: hsl(181 90% 40%);
 }
 
 @layer base {
@@ -120,7 +132,8 @@
 
 /*
  * Plain-CSS classes still used by the lazily loaded micro-apps
- * (invoices table, reports chart). Neutral + muted indigo.
+ * (invoices table, reports chart). Driven by the verdant tokens above,
+ * so they follow the dark toggle too.
  */
 .loading {
   padding: 3rem;
@@ -131,7 +144,7 @@
 
 .error-box {
   padding: 2rem;
-  background: oklch(97% 0.015 27);
+  background: color-mix(in oklab, var(--destructive) 8%, transparent);
   border: 1px solid var(--destructive);
   border-radius: var(--radius);
 }
@@ -188,15 +201,15 @@ tbody tr {
 }
 
 tbody tr:hover {
-  background: var(--color-neutral-50);
+  background: var(--muted);
 }
 
 tr.selected {
-  background: var(--color-indigo-50);
+  background: color-mix(in oklab, var(--primary) 10%, transparent);
 }
 
 tr.selected:hover {
-  background: var(--color-indigo-100);
+  background: color-mix(in oklab, var(--primary) 16%, transparent);
 }
 
 .chart {

@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { ChevronsUpDown, Plus, type LucideIcon } from 'lucide-react'
+import { useState } from "react";
+import { ChevronsUpDown, Plus, type LucideIcon } from "lucide-react";
 
 import {
   DropdownMenu,
@@ -10,30 +10,30 @@ import {
   DropdownMenuSeparator,
   DropdownMenuShortcut,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
+} from "@/components/ui/dropdown-menu";
 import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
   useSidebar,
-} from '@/components/ui/sidebar'
+} from "@/components/ui/sidebar";
 
 export type Team = {
-  name: string
-  logo: LucideIcon
-  plan: string
-}
+  name: string;
+  logo: LucideIcon;
+  plan: string;
+};
 
 /**
- * Header workspace switcher — the indigo "Acme Inc / Enterprise" block with a
+ * Header workspace switcher — the "Acme Inc / Enterprise" block with a
  * ChevronsUpDown. Clicking it opens the team list (Base UI Menu).
  */
 export function TeamSwitcher({ teams }: { teams: Team[] }) {
-  const { isMobile } = useSidebar()
-  const [activeTeam, setActiveTeam] = useState(teams[0])
+  const { isMobile } = useSidebar();
+  const [activeTeam, setActiveTeam] = useState(teams[0]);
 
   if (!activeTeam) {
-    return null
+    return null;
   }
 
   return (
@@ -41,7 +41,9 @@ export function TeamSwitcher({ teams }: { teams: Team[] }) {
       <SidebarMenuItem>
         <DropdownMenu>
           <DropdownMenuTrigger
-            render={<SidebarMenuButton size="lg" className="aria-expanded:bg-muted" />}
+            render={
+              <SidebarMenuButton size="lg" className="aria-expanded:bg-muted" />
+            }
           >
             <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
               <activeTeam.logo className="size-4" />
@@ -55,7 +57,7 @@ export function TeamSwitcher({ teams }: { teams: Team[] }) {
           <DropdownMenuContent
             className="min-w-56"
             align="start"
-            side={isMobile ? 'bottom' : 'right'}
+            side={isMobile ? "bottom" : "right"}
             sideOffset={4}
           >
             <DropdownMenuGroup>
@@ -87,5 +89,5 @@ export function TeamSwitcher({ teams }: { teams: Team[] }) {
         </DropdownMenu>
       </SidebarMenuItem>
     </SidebarMenu>
-  )
+  );
 }

@@ -5,9 +5,9 @@ import {
   CreditCard,
   LogOut,
   Sparkles,
-} from 'lucide-react'
+} from "lucide-react";
 
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,37 +16,41 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
+} from "@/components/ui/dropdown-menu";
 import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
   useSidebar,
-} from '@/components/ui/sidebar'
+} from "@/components/ui/sidebar";
 
 export type NavUserProps = {
-  name: string
-  email: string
-  avatar: string
-}
+  name: string;
+  email: string;
+  /** 1–2 letters shown on the teal fallback tile. */
+  initials: string;
+};
 
 /**
  * Footer user menu — the avatar + name/email row with a ChevronsUpDown. Clicking
  * it opens the account dropdown (Base UI Menu).
  */
 export function NavUser({ user }: { user: NavUserProps }) {
-  const { isMobile } = useSidebar()
+  const { isMobile } = useSidebar();
 
   return (
     <SidebarMenu>
       <SidebarMenuItem>
         <DropdownMenu>
           <DropdownMenuTrigger
-            render={<SidebarMenuButton size="lg" className="aria-expanded:bg-muted" />}
+            render={
+              <SidebarMenuButton size="lg" className="aria-expanded:bg-muted" />
+            }
           >
-            <Avatar>
-              <AvatarImage src={user.avatar} alt={user.name} />
-              <AvatarFallback>CN</AvatarFallback>
+            <Avatar className="rounded-lg">
+              <AvatarFallback className="rounded-lg bg-secondary text-secondary-foreground">
+                {user.initials}
+              </AvatarFallback>
             </Avatar>
             <div className="grid flex-1 text-left text-sm leading-tight">
               <span className="truncate font-medium">{user.name}</span>
@@ -56,16 +60,17 @@ export function NavUser({ user }: { user: NavUserProps }) {
           </DropdownMenuTrigger>
           <DropdownMenuContent
             className="w-fit"
-            side={isMobile ? 'bottom' : 'right'}
+            side={isMobile ? "bottom" : "right"}
             align="end"
             sideOffset={4}
           >
             <DropdownMenuGroup>
               <DropdownMenuLabel className="p-0 font-normal">
                 <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
-                  <Avatar>
-                    <AvatarImage src={user.avatar} alt={user.name} />
-                    <AvatarFallback>CN</AvatarFallback>
+                  <Avatar className="rounded-lg">
+                    <AvatarFallback className="rounded-lg bg-secondary text-secondary-foreground">
+                      {user.initials}
+                    </AvatarFallback>
                   </Avatar>
                   <div className="grid flex-1 text-left text-sm leading-tight">
                     <span className="truncate font-medium">{user.name}</span>
@@ -105,5 +110,5 @@ export function NavUser({ user }: { user: NavUserProps }) {
         </DropdownMenu>
       </SidebarMenuItem>
     </SidebarMenu>
-  )
+  );
 }
