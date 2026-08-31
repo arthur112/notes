@@ -1,13 +1,6 @@
-import * as React from "react";
-import {
-  AudioWaveform,
-  BookOpen,
-  Bot,
-  Command,
-  GalleryVerticalEnd,
-  Settings2,
-  SquareTerminal,
-} from "lucide-react";
+import type * as React from "react";
+import { AudioWaveform, Command, GalleryVerticalEnd } from "lucide-react";
+import { useRouterState } from "@tanstack/react-router";
 
 import {
   Sidebar,
@@ -16,11 +9,12 @@ import {
   SidebarHeader,
   SidebarRail,
 } from "@/components/ui/sidebar";
-import { NavMain } from "@/components/nav-main";
+import { NavMain, type NavItem } from "@/components/nav-main";
 import { NavUser } from "@/components/nav-user";
 import { TeamSwitcher } from "@/components/team-switcher";
+import { useNav } from "@/shell/nav";
 
-// Sample data mirroring the shadcn "Sidebar 07" block.
+// Shell chrome not tied to routes.
 const data = {
   user: {
     name: "Ada Lovelace",
@@ -44,61 +38,32 @@ const data = {
       plan: "Free",
     },
   ],
-  navMain: [
-    {
-      title: "Playground",
-      url: "#",
-      icon: SquareTerminal,
-      isActive: true,
-      items: [
-        { title: "History", url: "#" },
-        { title: "Starred", url: "#" },
-        { title: "Settings", url: "#" },
-      ],
-    },
-    {
-      title: "Models",
-      url: "#",
-      icon: Bot,
-      items: [
-        { title: "Genesis", url: "#" },
-        { title: "Explorer", url: "#" },
-        { title: "Quantum", url: "#" },
-      ],
-    },
-    {
-      title: "Documentation",
-      url: "#",
-      icon: BookOpen,
-      items: [
-        { title: "Introduction", url: "#" },
-        { title: "Get Started", url: "#" },
-        { title: "Tutorials", url: "#" },
-        { title: "Changelog", url: "#" },
-      ],
-    },
-    {
-      title: "Settings",
-      url: "#",
-      icon: Settings2,
-      items: [
-        { title: "General", url: "#" },
-        { title: "Team", url: "#" },
-        { title: "Billing", url: "#" },
-        { title: "Limits", url: "#" },
-      ],
-    },
-  ],
 };
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+  // Navigation comes from the route tree: every route file under src/routes/
+  // with a `staticData.nav` block shows up here automatically.
+  const { groups } = useNav();
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+
+  const items: NavItem[] = groups.map((group) => ({
+    title: group.name,
+    url: group.children[0]?.path ?? "#",
+    icon: group.icon,
+    isActive: group.children.some((page) => page.path === pathname),
+    items: group.children.map((page) => ({
+      title: page.name,
+      url: page.path,
+    })),
+  }));
+
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
         <TeamSwitcher teams={data.teams} />
       </SidebarHeader>
       <SidebarContent>
-        <NavMain items={data.navMain} />
+        <NavMain items={items} />
       </SidebarContent>
       <SidebarFooter>
         <NavUser user={data.user} />

@@ -5,7 +5,7 @@ two ways, because "federation" is often reached for when plain code splitting is
 
 | Folder | Approach | When to use it |
 | --- | --- | --- |
-| [`lazy/`](lazy/) | One Vite build; each app is a route-level **lazy chunk** via TanStack Router (code-based routing) | Default choice. You deploy everything together and don't need per-app scaling. |
+| [`lazy/`](lazy/) | One Vite build; each app is a route-level **lazy chunk** via TanStack Router (file-based routing) | Default choice. You deploy everything together and don't need per-app scaling. |
 | [`mf/`](mf/) | True **Module Federation** (`@module-federation/vite`): host + 2 separately-built remotes loaded at runtime | Only when you need independent deployment per app, or independent teams shipping on their own cadence. |
 
 ## The decision in one paragraph
@@ -41,22 +41,29 @@ bun install
 bun run dev        # http://localhost:5173
 ```
 
-Click a tile and watch the Network tab: `InvoicesApp-*.js` / `ReportsApp-*.js` download on first
+Click a tile and watch the Network tab: `invoices-*.js` / `reports-*.js` download on first
 navigation only. `bun run build` shows the same split in `dist/`:
 
 ```
-dist/assets/InvoicesApp-*.js
-dist/assets/ReportsApp-*.js
+dist/assets/invoices-*.js
+dist/assets/reports-*.js
 dist/assets/index-*.js        # shell + shared code (React, router, shell services)
 ```
 
-Key piece — code-based lazy routes with TanStack Router (`lazy/src/router.tsx`):
+Key piece — file-based routes with TanStack Router. Each file under `lazy/src/routes/` is a
+route; `@tanstack/router-plugin` (Vite) generates the route tree and, with
+`autoCodeSplitting: true`, turns each route's `component` into a lazily fetched chunk. The
+`staticData.nav` block is what puts the page in the sidebar and on the dashboard — both are
+derived from the route tree (`lazy/src/shell/nav.ts`), so adding a route file is all it takes
+to add a micro-app:
 
 ```tsx
-const invoicesRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: '/apps/invoices',
-  component: lazyRouteComponent(() => import('./apps/invoices/InvoicesApp'), 'App'),
+// lazy/src/routes/apps/invoices.tsx
+export const Route = createFileRoute('/apps/invoices')({
+  component: App, // auto-split into its own chunk
+  staticData: {
+    nav: { title: 'Invoices', description: '…', group: 'App 1', icon: ReceiptText },
+  },
 })
 ```
 
@@ -74,7 +81,7 @@ bun run dev        # → http://localhost:5000 (Ctrl+C stops all three)
 ```
 
 Clicking a tile downloads `remoteEntry.js` plus the exposed module from the remote's server at
-runtime. Remotes can also be opened standalone (http://localhost:5001, http://localhost:5002) for
+runtime. Remotes can also be opened standalone (<http://localhost:5001>, <http://localhost:5002>) for
 isolated development. Note the costs visible in the setup: per-app Vite configs with `shared`
 singletons (`react`, `react-dom`), ambient module declarations (`host/src/remotes.d.ts`) because the
 imported modules don't exist at compile time, and CORS/port coordination.

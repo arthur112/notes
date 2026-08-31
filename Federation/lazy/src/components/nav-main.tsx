@@ -1,10 +1,12 @@
-import { ChevronRight, type LucideIcon } from 'lucide-react'
+import { Link } from "@tanstack/react-router";
+import { ChevronRight, type LucideIcon } from "lucide-react";
+import type { ComponentProps, ReactElement } from "react";
 
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from '@/components/ui/collapsible'
+} from "@/components/ui/collapsible";
 import {
   SidebarGroup,
   SidebarGroupLabel,
@@ -14,18 +16,24 @@ import {
   SidebarMenuSub,
   SidebarMenuSubButton,
   SidebarMenuSubItem,
-} from '@/components/ui/sidebar'
+} from "@/components/ui/sidebar";
 
 export type NavItem = {
-  title: string
-  url: string
-  icon?: LucideIcon
-  isActive?: boolean
+  title: string;
+  url: string;
+  icon?: LucideIcon;
+  isActive?: boolean;
   items?: {
-    title: string
-    url: string
-  }[]
-}
+    title: string;
+    url: string;
+  }[];
+};
+
+// `Link` with `to` widened to `string`: sidebar entries come from the route
+// tree at runtime, so they can't be narrowed to the registered path union.
+const NavLink = Link as (
+  props: { to: string } & Omit<ComponentProps<"a">, "href">,
+) => ReactElement | null;
 
 /**
  * The "Platform" group — a column of collapsible items. Each item is a
@@ -55,7 +63,9 @@ export function NavMain({ items }: { items: NavItem[] }) {
                 <SidebarMenuSub>
                   {item.items?.map((subItem) => (
                     <SidebarMenuSubItem key={subItem.title}>
-                      <SidebarMenuSubButton render={<a href={subItem.url} />}>
+                      <SidebarMenuSubButton
+                        render={<NavLink to={subItem.url} />}
+                      >
                         <span>{subItem.title}</span>
                       </SidebarMenuSubButton>
                     </SidebarMenuSubItem>
@@ -67,5 +77,5 @@ export function NavMain({ items }: { items: NavItem[] }) {
         ))}
       </SidebarMenu>
     </SidebarGroup>
-  )
+  );
 }

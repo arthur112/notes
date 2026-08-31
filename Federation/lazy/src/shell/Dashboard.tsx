@@ -1,10 +1,11 @@
 import { Link } from "@tanstack/react-router";
 import { ArrowRight } from "lucide-react";
-import { microApps } from "./apps";
+import { useNav } from "./nav";
 import { useShell } from "./ShellProvider";
 
 export function Dashboard() {
   const { user } = useShell();
+  const { microApps } = useNav();
 
   return (
     <div className="mx-auto max-w-3xl">

@@ -11,12 +11,15 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { microApps } from "./apps";
+import { useNav, type MicroApp } from "./nav";
 import { ErrorBoundary } from "./ErrorBoundary";
 import { useShell } from "./ShellProvider";
 
 /** Breadcrumb labels for the current route — shell pages vs. micro-apps. */
-function pageMeta(pathname: string): { section: string; title: string } {
+function pageMeta(
+  pathname: string,
+  microApps: MicroApp[],
+): { section: string; title: string } {
   if (pathname === "/") return { section: "Platform", title: "Dashboard" };
   const app = microApps.find((a) => a.path === pathname);
   return { section: "Apps", title: app?.name ?? "Not found" };
@@ -24,6 +27,7 @@ function pageMeta(pathname: string): { section: string; title: string } {
 
 export function AppFrame() {
   const { events } = useShell();
+  const { microApps } = useNav();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [dark, setDark] = useState(false);
 
@@ -31,7 +35,7 @@ export function AppFrame() {
     document.documentElement.classList.toggle("dark", dark);
   }, [dark]);
 
-  const meta = pageMeta(pathname);
+  const meta = pageMeta(pathname, microApps);
 
   return (
     <TooltipProvider>
