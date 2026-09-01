@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppsInvoicesRouteImport } from './routes/apps/invoices'
 import { Route as AppsReportsRouteImport } from './routes/apps/reports'
+import { Route as AppsShowcaseRouteImport } from './routes/apps/showcase'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -28,35 +29,44 @@ const AppsReportsRoute = AppsReportsRouteImport.update({
   path: '/apps/reports',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AppsShowcaseRoute = AppsShowcaseRouteImport.update({
+  id: '/apps/showcase',
+  path: '/apps/showcase',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/apps/invoices': typeof AppsInvoicesRoute
   '/apps/reports': typeof AppsReportsRoute
+  '/apps/showcase': typeof AppsShowcaseRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/apps/invoices': typeof AppsInvoicesRoute
   '/apps/reports': typeof AppsReportsRoute
+  '/apps/showcase': typeof AppsShowcaseRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/apps/invoices': typeof AppsInvoicesRoute
   '/apps/reports': typeof AppsReportsRoute
+  '/apps/showcase': typeof AppsShowcaseRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/apps/invoices' | '/apps/reports'
+  fullPaths: '/' | '/apps/invoices' | '/apps/reports' | '/apps/showcase'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/apps/invoices' | '/apps/reports'
-  id: '__root__' | '/' | '/apps/invoices' | '/apps/reports'
+  to: '/' | '/apps/invoices' | '/apps/reports' | '/apps/showcase'
+  id: '__root__' | '/' | '/apps/invoices' | '/apps/reports' | '/apps/showcase'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AppsInvoicesRoute: typeof AppsInvoicesRoute
   AppsReportsRoute: typeof AppsReportsRoute
+  AppsShowcaseRoute: typeof AppsShowcaseRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -82,6 +92,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppsReportsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/apps/showcase': {
+      id: '/apps/showcase'
+      path: '/apps/showcase'
+      fullPath: '/apps/showcase'
+      preLoaderRoute: typeof AppsShowcaseRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -89,6 +106,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AppsInvoicesRoute: AppsInvoicesRoute,
   AppsReportsRoute: AppsReportsRoute,
+  AppsShowcaseRoute: AppsShowcaseRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
