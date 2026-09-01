@@ -8,7 +8,7 @@ export const Route = createFileRoute("/apps/showcase")({
     nav: {
       title: "Components",
       description:
-        "Component gallery: stat cards and a composite search bar (input, month picker, searchable multi-select).",
+        "Component gallery, stacked comparison: five design takes (editorial, cards, bento, terminal, soft) on the same stats + searchable, filterable project list.",
       group: "App 3",
       icon: Shapes,
     },
