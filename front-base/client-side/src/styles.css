@@ -1,0 +1,174 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+/*
+ * Verdant palette: primary #006F4E · secondary #009598, over green-tinted
+ * neutrals. `accent` is a soft green tint because it drives hover/focus
+ * states (sidebar items, dropdown rows).
+ */
+:root {
+  --background: hsl(0 0% 100%);
+  --foreground: hsl(162 30% 8%);
+  --card: hsl(0 0% 100%);
+  --card-foreground: hsl(162 30% 8%);
+  --popover: hsl(0 0% 100%);
+  --popover-foreground: hsl(162 30% 8%);
+  --primary: hsl(162 100% 22%);
+  --primary-foreground: hsl(0 0% 100%);
+  --secondary: hsl(181 100% 30%);
+  --secondary-foreground: hsl(0 0% 100%);
+  --muted: hsl(162 20% 95%);
+  --muted-foreground: hsl(162 8% 42%);
+  --accent: hsl(162 40% 92%);
+  --accent-foreground: hsl(162 100% 18%);
+  --destructive: hsl(358 85% 52%);
+  --border: hsl(162 15% 90%);
+  --input: hsl(162 15% 90%);
+  --ring: hsl(162 100% 22%);
+  --chart-1: hsl(162 100% 22%);
+  --chart-2: hsl(181 100% 30%);
+  --chart-3: hsl(162 15% 60%);
+  --chart-4: hsl(162 45% 45%);
+  --chart-5: hsl(181 40% 55%);
+  --radius: 0.625rem;
+  --sidebar: hsl(162 25% 97%);
+  --sidebar-foreground: hsl(162 20% 18%);
+  --sidebar-primary: hsl(162 100% 22%);
+  --sidebar-primary-foreground: hsl(0 0% 100%);
+  --sidebar-accent: hsl(162 40% 92%);
+  --sidebar-accent-foreground: hsl(162 100% 18%);
+  --sidebar-border: hsl(162 15% 88%);
+  --sidebar-ring: hsl(181 100% 30%);
+}
+
+.dark {
+  /* Neutrals are achromatic (near-black) — green tint dropped, brand hues kept only as accents. */
+  --background: oklch(0.168 0 0);
+  --foreground: oklch(0.97 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.97 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.97 0 0);
+  --primary: oklch(0.73 0.163 159.8);
+  --primary-foreground: oklch(0.168 0 0);
+  --secondary: oklch(0.73 0.123 196.8);
+  --secondary-foreground: oklch(0.168 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.683 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.97 0 0);
+  --destructive: oklch(0.631 0.226 25.3);
+  --border: oklch(0.281 0 0);
+  --input: oklch(0.281 0 0);
+  --ring: oklch(0.73 0.163 159.8);
+  --chart-1: oklch(0.73 0.163 159.8);
+  --chart-2: oklch(0.73 0.123 196.8);
+  --chart-3: oklch(0.64 0 0);
+  --chart-4: oklch(0.749 0.122 166.1);
+  --chart-5: oklch(0.717 0.101 196.8);
+  --sidebar: oklch(0.191 0 0);
+  --sidebar-foreground: oklch(0.885 0 0);
+  --sidebar-primary: oklch(0.73 0.163 159.8);
+  --sidebar-primary-foreground: oklch(0.168 0 0);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.97 0 0);
+  --sidebar-border: oklch(0.269 0 0);
+  --sidebar-ring: oklch(0.73 0.123 196.8);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: system-ui, sans-serif;
+  }
+}
+
+/*
+ * Compact table density. Cells only tighten their padding on their own; this
+ * rule lets them also drop their secondary identity line (e.g. the customer's
+ * country), which is what actually halves row height.
+ */
+[data-density="compact"] [data-secondary] {
+  display: none;
+}
+
+/* Small helpers used by the shell */
+.loading {
+  padding: 3rem;
+  text-align: center;
+  color: var(--muted-foreground);
+  font-size: 0.875rem;
+}
+
+.error-box {
+  padding: 2rem;
+  background: color-mix(in oklab, var(--destructive) 8%, transparent);
+  border: 1px solid var(--destructive);
+  border-radius: var(--radius);
+}
+
+.error-box h2 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.error-box p {
+  font-size: 0.875rem;
+  color: var(--muted-foreground);
+}
+
+.error-box button {
+  margin-top: 1rem;
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) - 2px);
+  padding: 0.375rem 0.875rem;
+  font-size: 0.875rem;
+}

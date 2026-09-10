@@ -40,3 +40,6 @@ Conventions for every note folder:
 - Add a new note by creating a new top-level folder following the conventions above.
 - Each note is independent — you can `cd` into it and run it in isolation.
 - See a note's own `README.md` for its run instructions; this file only describes the repo-wide layout.
+
+Prefer spawning subagents for independent work: a scout (read-only recon) when the task names an area but not specific files, a researcher for web synthesis, and parallel subagent calls for independent investigations. Do the inline
+   │ edits yourself — subagents are a context-protecting prefetch, not a substitute for working.
