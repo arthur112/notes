@@ -204,6 +204,7 @@ from `Federation/lazy`; MonthPicker/YearPicker/MultiSelect were ported from its 
 the shadcn _base-nova_ `combobox` primitive (vendored as `ui/combobox.tsx` + `ui/input-group.tsx`):
 selected values are removable chips in the field, the input filters the list, and Base UI owns the
 keyboard model — while the public API stays `{ options, value: string[], onChange }`. The field is
-a **fixed size** (`h-14`, overridable via `className`): its chips wrap like flex items inside a
-scroll area whose scrollbar is hidden by the `no-scrollbar` utility, so it scrolls without growing
-per selection, and a pinned clear-all sits outside that scroll area.
+a **fixed size** (`h-11 w-64`, overridable via `className`): one full chip row is visible, the next
+wrapped row peeks through a mask fade, and the rows scroll **vertically** with the scrollbar hidden
+(`no-scrollbar` + `fade-y-*`). Nothing resizes as selections change, and a pinned clear-all sits
+outside the scroll area.

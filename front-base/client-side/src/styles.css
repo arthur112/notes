@@ -153,6 +153,39 @@
   }
 }
 
+/*
+ * Edge fades for a scroll container. They are applied only to the side(s)
+ * that still have content hidden beyond them, so — with the scrollbar hidden —
+ * the fade itself is the "there's more, scroll" affordance. Used by
+ * `MultiSelect`, where the bottom fade softens the next chip row peeking in.
+ */
+@utility fade-y-end {
+  -webkit-mask-image: linear-gradient(to bottom, black 0, black calc(100% - 0.75rem), transparent);
+  mask-image: linear-gradient(to bottom, black 0, black calc(100% - 0.75rem), transparent);
+}
+
+@utility fade-y-start {
+  -webkit-mask-image: linear-gradient(to bottom, transparent, black 0.75rem, black 100%);
+  mask-image: linear-gradient(to bottom, transparent, black 0.75rem, black 100%);
+}
+
+@utility fade-y-both {
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    transparent,
+    black 0.75rem,
+    black calc(100% - 0.75rem),
+    transparent
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    transparent,
+    black 0.75rem,
+    black calc(100% - 0.75rem),
+    transparent
+  );
+}
+
 /* Small helpers used by the shell */
 .loading {
   padding: 3rem;
