@@ -45,7 +45,7 @@ export function GalleryPage() {
 
       <GallerySection
         name="2 · Pickers & selects"
-        note="Dumb, controlled — Finance uses MonthPicker, Ops uses DateRangePicker; all of them accept any value/onChange."
+        note="Dumb, controlled — Finance uses MonthPicker, Ops uses DateRangePicker; all of them accept any value/onChange. MultiSelect is a fixed-size chips combobox: pick enough projects to watch it wrap and scroll, with the scrollbar hidden and Clear pinned in place."
       >
         <PickerGallery />
       </GallerySection>

@@ -139,6 +139,20 @@
   display: none;
 }
 
+/*
+ * A scroll container that keeps its scrollbar hidden but stays scrollable
+ * (wheel, trackpad, keyboard and touch all still work). Used by the fixed-size
+ * chips field of `MultiSelect`.
+ */
+@utility no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
 /* Small helpers used by the shell */
 .loading {
   padding: 3rem;

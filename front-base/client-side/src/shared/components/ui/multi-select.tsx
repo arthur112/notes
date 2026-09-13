@@ -1,10 +1,19 @@
-import { useMemo, useState } from "react";
-import { Check, ChevronsUpDown, Search, X } from "lucide-react";
+import { useMemo } from "react";
 
-import { Button, buttonVariants } from "@/shared/components/ui/button";
-import { Input } from "@/shared/components/ui/input";
-import { Popover, PopoverContent, PopoverTrigger } from "@/shared/components/ui/popover";
-import { Separator } from "@/shared/components/ui/separator";
+import {
+  Combobox,
+  ComboboxChip,
+  ComboboxChips,
+  ComboboxChipsInput,
+  ComboboxClear,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxItem,
+  ComboboxList,
+  ComboboxValue,
+  createItems,
+  useComboboxAnchor,
+} from "@/shared/components/ui/combobox";
 import { cn } from "@/shared/lib/utils";
 
 export type MultiSelectOption = { value: string; label: string };
@@ -14,107 +23,113 @@ export type MultiSelectProps = {
   value: string[];
   onChange: (next: string[]) => void;
   placeholder?: string;
+  /** Shown when the query matches nothing (default: "No results."). */
+  emptyMessage?: string;
   /** Accessible name; the visible label lives in `FilterField`. */
   ariaLabel?: string;
+  /** Size overrides. The field is a fixed `h-14 w-64` by default. */
   className?: string;
 };
 
-/** A multi-select with an in-popup search field and a clear-all button. */
+/**
+ * Multi-select built on the shadcn (Base UI) combobox, shaped for this app's
+ * dense filters: a **fixed-size** field (`h-14 w-64`, overridable via
+ * `className`) whose chips wrap like flex items inside a scroll area, so the
+ * field never resizes as selections change. The scrollbar is hidden but the
+ * area still scrolls; a pinned clear-all sits outside it so it never scrolls
+ * away. Typing filters the list, and Base UI owns the keyboard model (arrows,
+ * typeahead, Backspace to remove, Escape).
+ *
+ * `value` stays a plain array of option ids so filter state never holds objects.
+ */
 export function MultiSelect({
   options,
   value,
   onChange,
   placeholder = "Select…",
+  emptyMessage = "No results.",
   ariaLabel,
   className,
 }: MultiSelectProps) {
-  const [query, setQuery] = useState("");
+  const anchor = useComboboxAnchor();
 
-  const filtered = useMemo(
-    () => options.filter((o) => o.label.toLowerCase().includes(query.trim().toLowerCase())),
-    [options, query],
+  const items = useMemo(
+    () =>
+      createItems(options, {
+        getValue: (option) => option.value,
+        getLabel: (option) => option.label,
+      }),
+    [options],
   );
 
-  const toggle = (optionValue: string) =>
-    onChange(
-      value.includes(optionValue)
-        ? value.filter((v) => v !== optionValue)
-        : [...value, optionValue],
-    );
+  const labelByValue = useMemo(
+    () => new Map(options.map((option) => [option.value, option.label])),
+    [options],
+  );
 
   return (
-    <Popover
-      onOpenChange={(open) => {
-        if (!open) setQuery("");
-      }}
+    <Combobox
+      multiple
+      autoHighlight
+      items={items}
+      value={value}
+      onValueChange={(next) => onChange(next)}
     >
-      <PopoverTrigger
-        aria-label={ariaLabel}
+      <ComboboxChips
+        ref={anchor}
         className={cn(
-          buttonVariants({ variant: "outline" }),
-          "justify-between font-normal",
-          value.length === 0 && "text-muted-foreground",
+          "h-14 w-64 shrink-0 flex-nowrap items-stretch gap-1 overflow-hidden px-2 py-0 has-data-[slot=combobox-chip]:px-2",
           className,
         )}
       >
-        <span className="truncate">
-          {value.length === 0 ? placeholder : `${value.length} selected`}
-        </span>
-        <ChevronsUpDown className="text-muted-foreground" />
-      </PopoverTrigger>
-      <PopoverContent className="w-(--anchor-width) min-w-56 p-0">
-        <div className="relative border-b border-border">
-          <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search…"
-            className="border-0 pl-9 shadow-none focus-visible:border-transparent focus-visible:ring-0"
-          />
-        </div>
-        <div className="max-h-56 overflow-y-auto p-1">
-          {filtered.length === 0 ? (
-            <p className="px-2 py-4 text-center text-sm text-muted-foreground">No results.</p>
-          ) : (
-            filtered.map((option) => {
-              const selected = value.includes(option.value);
-              return (
-                <button
-                  key={option.value}
-                  type="button"
-                  onClick={() => toggle(option.value)}
-                  className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-accent hover:text-accent-foreground"
-                >
-                  <span
-                    className={cn(
-                      "flex size-4 shrink-0 items-center justify-center rounded-[4px] border border-input",
-                      selected && "border-primary bg-primary text-primary-foreground",
-                    )}
+        <div className="no-scrollbar flex min-h-0 min-w-0 flex-1 flex-wrap content-start items-center gap-1 overflow-y-auto py-1">
+          <ComboboxValue>
+            {(selected: string[]) => (
+              <>
+                {selected.map((selectedValue) => (
+                  <ComboboxChip
+                    key={selectedValue}
+                    aria-label={labelByValue.get(selectedValue) ?? selectedValue}
+                    aria-description="Press Backspace or Delete to remove"
                   >
-                    {selected && <Check className="size-3" />}
-                  </span>
-                  <span className="truncate">{option.label}</span>
-                </button>
-              );
-            })
+                    {labelByValue.get(selectedValue) ?? selectedValue}
+                  </ComboboxChip>
+                ))}
+                <ComboboxChipsInput
+                  aria-label={ariaLabel}
+                  placeholder={selected.length === 0 ? placeholder : ""}
+                  aria-description={
+                    selected.length > 0
+                      ? `${selected.length} selected. From the start of the input, press Left Arrow to focus the selected items`
+                      : undefined
+                  }
+                />
+              </>
+            )}
+          </ComboboxValue>
+        </div>
+        {value.length > 0 && (
+          <ComboboxClear
+            aria-label="Clear selection"
+            className="size-7 shrink-0 self-center text-muted-foreground"
+          />
+        )}
+      </ComboboxChips>
+      <ComboboxContent anchor={anchor}>
+        <ComboboxEmpty>{emptyMessage}</ComboboxEmpty>
+        <ComboboxList>
+          {(option: MultiSelectOption) => (
+            <ComboboxItem key={option.value} value={option.value}>
+              {option.label}
+            </ComboboxItem>
           )}
-        </div>
-        <Separator />
-        <div className="flex items-center justify-between p-2">
-          <span className="px-1 text-xs text-muted-foreground tabular-nums">
+        </ComboboxList>
+        {value.length > 0 && (
+          <div className="border-t border-border px-2.5 py-1 text-xs text-muted-foreground tabular-nums">
             {value.length} of {options.length} selected
-          </span>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => onChange([])}
-            disabled={value.length === 0}
-          >
-            <X />
-            Clear
-          </Button>
-        </div>
-      </PopoverContent>
-    </Popover>
+          </div>
+        )}
+      </ComboboxContent>
+    </Combobox>
   );
 }

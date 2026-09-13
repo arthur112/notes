@@ -8,12 +8,11 @@ import { YearPicker } from "@/shared/components/ui/year-picker";
 import { formatMonth, type Month, type Ymd } from "@/shared/lib/date";
 import { SAMPLE_PROJECTS } from "../types/gallery-sample";
 
-const STATUS_OPTIONS = [
-  { value: "planned", label: "Planned" },
-  { value: "in-progress", label: "In progress" },
-  { value: "shipped", label: "Shipped" },
-  { value: "done", label: "Done" },
-];
+/** Long enough that the fixed-width field has to wrap and scroll. */
+const PROJECT_OPTIONS = SAMPLE_PROJECTS.map((project) => ({
+  value: String(project.id),
+  label: project.name,
+}));
 
 const OWNER_OPTIONS = [...new Set(SAMPLE_PROJECTS.map((p) => p.owner))].map((owner) => ({
   value: owner,
@@ -33,7 +32,7 @@ function Readout({ label, children }: { label: string; children: ReactNode }) {
 export function PickerGallery() {
   const [year, setYear] = useState<number | null>(2026);
   const [month, setMonth] = useState<Month | null>({ year: 2026, month: 6 });
-  const [statuses, setStatuses] = useState<string[]>(["in-progress"]);
+  const [projects, setProjects] = useState<string[]>(["1", "3", "5", "7"]);
   const [owner, setOwner] = useState<string | null>("Mira");
   const [date, setDate] = useState<Ymd | null>("2026-09-18");
   const [range, setRange] = useState<DateRange>({ from: "2026-09-01", to: "2026-09-30" });
@@ -48,11 +47,10 @@ export function PickerGallery() {
       </div>
       <div className="flex flex-wrap items-end gap-3">
         <MultiSelect
-          options={STATUS_OPTIONS}
-          value={statuses}
-          onChange={setStatuses}
-          placeholder="Statuses…"
-          className="min-w-44"
+          options={PROJECT_OPTIONS}
+          value={projects}
+          onChange={setProjects}
+          placeholder="Projects…"
         />
         <SearchSelect
           options={OWNER_OPTIONS}
@@ -68,6 +66,9 @@ export function PickerGallery() {
         <Readout label="DatePicker">{date}</Readout>
         <Readout label="DateRangePicker">
           {range.from && range.to ? `${range.from} → ${range.to}` : "—"}
+        </Readout>
+        <Readout label="MultiSelect">
+          {projects.length > 0 ? `${projects.length} selected` : null}
         </Readout>
       </div>
     </div>
