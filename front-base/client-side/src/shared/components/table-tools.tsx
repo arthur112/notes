@@ -3,6 +3,7 @@ import type { Column, ReactTable, RowData } from "@tanstack/react-table";
 import { Columns3, Loader2, Rows3, X } from "lucide-react";
 
 import { Button } from "@/shared/components/ui/button";
+import { PaginationBar } from "@/shared/components/ui/pagination-bar";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -168,5 +169,45 @@ export function SelectionBar({
         Clear selection
       </Button>
     </div>
+  );
+}
+
+/**
+ * Pagination driven by the table's `rowPaginationFeature`. The page owns the
+ * `pagination` slice (it has to build the query before the table exists) and
+ * feeds it back through `useTable`; this reads it back out and routes every
+ * navigation through the feature's own APIs, so there is one source of truth.
+ * The `PaginationBar` it renders stays a dumb, controlled component.
+ */
+export function TablePagination<TData extends RowData>({
+  table,
+  pageSizeOptions,
+  onNavigate,
+}: {
+  table: ReactTable<DataTableFeatures, TData>;
+  pageSizeOptions?: number[];
+  /** Runs after a page or page-size change (e.g. to drop a stale row selection). */
+  onNavigate?: () => void;
+}) {
+  const { pageIndex, pageSize } = table.state.pagination;
+
+  return (
+    <PaginationBar
+      page={pageIndex + 1}
+      // A manual page count can still be 0 before the first response settles.
+      totalPages={Math.max(table.getPageCount(), 1)}
+      count={table.getRowCount()}
+      pageSize={pageSize}
+      pageSizeOptions={pageSizeOptions}
+      onPageChange={(next) => {
+        table.setPageIndex(next - 1);
+        onNavigate?.();
+      }}
+      onPageSizeChange={(next) => {
+        // Return to the first page so a smaller page size never lands past the end.
+        table.setPagination((current) => ({ ...current, pageIndex: 0, pageSize: next }));
+        onNavigate?.();
+      }}
+    />
   );
 }

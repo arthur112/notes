@@ -4,6 +4,7 @@ import {
   columnVisibilityFeature,
   createColumnHelper,
   createSortedRowModel,
+  rowPaginationFeature,
   rowSelectionFeature,
   rowSortingFeature,
   sortFn_alphanumeric,
@@ -48,14 +49,18 @@ export type DataColumnMeta = {
 };
 
 /**
- * The shared v9 feature set. Sorting, row selection and column visibility are
- * registered explicitly (v9 has no global feature APIs); `manualSorting` keeps
- * every app server-driven, so only the *sorted* row model is needed and paging
- * maps onto the page query rather than a client row model.
+ * The shared v9 feature set. Sorting, row selection, pagination and column
+ * visibility are registered explicitly (v9 has no global feature APIs).
+ *
+ * Every app is server-driven: with `manualSorting` / `manualPagination` the
+ * features own *state and navigation APIs only* — they never transform rows.
+ * No `paginatedRowModel` factory is registered, so `getRowModel()` resolves to
+ * the pre-paginated model and paging happens in the Gridify query string.
  */
 export const dataTableFeatures = tableFeatures({
   rowSortingFeature,
   rowSelectionFeature,
+  rowPaginationFeature,
   columnVisibilityFeature,
   sortedRowModel: createSortedRowModel(),
   sortFns: {

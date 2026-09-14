@@ -2,17 +2,22 @@ import { useCallback, useMemo, useState } from "react";
 import {
   useTable,
   type ColumnVisibilityState,
+  type PaginationState,
   type SortingState,
   type Updater,
 } from "@tanstack/react-table";
 import { Activity, Inbox, SearchX } from "lucide-react";
 
 import { ActiveFilters } from "@/shared/components/filters/active-filters";
-import { ColumnsMenu, DensityToggle, ResultsSummary } from "@/shared/components/table-tools";
+import {
+  ColumnsMenu,
+  DensityToggle,
+  ResultsSummary,
+  TablePagination,
+} from "@/shared/components/table-tools";
 import type { TableDensity } from "@/shared/components/data-table";
 import { Button } from "@/shared/components/ui/button";
 import { PageHeader } from "@/shared/components/ui/page-header";
-import { PaginationBar } from "@/shared/components/ui/pagination-bar";
 import { MonthPicker } from "@/shared/components/ui/month-picker";
 import { ErrorPanel, TableEmpty, TableSkeleton } from "@/shared/components/ui/data-states";
 import { dataTableFeatures, DataTable } from "@/shared/components/data-table";
@@ -22,6 +27,7 @@ import {
   StatusPills,
   useOrderTotals,
   useOrdersPage,
+  type Order,
 } from "@/shared/domain/orders";
 import { formatMonth, type Month } from "@/shared/lib/date";
 import { cn } from "@/shared/lib/utils";
@@ -39,6 +45,8 @@ import {
 const PAGE_SIZE_OPTIONS = [25, 50, 100];
 /** Net + VAT live in the summary cards, so they start hidden and Total fits. */
 const DEFAULT_HIDDEN_COLUMNS: ColumnVisibilityState = { subtotal: false, tax: false };
+/** Stable fallback so the table's models are not invalidated on every render. */
+const EMPTY_ORDERS: Order[] = [];
 
 /**
  * Orders · Finance — the second app over the same orders business. A lean
@@ -48,23 +56,32 @@ const DEFAULT_HIDDEN_COLUMNS: ColumnVisibilityState = { subtotal: false, tax: fa
  */
 export function FinanceOrdersPage() {
   const [filters, setFilters] = useState(DEFAULT_FINANCE_FILTERS);
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(PAGE_SIZE_OPTIONS[1]);
+  const [pagination, setPagination] = useState<PaginationState>({
+    pageIndex: 0,
+    pageSize: PAGE_SIZE_OPTIONS[1],
+  });
   const [sorting, setSorting] = useState<SortingState>([{ id: "dueDate", desc: false }]);
   const [columnVisibility, setColumnVisibility] =
     useState<ColumnVisibilityState>(DEFAULT_HIDDEN_COLUMNS);
   const [density, setDensity] = useState<TableDensity>("comfortable");
   const [showActivity, setShowActivity] = useState(false);
 
-  const patchFilters = useCallback((patch: Partial<typeof filters>) => {
-    setFilters((current) => ({ ...current, ...patch }));
-    setPage(1);
+  const resetPage = useCallback(() => {
+    setPagination((current) => ({ ...current, pageIndex: 0 }));
   }, []);
+
+  const patchFilters = useCallback(
+    (patch: Partial<typeof filters>) => {
+      setFilters((current) => ({ ...current, ...patch }));
+      resetPage();
+    },
+    [resetPage],
+  );
 
   const resetFilters = useCallback(() => {
     setFilters(DEFAULT_FINANCE_FILTERS);
-    setPage(1);
-  }, []);
+    resetPage();
+  }, [resetPage]);
 
   const setMonth = useCallback((month: Month | null) => patchFilters({ month }), [patchFilters]);
 
@@ -75,8 +92,14 @@ export function FinanceOrdersPage() {
   );
 
   const pageQuery = useMemo(
-    () => buildPageQuery({ page, pageSize, orderBy, conditions }),
-    [page, pageSize, orderBy, conditions],
+    () =>
+      buildPageQuery({
+        page: pagination.pageIndex + 1,
+        pageSize: pagination.pageSize,
+        orderBy,
+        conditions,
+      }),
+    [pagination, orderBy, conditions],
   );
   const filterString = useMemo(() => pageQuery.filter, [pageQuery.filter]);
 
@@ -85,20 +108,26 @@ export function FinanceOrdersPage() {
 
   const columns = useMemo(() => buildFinanceColumns(), []);
 
-  const onSortingChange = useCallback((updater: Updater<SortingState>) => {
-    setSorting((current) => (typeof updater === "function" ? updater(current) : updater));
-    setPage(1);
-  }, []);
+  const onSortingChange = useCallback(
+    (updater: Updater<SortingState>) => {
+      setSorting((current) => (typeof updater === "function" ? updater(current) : updater));
+      resetPage();
+    },
+    [resetPage],
+  );
 
   const table = useTable(
     {
       features: dataTableFeatures,
       columns,
-      data: orders.data?.data ?? [],
-      state: { sorting, columnVisibility },
+      data: orders.data?.data ?? EMPTY_ORDERS,
+      state: { sorting, pagination, columnVisibility },
       onSortingChange,
+      onPaginationChange: setPagination,
       onColumnVisibilityChange: setColumnVisibility,
       manualSorting: true,
+      manualPagination: true,
+      rowCount: orders.data?.count,
     },
     (state) => state,
   );
@@ -205,18 +234,7 @@ export function FinanceOrdersPage() {
               />
               {count > 0 && (
                 <div className="border-t px-4 py-3">
-                  <PaginationBar
-                    page={page}
-                    totalPages={orders.data?.totalPages ?? 1}
-                    count={count}
-                    pageSize={pageSize}
-                    pageSizeOptions={PAGE_SIZE_OPTIONS}
-                    onPageChange={setPage}
-                    onPageSizeChange={(next) => {
-                      setPageSize(next);
-                      setPage(1);
-                    }}
-                  />
+                  <TablePagination table={table} pageSizeOptions={PAGE_SIZE_OPTIONS} />
                 </div>
               )}
             </>

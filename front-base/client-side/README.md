@@ -171,6 +171,11 @@ client-side/
 - **Table presentation is declarative.** Alignment, columns-menu labels and lock rules live on the
   column definition's typed `meta` (`DataColumnMeta`), not in bespoke cell classes — the shared
   renderer applies them so both apps get the same grid behaviour.
+- **Table state belongs to table features.** Sorting and pagination are v9 features registered once
+  in `dataTableFeatures`; both apps run them in manual mode (`manualSorting` / `manualPagination` +
+  `rowCount`), so the features own state and navigation APIs while Gridify owns the query. The dumb
+  `PaginationBar` stays controlled — the shared `TablePagination` derives its props from the table
+  instance.
 - **Records are routes, not overlays.** A row opens `/apps/orders-ops/$orderNo`; the shell
   breadcrumb is the way back. Sheets are reserved for creating and editing, where a modal's
   focus trap and dismissal help rather than hurt.

@@ -3,6 +3,7 @@ import { useNavigate } from "@tanstack/react-router";
 import {
   useTable,
   type ColumnVisibilityState,
+  type PaginationState,
   type RowSelectionState,
   type SortingState,
   type Updater,
@@ -11,8 +12,8 @@ import { Download, Inbox, PackageCheck, Plus, SearchX } from "lucide-react";
 
 import { Button } from "@/shared/components/ui/button";
 import { PageHeader } from "@/shared/components/ui/page-header";
-import { PaginationBar } from "@/shared/components/ui/pagination-bar";
 import { ErrorPanel, TableEmpty, TableSkeleton } from "@/shared/components/ui/data-states";
+import { TablePagination } from "@/shared/components/table-tools";
 import { dataTableFeatures, DataTable, selectionColumn } from "@/shared/components/data-table";
 import type { TableDensity } from "@/shared/components/data-table";
 import {
@@ -73,8 +74,10 @@ export function OpsOrdersPage() {
   const navigate = useNavigate();
 
   const [filters, setFilters] = useState<OpsFilters>(DEFAULT_OPS_FILTERS);
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(PAGE_SIZE_OPTIONS[0]);
+  const [pagination, setPagination] = useState<PaginationState>({
+    pageIndex: 0,
+    pageSize: PAGE_SIZE_OPTIONS[0],
+  });
   const [sorting, setSorting] = useState<SortingState>([{ id: "createdAt", desc: true }]);
   const [columnVisibility, setColumnVisibility] = useState<ColumnVisibilityState>({});
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
@@ -85,28 +88,26 @@ export function OpsOrdersPage() {
   const setStatus = useSetOrderStatusMutation();
 
   // Any change to what the page shows invalidates a selection made on the old page.
-  const patchFilters = useCallback((patch: Partial<OpsFilters>) => {
-    setFilters((current) => ({ ...current, ...patch }));
-    setPage(1);
-    setRowSelection({});
+  const resetPage = useCallback(() => {
+    setPagination((current) => ({ ...current, pageIndex: 0 }));
   }, []);
+
+  const clearSelection = useCallback(() => setRowSelection({}), []);
+
+  const patchFilters = useCallback(
+    (patch: Partial<OpsFilters>) => {
+      setFilters((current) => ({ ...current, ...patch }));
+      resetPage();
+      setRowSelection({});
+    },
+    [resetPage],
+  );
 
   const resetFilters = useCallback(() => {
     setFilters(DEFAULT_OPS_FILTERS);
-    setPage(1);
+    resetPage();
     setRowSelection({});
-  }, []);
-
-  const goToPage = useCallback((next: number) => {
-    setPage(next);
-    setRowSelection({});
-  }, []);
-
-  const handlePageSize = useCallback((next: number) => {
-    setPageSize(next);
-    setPage(1);
-    setRowSelection({});
-  }, []);
+  }, [resetPage]);
 
   const handleOpen = useCallback(
     (order: Order) => {
@@ -143,28 +144,40 @@ export function OpsOrdersPage() {
   );
 
   const pageQuery = useMemo(
-    () => buildPageQuery({ page, pageSize, orderBy, conditions }),
-    [page, pageSize, orderBy, conditions],
+    () =>
+      buildPageQuery({
+        page: pagination.pageIndex + 1,
+        pageSize: pagination.pageSize,
+        orderBy,
+        conditions,
+      }),
+    [pagination, orderBy, conditions],
   );
 
   const orders = useOrdersPage(pageQuery);
 
-  const onSortingChange = useCallback((updater: Updater<SortingState>) => {
-    setSorting((current) => (typeof updater === "function" ? updater(current) : updater));
-    setPage(1);
-    setRowSelection({});
-  }, []);
+  const onSortingChange = useCallback(
+    (updater: Updater<SortingState>) => {
+      setSorting((current) => (typeof updater === "function" ? updater(current) : updater));
+      resetPage();
+      setRowSelection({});
+    },
+    [resetPage],
+  );
 
   const table = useTable(
     {
       features: dataTableFeatures,
       columns,
       data: orders.data?.data ?? EMPTY_ORDERS,
-      state: { sorting, columnVisibility, rowSelection },
+      state: { sorting, pagination, columnVisibility, rowSelection },
       onSortingChange,
+      onPaginationChange: setPagination,
       onColumnVisibilityChange: setColumnVisibility,
       onRowSelectionChange: setRowSelection,
       manualSorting: true,
+      manualPagination: true,
+      rowCount: orders.data?.count,
       getRowId: (row: Order) => row.orderNo,
     },
     (state) => state,
@@ -226,7 +239,7 @@ export function OpsOrdersPage() {
         density={density}
         onDensityChange={setDensity}
         selectionCount={selectedOrders.length}
-        onClearSelection={() => setRowSelection({})}
+        onClearSelection={clearSelection}
         bulkActions={
           <>
             <Button variant="outline" size="sm" onClick={() => bulkSetStatus("shipped")}>
@@ -289,14 +302,10 @@ export function OpsOrdersPage() {
             />
             {count > 0 && (
               <div className="border-t px-4 py-3">
-                <PaginationBar
-                  page={page}
-                  totalPages={orders.data?.totalPages ?? 1}
-                  count={count}
-                  pageSize={pageSize}
+                <TablePagination
+                  table={table}
                   pageSizeOptions={PAGE_SIZE_OPTIONS}
-                  onPageChange={goToPage}
-                  onPageSizeChange={handlePageSize}
+                  onNavigate={clearSelection}
                 />
               </div>
             )}
