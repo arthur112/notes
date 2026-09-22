@@ -22,9 +22,9 @@ public sealed class SendMailHandler(ITemplateRenderer templateRenderer, IEmailSe
             return Result.Failure<string, MailError>(
                 MailError.Validation("'cc' recipients cannot be empty."));
 
-        var htmlResult = await templateRenderer.RenderAsync(template, command.Data, cancellationToken);
-        if (htmlResult.IsFailure)
-            return Result.Failure<string, MailError>(htmlResult.Error);
+        var rendered = await templateRenderer.RenderAsync(template, command.Data, cancellationToken);
+        if (rendered.IsFailure)
+            return Result.Failure<string, MailError>(rendered.Error);
 
         var subject = (string.IsNullOrWhiteSpace(command.Subject)
             ? template.DefaultSubject()
@@ -34,7 +34,12 @@ public sealed class SendMailHandler(ITemplateRenderer templateRenderer, IEmailSe
             return Result.Failure<string, MailError>(
                 MailError.Validation("The subject cannot contain a line break."));
 
-        var email = new OutboundEmail(command.To, command.Cc ?? [], subject, htmlResult.Value);
+        var email = new OutboundEmail(
+            command.To,
+            command.Cc ?? [],
+            subject,
+            rendered.Value.Html,
+            rendered.Value.InlineImages);
         return await emailSender.SendAsync(email, cancellationToken);
     }
 }

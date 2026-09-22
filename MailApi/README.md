@@ -2,7 +2,7 @@
 
 A minimal centralised **mail API** for a closed environment, plus a thin **SDK** other apps use to send standardised mail. This implements **Proposition A** from [`DESIGN.md`](DESIGN.md): file-based Liquid templates, a single endpoint, no database.
 
-Templates are written in **HTML + inline CSS + Liquid** and rendered with [Fluid.Core](https://github.com/sebastienros/fluid); the rendered MIME is delivered via [MailKit](https://github.com/jstedfast/MailKit). **No CSS inliner** — templates already carry inline styles, per the design.
+Templates are written in **HTML + inline CSS + Liquid** and rendered with [Fluid.Core](https://github.com/sebastienros/fluid); the rendered MIME is delivered via [MailKit](https://github.com/jstedfast/MailKit). **No CSS inliner** — templates already carry inline styles, per the design. Images that live in the solution (a logo, say) are **embedded into the message as CID linked resources**, so they display without any external hosting or remote-image opt-in.
 
 ## What the API does (and nothing more)
 
@@ -18,10 +18,12 @@ MailApi/
 ├── DESIGN.md                      # design propositions (A/B/C) + cross-cutting notes
 ├── MailApi.slnx
 ├── src/
-│   ├── MailApi.Domain/            # MailTemplate enum + OutboundEmail; no external dependencies
+│   ├── MailApi.Domain/            # MailTemplate, MailAsset, OutboundEmail; no external dependencies
 │   ├── MailApi.Application/       # send-mail + evaluate (dry-run render) use cases, template/sender abstractions
 │   ├── MailApi.Infrastructure/    # Fluid, MailKit, SMTP config, and source templates
 │   │   └── templates/             # copied into Web build and publish output
+│   │       ├── assets/            # images referenced by templates (embedded as CID on send)
+│   │       │   └── logo.png       # sample logo used by _layout.liquid
 │   │       ├── _layout.liquid                # shared HTML chrome (header, {% renderbody %}, footer)
 │   │       ├── welcome.liquid                # HTML body (inline CSS, Liquid) wrapped in {% layout '_layout' %}
 │   │       └── reset-password.liquid
@@ -46,10 +48,30 @@ Mail types are a closed set: the `MailTemplate` enum (`Welcome`, `ResetPassword`
 | --- | --- |
 | `_layout.liquid` | shared HTML chrome around every body — brand header, `{% renderbody %}` placeholder, sign-off footer |
 | `{file-name}.liquid` | HTML body for one `MailTemplate` value (inline CSS, Liquid); declares `{% layout '_layout' %}` on its first line |
+| `assets/{image}` | an image embedded in the solution (e.g. `assets/logo.png`); referenced with the `mail_asset` filter |
 
 Every mail is rendered through a custom `{% layout %}` / `{% renderbody %}` tag pair registered on the `FluidParser` — the same pattern Fluid itself documents and uses in its `Fluid.ViewEngine` (`FluidViewParser`). The `layout` tag is an *expression tag* that only records the layout path in the render context; after the body is rendered, the renderer loads the layout file and renders it with the body available to `{% renderbody %}` (an *empty tag* that writes the already-encoded body verbatim). A template still only carries its body — the `{% layout %}` line just names the surrounding chrome. The layout receives the same `data` model; it uses `{{ brand | default: "MailApi" }}`, so pass `brand` in `data` to override the wordmark. A missing or unreadable template file is a server error (`500`), not a `400`.
 
 The `data` object becomes the **root** Liquid model, so reference fields directly: `{{ name }}`, `{{ user.email }}`, `{{ items[0].id }}`. Keys are case-insensitive.
+
+## Embedded images (logos)
+
+Put the image file in `templates/assets/` and reference it with the **`mail_asset`** filter wherever you'd normally write a `src`:
+
+```liquid
+<img src="{{ 'logo.png' | mail_asset }}" alt="MailApi" width="28" height="28"
+     style="display:inline-block;vertical-align:middle;border:0;outline:none;" />
+```
+
+The filter resolves the file, remembers it for this render, and emits a `cid:` URL (`cid:logo-png@mailapi.local`). The sender attaches each referenced file as an inline `multipart/related` linked resource carrying the matching `Content-Id`, so the image is **part of the email** — no public URL, no remote-image prompt, no data-URI stripping. CID is the only approach that displays by default across Gmail, Outlook, Apple Mail, etc.; remote URLs need an allow-images opt-in, and `data:` URIs are stripped by Gmail/Outlook.
+
+Notes:
+
+- Use **raster** formats — PNG is the safe default (Outlook ignores SVG and WebP).
+- The same image referenced twice is attached once (deduplicated by Content-Id).
+- A missing or unsupported asset is a template error → `500`, same as a broken `.liquid` file.
+
+`templates/assets/logo.png` ships as a sample and is used by `_layout.liquid`; swap it for your own or delete the `<img>` from the layout.
 
 ## Run it
 
@@ -163,5 +185,5 @@ public class WelcomeService(MailApi.Sdk.MailClient mail)
 
 1. Web validates the API key, maps the HTTP DTO, and converts JSON `data` into a case-insensitive dictionary tree.
 2. Application validates the command, resolves `template` to a `MailTemplate` enum value, picks the request or template default subject, and coordinates rendering and delivery through `CSharpFunctionalExtensions.Result<T, MailError>`.
-3. Infrastructure reads `AppContext.BaseDirectory/templates`, renders the body with Fluid (HTML-encoded output) and wraps it into the `_layout.liquid` the body names via the custom `{% layout %}` tag, then constructs and sends the MIME message through MailKit.
-4. Domain contains the transport-independent `MailTemplate` and `OutboundEmail` models.
+3. Infrastructure reads `AppContext.BaseDirectory/templates`, renders the body with Fluid (HTML-encoded output) and wraps it into the `_layout.liquid` the body names via the custom `{% layout %}` tag. The `mail_asset` filter turns `templates/assets/` files into `cid:` URLs and records them; the sender adds each one as an inline linked resource, so the message becomes `multipart/related`, then sends it through MailKit.
+4. Domain contains the transport-independent `MailTemplate`, `MailAsset`, and `OutboundEmail` models.

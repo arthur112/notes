@@ -112,20 +112,20 @@ public sealed class SendMailHandlerTests
 
     private sealed class StaticTemplateRenderer(string html) : ITemplateRenderer
     {
-        public Task<Result<string, MailError>> RenderAsync(
+        public Task<Result<(string Html, IReadOnlyList<MailAsset> InlineImages), MailError>> RenderAsync(
             MailTemplate template,
             IReadOnlyDictionary<string, object?> data,
             CancellationToken cancellationToken) => Task.FromResult(
-                Result.Success<string, MailError>(html));
+                Result.Success<(string, IReadOnlyList<MailAsset>), MailError>((html, [])));
     }
 
     private sealed class FailingTemplateRenderer(MailError error) : ITemplateRenderer
     {
-        public Task<Result<string, MailError>> RenderAsync(
+        public Task<Result<(string Html, IReadOnlyList<MailAsset> InlineImages), MailError>> RenderAsync(
             MailTemplate template,
             IReadOnlyDictionary<string, object?> data,
             CancellationToken cancellationToken) => Task.FromResult(
-                Result.Failure<string, MailError>(error));
+                Result.Failure<(string, IReadOnlyList<MailAsset>), MailError>(error));
     }
 
     private sealed class CapturingEmailSender : IEmailSender

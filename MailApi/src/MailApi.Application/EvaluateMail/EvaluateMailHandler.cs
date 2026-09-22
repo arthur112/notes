@@ -19,6 +19,9 @@ public sealed class EvaluateMailHandler(ITemplateRenderer templateRenderer)
             return Result.Failure<string, MailError>(
                 MailError.Validation($"'template' must be one of: {string.Join(", ", Enum.GetNames<MailTemplate>())}."));
 
-        return await templateRenderer.RenderAsync(template, command.Data, cancellationToken);
+        var rendered = await templateRenderer.RenderAsync(template, command.Data, cancellationToken);
+        return rendered.IsFailure
+            ? Result.Failure<string, MailError>(rendered.Error)
+            : Result.Success<string, MailError>(rendered.Value.Html);
     }
 }

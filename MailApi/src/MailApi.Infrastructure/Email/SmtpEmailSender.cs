@@ -40,6 +40,19 @@ public sealed class SmtpEmailSender(
                 message.Cc.Add(MailboxAddress.Parse(recipient));
 
             var body = new BodyBuilder { HtmlBody = email.HtmlBody };
+            foreach (var image in email.InlineImages)
+            {
+                var part = new MimePart(image.ContentType)
+                {
+                    Content = new MimeContent(new MemoryStream(image.Content)),
+                    ContentId = image.ContentId,
+                    ContentDisposition = new ContentDisposition(ContentDisposition.Inline),
+                    ContentTransferEncoding = ContentEncoding.Base64,
+                };
+                part.ContentType.Name = image.FileName;
+                body.LinkedResources.Add(part);
+            }
+
             message.Body = body.ToMessageBody();
         }
         catch (MimeKit.ParseException)

@@ -38,6 +38,29 @@ public sealed class MailApiEndpointTests
     }
 
     [Fact]
+    public async Task EmbedsTheLogoAsAnInlineImage()
+    {
+        var sender = new TestEmailSender();
+        using var factory = CreateFactory(sender: sender);
+        using var client = factory.CreateClient();
+        var response = await client.PostAsJsonAsync("/api/mail/send", new
+        {
+            template = "welcome",
+            to = new[] { "ada@example.com" },
+            data = new { name = "Ada", actionUrl = "https://example.com/verify" },
+        });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.NotNull(sender.Email);
+
+        Assert.Contains("src=\"cid:logo-png@mailapi.local\"", sender.Email.HtmlBody);
+        var image = Assert.Single(sender.Email.InlineImages);
+        Assert.Equal("logo-png@mailapi.local", image.ContentId);
+        Assert.Equal("image/png", image.ContentType);
+        Assert.NotEmpty(image.Content);
+    }
+
+    [Fact]
     public async Task WrapsBodiesWithTheSharedLayout()
     {
         var sender = new TestEmailSender();
@@ -269,11 +292,11 @@ public sealed class MailApiEndpointTests
 
     private sealed class FailingTemplateRenderer(MailError error) : ITemplateRenderer
     {
-        public Task<Result<string, MailError>> RenderAsync(
+        public Task<Result<(string Html, IReadOnlyList<MailAsset> InlineImages), MailError>> RenderAsync(
             MailTemplate template,
             IReadOnlyDictionary<string, object?> data,
             CancellationToken cancellationToken) => Task.FromResult(
-                Result.Failure<string, MailError>(error));
+                Result.Failure<(string, IReadOnlyList<MailAsset>), MailError>(error));
     }
 
     private sealed class TestEmailSender(bool failDelivery = false) : IEmailSender
