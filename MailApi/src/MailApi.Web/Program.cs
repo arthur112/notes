@@ -16,8 +16,10 @@ builder.Services.AddMailInfrastructure(builder.Configuration);
 builder.Services.AddScoped<SendMailHandler>();
 builder.Services.AddScoped<EvaluateMailHandler>();
 
-var isApiKeyConfigured = !string.IsNullOrEmpty(
-    builder.Configuration.GetSection(MailApiOptions.SectionName)[nameof(MailApiOptions.ApiKey)]);
+var mailApiOptions = builder.Configuration
+    .GetSection(MailApiOptions.SectionName)
+    .Get<MailApiOptions>() ?? new MailApiOptions();
+var isApiKeyConfigured = mailApiOptions.IsAuthEnabled;
 
 builder.Services.AddOpenApi(options =>
 {
@@ -34,7 +36,7 @@ builder.Services.AddOpenApi(options =>
             Type = SecuritySchemeType.ApiKey,
             In = ParameterLocation.Header,
             Name = "X-Api-Key",
-            Description = "Shared secret configured in MailApi:ApiKey.",
+            Description = "Shared secret configured per application under MailApi:Applications.",
         };
         document.Security =
         [
@@ -60,7 +62,7 @@ app.MapPost("/api/mail/send", async (
     ILogger<Program> logger,
     CancellationToken cancellationToken) =>
 {
-    if (!IsAuthorized(httpContext, apiOptions.Value))
+    if (!apiOptions.Value.IsAuthorized(GetApiKey(httpContext)))
         return Results.Unauthorized();
 
     var dataResult = JsonTemplateDataConverter.ToLiquidModel(request.Data);
@@ -90,7 +92,7 @@ app.MapPost("/api/mail/evaluate", async (
     ILogger<Program> logger,
     CancellationToken cancellationToken) =>
 {
-    if (!IsAuthorized(httpContext, apiOptions.Value))
+    if (!apiOptions.Value.IsAuthorized(GetApiKey(httpContext)))
         return Results.Unauthorized();
 
     var dataResult = JsonTemplateDataConverter.ToLiquidModel(request.Data);
@@ -110,9 +112,8 @@ app.MapPost("/api/mail/evaluate", async (
 
 app.Run();
 
-static bool IsAuthorized(HttpContext httpContext, MailApiOptions options) =>
-    string.IsNullOrEmpty(options.ApiKey) ||
-    (httpContext.Request.Headers.TryGetValue("X-Api-Key", out var apiKey) && apiKey == options.ApiKey);
+static string? GetApiKey(HttpContext httpContext) =>
+    httpContext.Request.Headers.TryGetValue("X-Api-Key", out var apiKey) ? apiKey.ToString() : null;
 
 static IResult ToHttpResult(
     CSharpFunctionalExtensions.Result<string, MailError> result,

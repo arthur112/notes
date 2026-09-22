@@ -124,6 +124,38 @@ public sealed class MailApiEndpointTests
     }
 
     [Fact]
+    public async Task AcceptsTheKeyOfAnyEnabledApplication()
+    {
+        using var factory = CreateFactory(apiKey: "primary-secret");
+        using var client = factory.CreateClient();
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/mail/evaluate")
+        {
+            Content = JsonContent.Create(new { template = "welcome" }),
+        };
+        request.Headers.Add("X-Api-Key", "secondary-secret");
+
+        var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task RejectsTheKeyOfADisabledApplication()
+    {
+        using var factory = CreateFactory(apiKey: "primary-secret");
+        using var client = factory.CreateClient();
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/mail/evaluate")
+        {
+            Content = JsonContent.Create(new { template = "welcome" }),
+        };
+        request.Headers.Add("X-Api-Key", "retired-secret");
+
+        var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
     public async Task MapsDeliveryFailuresToBadGateway()
     {
         using var factory = CreateFactory(sender: new TestEmailSender(failDelivery: true));
@@ -271,7 +303,18 @@ public sealed class MailApiEndpointTests
                     ["Smtp:Security"] = "None",
                     ["Smtp:From:Name"] = "System",
                     ["Smtp:From:Address"] = "no-reply@example.com",
-                    ["MailApi:ApiKey"] = apiKey,
+                    ["MailApi:Applications:0:Name"] = "Primary",
+                    ["MailApi:Applications:0:ApiKey"] = apiKey,
+                    ["MailApi:Applications:0:Description"] = "Primary test application.",
+                    ["MailApi:Applications:0:Enabled"] = (apiKey is not null).ToString(),
+                    ["MailApi:Applications:1:Name"] = "Secondary",
+                    ["MailApi:Applications:1:ApiKey"] = apiKey is not null ? "secondary-secret" : null,
+                    ["MailApi:Applications:1:Description"] = "Secondary test application.",
+                    ["MailApi:Applications:1:Enabled"] = (apiKey is not null).ToString(),
+                    ["MailApi:Applications:2:Name"] = "Retired",
+                    ["MailApi:Applications:2:ApiKey"] = "retired-secret",
+                    ["MailApi:Applications:2:Description"] = "Disabled test application.",
+                    ["MailApi:Applications:2:Enabled"] = "false",
                 });
             });
             builder.ConfigureTestServices(services =>

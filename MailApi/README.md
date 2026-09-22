@@ -85,7 +85,7 @@ dotnet run --project src/MailApi.Web # listens on http://localhost:5255
 
 ### Test it in the browser
 
-The API publishes an OpenAPI document (`/openapi/v1.json`) and a [Scalar](https://scalar.com/) UI at **http://localhost:5255/scalar/v1** where you can fire requests directly — set the `X-Api-Key` auth value once if `MailApi:ApiKey` is configured.
+The API publishes an OpenAPI document (`/openapi/v1.json`) and a [Scalar](https://scalar.com/) UI at **http://localhost:5255/scalar/v1** where you can fire requests directly — set the `X-Api-Key` auth value once if `MailApi:Applications` is configured.
 
 The `/api/mail/evaluate` endpoint renders a template and returns the HTML (`text/html`) **without sending** — no SMTP relay needed, ideal for template iteration:
 
@@ -123,17 +123,31 @@ To change copy/HTML without restarting, edit the deployed `templates/` directory
   "From": { "Name": "System", "Address": "no-reply@example.com" }
 },
 "MailApi": {
-  "ApiKey": null                  // set to a secret to require X-Api-Key; null disables auth
+  "Applications": [
+    {
+      "Name": "BillingPortal",                // shown in logs/OpenAPI; not part of the secret
+      "ApiKey": "billing-portal-dev-key",      // accepted as X-Api-Key for this application
+      "Description": "Customer invoices.",     // free-form note for operators
+      "Enabled": true                          // false = key is rejected even if it matches
+    },
+    {
+      "Name": "HrOnboarding",
+      "ApiKey": "hr-onboarding-dev-key",
+      "Description": "Welcome mails for new hires.",
+      "Enabled": true
+    }
+  ]
+  // Empty list, or no entry with Enabled=true and a non-empty ApiKey, disables auth.
 }
 ```
 
-Any value can be overridden via environment variables using `__` (e.g. `Smtp__Port`, `MailApi__ApiKey`).
+Any value can be overridden via environment variables using `__` (e.g. `Smtp__Port`, `MailApi__Applications__0__ApiKey`).
 
 ## API contract
 
 ```
 POST /api/mail/send
-Header: X-Api-Key: <secret>      (only if MailApi:ApiKey is set)
+Header: X-Api-Key: <secret>      (only if MailApi:Applications is configured)
 
 {
   "template": "welcome",         // MailTemplate value (name or file name, case-insensitive)
@@ -144,7 +158,7 @@ Header: X-Api-Key: <secret>      (only if MailApi:ApiKey is set)
 }
 
 POST /api/mail/evaluate
-Header: X-Api-Key: <secret>      (only if MailApi:ApiKey is set)
+Header: X-Api-Key: <secret>      (only if MailApi:Applications is configured)
 
 {
   "template": "welcome",         // same template values as /send
