@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="src/CentralLogging.Sdk/CentralLogging.Sdk.csproj" />
+  <Project Path="samples/LogServer/LogServer.csproj" />
+  <Project Path="samples/DemoApi/DemoApi.csproj" />
+</Solution>

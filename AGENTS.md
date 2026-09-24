@@ -34,6 +34,7 @@ Conventions for every note folder:
 | [`Federation/`](Federation/) | Dashboard shell that lazy-loads micro-apps on click — route-level code splitting with TanStack Router (file-based) vs. true Module Federation, with a decision table | React 19, Vite, TanStack Router, @module-federation/vite, Tailwind v4, shadcn/ui (Base UI) |
 | [`UxGuide/`](UxGuide/) | UX best practices for dense CRUD pages (30–50 fields) + a smart/dumb component-architecture contract, with the extraction realized: a Storybook 10 prototype of a company component library (`@company/ui`) built from the demo's unedited dumb components | React 19, Vite, Tailwind v4, shadcn/ui, TanStack Router/Table, react-hook-form + zod, Storybook 10 |
 | [`DataMasking/`](DataMasking/) | Data masking at two levels: SQL Server dynamic data masking via per-request connection-string switching on an HttpContext identity property (engine-enforced) vs. an EF Core materialization interceptor + value converter masking `[Masked]` properties in .NET (app-enforced), with a trade-off table | Two .NET 10 minimal APIs, EF Core, SQL Server (Docker) |
+| [`CentralLogging/`](CentralLogging/) | NuGet SDK package that configures Serilog + a batched HTTP sink to ship logs to a central service, with automatic W3C trace-ID correlation (Serilog 4 `Activity.Current`) and API-key auth via a custom sink `IHttpClient` | .NET 10 class library (NuGet), Serilog.AspNetCore, Serilog.Sinks.Http, minimal APIs |
 
 ## Working in this repo
 

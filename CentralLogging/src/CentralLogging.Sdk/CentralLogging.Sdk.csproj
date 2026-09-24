@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AllowMissingPrunePackageData>true</AllowMissingPrunePackageData>
+
+    <!-- NuGet package metadata -->
+    <PackageId>CentralLogging.Sdk</PackageId>
+    <Version>1.0.0</Version>
+    <Authors>Arthur</Authors>
+    <Description>One-line Serilog setup that ships batched logs over HTTP to the central logging service, with W3C trace IDs for correlation.</Description>
+    <PackageTags>serilog;logging;http;tracing</PackageTags>
+  </PropertyGroup>
+
+  <!-- Needed for WebApplicationBuilder / IConfiguration binder (package is ASP.NET Core-only) -->
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Serilog.AspNetCore" Version="10.0.0" />
+    <PackageReference Include="Serilog.Sinks.Http" Version="9.2.1" />
+  </ItemGroup>
+
+</Project>
