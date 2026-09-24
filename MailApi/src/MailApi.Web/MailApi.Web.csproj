@@ -9,6 +9,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\MailApi.Application\MailApi.Application.csproj" />
+    <ProjectReference Include="..\MailApi.Contracts\MailApi.Contracts.csproj" />
     <ProjectReference Include="..\MailApi.Infrastructure\MailApi.Infrastructure.csproj" />
   </ItemGroup>
 

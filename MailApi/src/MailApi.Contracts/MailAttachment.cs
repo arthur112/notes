@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace MailApi.Sdk;
+namespace MailApi.Contracts;
 
 /// <summary>
 /// A file attachment for <see cref="SendMailRequest"/>. The content travels as base64

@@ -6,13 +6,14 @@ namespace MailApi.Web.Mapping;
 
 internal static class JsonTemplateDataConverter
 {
-    public static Result<IReadOnlyDictionary<string, object?>, MailError> ToLiquidModel(JsonElement? element)
+    public static Result<IReadOnlyDictionary<string, object?>, MailError> ToLiquidModel(object? data)
     {
-        if (element is null or { ValueKind: JsonValueKind.Null or JsonValueKind.Undefined })
+        // System.Text.Json binds an `object` property as a JsonElement.
+        if (data is null or JsonElement { ValueKind: JsonValueKind.Null or JsonValueKind.Undefined })
             return Result.Success<IReadOnlyDictionary<string, object?>, MailError>(
                 new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase));
 
-        if (element is not { ValueKind: JsonValueKind.Object } value)
+        if (data is not JsonElement { ValueKind: JsonValueKind.Object } value)
             return Result.Failure<IReadOnlyDictionary<string, object?>, MailError>(
                 MailError.Validation("'data' must be a JSON object."));
 

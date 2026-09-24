@@ -1,6 +1,7 @@
 using FluentValidation;
 using MailApi.Application.EvaluateMail;
 using MailApi.Application.SendMail;
+using MailApi.Contracts;
 using MailApi.Infrastructure;
 using MailApi.Web.Configuration;
 using MailApi.Web.Contracts;

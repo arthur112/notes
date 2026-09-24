@@ -18,6 +18,7 @@ MailApi/
 ├── DESIGN.md                      # design propositions (A/B/C) + cross-cutting notes
 ├── MailApi.slnx
 ├── src/
+│   ├── MailApi.Contracts/         # wire DTOs (SendMailRequest, MailAttachment) shared by the API and the SDK
 │   ├── MailApi.Domain/            # MailTemplate, MailAsset, MailAttachment, OutboundEmail; no external dependencies
 │   ├── MailApi.Application/       # send-mail + evaluate (dry-run render) use cases, template/sender abstractions
 │   ├── MailApi.Infrastructure/    # Fluid, MailKit, SMTP config, and source templates
@@ -33,8 +34,6 @@ MailApi/
 │   │   └── appsettings.json       # Smtp + MailApi config
 │   └── MailApi.Sdk/               # client library consumed by other apps
 │       ├── MailClient.cs          # SendAsync(...) → returns messageId
-│       ├── SendMailRequest.cs     # SDK-side request DTO
-│       ├── MailAttachment.cs      # attachment DTO + FromFile/FromBytes base64 helpers
 │       ├── MailClientOptions.cs   # BaseUrl / ApiKey / Timeout
 │       └── ServiceCollectionExtensions.cs  # AddMailClient(...)
 └── tests/
@@ -211,6 +210,8 @@ builder.Services.AddMailClient(builder.Configuration);
 // appsettings:  "MailClient": { "BaseUrl": "http://mail-api.internal/", "ApiKey": "secret" }
 ```
 
+The SDK and the API share the same wire DTOs from the `MailApi.Contracts` project (`SendMailRequest`, `MailAttachment`), so the JSON contract is defined exactly once.
+
 Then send:
 
 ```csharp
@@ -224,7 +225,7 @@ public class WelcomeService(MailApi.Sdk.MailClient mail)
 Sending with an attachment (e.g. an xlsx export):
 
 ```csharp
-var attachment = MailApi.Sdk.MailAttachment.FromFile(
+var attachment = MailApi.Contracts.MailAttachment.FromFile(
     "./out/report.xlsx",
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
 

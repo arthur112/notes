@@ -1,6 +1,7 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/MailApi.Application/MailApi.Application.csproj" />
+    <Project Path="src/MailApi.Contracts/MailApi.Contracts.csproj" />
     <Project Path="src/MailApi.Domain/MailApi.Domain.csproj" />
     <Project Path="src/MailApi.Infrastructure/MailApi.Infrastructure.csproj" />
     <Project Path="src/MailApi.Sdk/MailApi.Sdk.csproj" />

@@ -1,6 +1,6 @@
 using System.Buffers.Text;
 using FluentValidation;
-using MailApi.Web.Contracts;
+using MailApi.Contracts;
 
 namespace MailApi.Web.Validation;
 
@@ -36,7 +36,7 @@ public sealed class SendMailRequestValidator : AbstractValidator<SendMailRequest
     }
 
     // Valid base64 decodes to ~3/4 of its length, so the limit is enforced without decoding.
-    private static bool WithinTotalSizeLimit(List<MailAttachmentRequest>? attachments) =>
+    private static bool WithinTotalSizeLimit(List<MailAttachment>? attachments) =>
         attachments is null ||
         attachments.Where(a => a is not null).Sum(a => (long)a.Content.Length * 3 / 4) <= MaxTotalAttachmentBytes;
 }

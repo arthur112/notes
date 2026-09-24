@@ -1,5 +1,5 @@
-using MailApi.Domain;
-using MailApi.Web.Contracts;
+using MailApi.Contracts;
+using DomainMailAttachment = MailApi.Domain.MailAttachment;
 
 namespace MailApi.Web.Mapping;
 
@@ -13,10 +13,10 @@ public static class MailAttachmentMapper
 {
     private const string DefaultContentType = "application/octet-stream";
 
-    public static IReadOnlyList<MailAttachment> ToDomain(List<MailAttachmentRequest>? requests) =>
+    public static IReadOnlyList<DomainMailAttachment> ToDomain(List<MailAttachment>? requests) =>
         requests is null || requests.Count == 0
             ? []
-            : requests.ConvertAll(request => new MailAttachment(
+            : requests.ConvertAll(request => new DomainMailAttachment(
                 request.FileName,
                 string.IsNullOrWhiteSpace(request.ContentType) ? DefaultContentType : request.ContentType,
                 Convert.FromBase64String(request.Content)));
