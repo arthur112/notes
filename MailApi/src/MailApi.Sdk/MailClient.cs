@@ -29,6 +29,7 @@ public sealed class MailClient
         object? data = null,
         string? subject = null,
         IEnumerable<string>? cc = null,
+        IEnumerable<MailAttachment>? attachments = null,
         CancellationToken ct = default)
         => SendAsync(new SendMailRequest
         {
@@ -37,6 +38,7 @@ public sealed class MailClient
             Cc = cc?.ToList(),
             Subject = subject,
             Data = data,
+            Attachments = attachments?.ToList(),
         }, ct);
 
     public async Task<string> SendAsync(SendMailRequest request, CancellationToken ct = default)

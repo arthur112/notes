@@ -1,9 +1,11 @@
+using FluentValidation;
 using MailApi.Application.EvaluateMail;
 using MailApi.Application.SendMail;
 using MailApi.Infrastructure;
 using MailApi.Web.Configuration;
 using MailApi.Web.Contracts;
 using MailApi.Web.Mapping;
+using MailApi.Web.Validation;
 using Microsoft.Extensions.Options;
 using Microsoft.OpenApi;
 using Scalar.AspNetCore;
@@ -15,6 +17,7 @@ builder.Services.Configure<MailApiOptions>(builder.Configuration.GetSection(Mail
 builder.Services.AddMailInfrastructure(builder.Configuration);
 builder.Services.AddScoped<SendMailHandler>();
 builder.Services.AddScoped<EvaluateMailHandler>();
+builder.Services.AddValidatorsFromAssemblyContaining<Program>();
 
 var mailApiOptions = builder.Configuration
     .GetSection(MailApiOptions.SectionName)
@@ -75,11 +78,13 @@ app.MapPost("/api/mail/send", async (
             request.To,
             request.Cc,
             request.Subject,
-            dataResult.Value),
+            dataResult.Value,
+            MailAttachmentMapper.ToDomain(request.Attachments)),
         cancellationToken);
 
     return ToHttpResult(result, logger);
 })
+.AddEndpointFilter<ValidationFilter<SendMailRequest>>()
 .WithName("SendMail")
 .WithSummary("Renders the named template and sends it via SMTP.")
 .Produces(StatusCodes.Status200OK);

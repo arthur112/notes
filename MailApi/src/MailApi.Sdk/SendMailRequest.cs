@@ -18,4 +18,7 @@ public sealed class SendMailRequest
 
     [JsonPropertyName("data")]
     public object? Data { get; set; }
+
+    [JsonPropertyName("attachments")]
+    public List<MailAttachment>? Attachments { get; set; }
 }

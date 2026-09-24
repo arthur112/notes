@@ -39,7 +39,8 @@ public sealed class SendMailHandler(ITemplateRenderer templateRenderer, IEmailSe
             command.Cc ?? [],
             subject,
             rendered.Value.Html,
-            rendered.Value.InlineImages);
+            rendered.Value.InlineImages,
+            command.Attachments as IReadOnlyList<MailAttachment> ?? command.Attachments?.ToList() ?? []);
         return await emailSender.SendAsync(email, cancellationToken);
     }
 }

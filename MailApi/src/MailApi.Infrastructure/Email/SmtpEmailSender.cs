@@ -53,6 +53,11 @@ public sealed class SmtpEmailSender(
                 body.LinkedResources.Add(part);
             }
 
+            // ContentType.Parse throws MimeKit.ParseException on a garbage media type,
+            // which the catch below maps to a 400 validation error.
+            foreach (var attachment in email.Attachments)
+                body.Attachments.Add(attachment.FileName, attachment.Content, ContentType.Parse(attachment.ContentType));
+
             message.Body = body.ToMessageBody();
         }
         catch (MimeKit.ParseException)

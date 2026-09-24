@@ -91,6 +91,35 @@ public sealed class SendMailHandlerTests
     }
 
     [Fact]
+    public async Task PassesAttachmentsThroughToTheEmail()
+    {
+        var sender = new CapturingEmailSender();
+        var handler = new SendMailHandler(
+            new StaticTemplateRenderer("<p>Hello</p>"),
+            sender);
+        var attachment = new MailAttachment(
+            "report.xlsx",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            [1, 2, 3]);
+
+        var result = await handler.HandleAsync(new SendMailCommand(
+            "welcome",
+            ["ada@example.com"],
+            [],
+            null,
+            new Dictionary<string, object?>(),
+            [attachment]),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.NotNull(sender.Email);
+        var sent = Assert.Single(sender.Email.Attachments);
+        Assert.Equal("report.xlsx", sent.FileName);
+        Assert.Equal("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", sent.ContentType);
+        Assert.Equal(new byte[] { 1, 2, 3 }, sent.Content);
+    }
+
+    [Fact]
     public async Task PropagatesTemplateFailureWithoutSending()
     {
         var sender = new CapturingEmailSender();

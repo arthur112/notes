@@ -185,6 +185,113 @@ public sealed class MailApiEndpointTests
     }
 
     [Fact]
+    public async Task DeliversAttachmentsWithTheMail()
+    {
+        var sender = new TestEmailSender();
+        using var factory = CreateFactory(sender: sender);
+        using var client = factory.CreateClient();
+        var xlsxBytes = "PK fake-xlsx bytes"u8.ToArray();
+        var response = await client.PostAsJsonAsync("/api/mail/send", new
+        {
+            template = "welcome",
+            to = new[] { "ada@example.com" },
+            attachments = new[]
+            {
+                new
+                {
+                    fileName = "report.xlsx",
+                    contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    content = Convert.ToBase64String(xlsxBytes),
+                },
+            },
+        });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.NotNull(sender.Email);
+        var attachment = Assert.Single(sender.Email.Attachments);
+        Assert.Equal("report.xlsx", attachment.FileName);
+        Assert.Equal("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", attachment.ContentType);
+        Assert.Equal(xlsxBytes, attachment.Content);
+    }
+
+    [Fact]
+    public async Task DefaultsAttachmentContentTypeToOctetStream()
+    {
+        var sender = new TestEmailSender();
+        using var factory = CreateFactory(sender: sender);
+        using var client = factory.CreateClient();
+        var response = await client.PostAsJsonAsync("/api/mail/send", new
+        {
+            template = "welcome",
+            to = new[] { "ada@example.com" },
+            attachments = new[]
+            {
+                new { fileName = "report.xlsx", content = Convert.ToBase64String([1, 2, 3]) },
+            },
+        });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var attachment = Assert.Single(sender.Email!.Attachments);
+        Assert.Equal("application/octet-stream", attachment.ContentType);
+    }
+
+    [Fact]
+    public async Task RejectsAttachmentsWithInvalidBase64()
+    {
+        using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+        var response = await client.PostAsJsonAsync("/api/mail/send", new
+        {
+            template = "welcome",
+            to = new[] { "ada@example.com" },
+            attachments = new[]
+            {
+                new { fileName = "report.xlsx", content = "!!!not-base64!!!" },
+            },
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task RejectsAttachmentsWithoutAFileName()
+    {
+        using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+        var response = await client.PostAsJsonAsync("/api/mail/send", new
+        {
+            template = "welcome",
+            to = new[] { "ada@example.com" },
+            attachments = new[]
+            {
+                new { fileName = " ", content = Convert.ToBase64String([1, 2, 3]) },
+            },
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task RejectsAttachmentsOverTheTotalSizeLimit()
+    {
+        using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+        var sixMb = Convert.ToBase64String(new byte[6 * 1024 * 1024]);
+        var response = await client.PostAsJsonAsync("/api/mail/send", new
+        {
+            template = "welcome",
+            to = new[] { "ada@example.com" },
+            attachments = new[]
+            {
+                new { fileName = "a.xlsx", content = sixMb },
+                new { fileName = "b.xlsx", content = sixMb },
+            },
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
     public async Task RejectsNullRecipients()
     {
         using var factory = CreateFactory();

@@ -18,7 +18,7 @@ MailApi/
 ├── DESIGN.md                      # design propositions (A/B/C) + cross-cutting notes
 ├── MailApi.slnx
 ├── src/
-│   ├── MailApi.Domain/            # MailTemplate, MailAsset, OutboundEmail; no external dependencies
+│   ├── MailApi.Domain/            # MailTemplate, MailAsset, MailAttachment, OutboundEmail; no external dependencies
 │   ├── MailApi.Application/       # send-mail + evaluate (dry-run render) use cases, template/sender abstractions
 │   ├── MailApi.Infrastructure/    # Fluid, MailKit, SMTP config, and source templates
 │   │   └── templates/             # copied into Web build and publish output
@@ -29,10 +29,12 @@ MailApi/
 │   │       └── reset-password.liquid
 │   ├── MailApi.Web/               # minimal HTTP API and composition root
 │   │   ├── Program.cs             # auth → HTTP mapping → send-mail use case
+│   │   ├── Validation/            # FluentValidation rules + endpoint filter (runs at model-binding time)
 │   │   └── appsettings.json       # Smtp + MailApi config
 │   └── MailApi.Sdk/               # client library consumed by other apps
 │       ├── MailClient.cs          # SendAsync(...) → returns messageId
 │       ├── SendMailRequest.cs     # SDK-side request DTO
+│       ├── MailAttachment.cs      # attachment DTO + FromFile/FromBytes base64 helpers
 │       ├── MailClientOptions.cs   # BaseUrl / ApiKey / Timeout
 │       └── ServiceCollectionExtensions.cs  # AddMailClient(...)
 └── tests/
@@ -72,6 +74,27 @@ Notes:
 - A missing or unsupported asset is a template error → `500`, same as a broken `.liquid` file.
 
 `templates/assets/logo.png` ships as a sample and is used by `_layout.liquid`; swap it for your own or delete the `<img>` from the layout.
+
+## Attachments
+
+`/api/mail/send` accepts an optional **`attachments`** array for small files (reports, exports). Content travels as **base64 inside the JSON payload** — no multipart upload endpoint, per the design (see [`DESIGN.md`](DESIGN.md)). Attachments are regular MIME attachments, not CID linked resources: they appear in the client's attachment list, unlike the embedded images above.
+
+```jsonc
+{
+  "template": "welcome",
+  "to": ["ada@example.com"],
+  "attachments": [
+    {
+      "fileName": "report.xlsx",
+      // IANA media type; optional, defaults to application/octet-stream
+      "contentType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "content": "UEsDBBQAAAAIA..."  // base64-encoded file bytes
+    }
+  ]
+}
+```
+
+Rules, checked at **model-binding time** by a [FluentValidation](https://fluentvalidation.net/) validator via an endpoint filter (minimal APIs have no built-in model validation): every attachment needs a non-empty `fileName` and valid base64 `content` (else `400`), and the **total** attachment size is capped at **10 MB** per mail — enforced from the base64 length (×¾), without decoding. A base64 payload inflates bytes by ~33%, so 10 MB of files is ~13 MB on the wire. Keep attachments small — large files belong behind a download link, not in a mail.
 
 ## Run it
 
@@ -154,7 +177,12 @@ Header: X-Api-Key: <secret>      (only if MailApi:Applications is configured)
   "to":      ["user@example.com"],
   "cc":      ["other@example.com"],   // optional
   "subject": "Override",              // optional; overrides the template's default subject
-  "data":    { ... Liquid model ... }
+  "data":    { ... Liquid model ... },
+  "attachments": [{                  // optional; small files only, ≤ 10 MB total
+    "fileName": "report.xlsx",
+    "contentType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "content": "<base64>"
+  }]
 }
 
 POST /api/mail/evaluate
@@ -193,11 +221,27 @@ public class WelcomeService(MailApi.Sdk.MailClient mail)
 }
 ```
 
+Sending with an attachment (e.g. an xlsx export):
+
+```csharp
+var attachment = MailApi.Sdk.MailAttachment.FromFile(
+    "./out/report.xlsx",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+
+var messageId = await mail.SendAsync(
+    "welcome",
+    [email],
+    new { name, actionUrl },
+    attachments: [attachment]);
+```
+
+`MailAttachment.FromBytes(fileName, bytes, contentType)` does the same for in-memory content; both base64-encode for you. `contentType` is optional and defaults to `application/octet-stream` server-side.
+
 `MailClient.SendAsync` returns the server's `messageId`, or throws `MailApiException` (carrying `StatusCode` + body) on a non-2xx response.
 
 ## How it works
 
-1. Web validates the API key, maps the HTTP DTO, and converts JSON `data` into a case-insensitive dictionary tree.
-2. Application validates the command, resolves `template` to a `MailTemplate` enum value, picks the request or template default subject, and coordinates rendering and delivery through `CSharpFunctionalExtensions.Result<T, MailError>`.
-3. Infrastructure reads `AppContext.BaseDirectory/templates`, renders the body with Fluid (HTML-encoded output) and wraps it into the `_layout.liquid` the body names via the custom `{% layout %}` tag. The `mail_asset` filter turns `templates/assets/` files into `cid:` URLs and records them; the sender adds each one as an inline linked resource, so the message becomes `multipart/related`, then sends it through MailKit.
-4. Domain contains the transport-independent `MailTemplate`, `MailAsset`, and `OutboundEmail` models.
+1. Web validates the request DTO with FluentValidation (`ValidationFilter`, right after model binding), checks the API key, maps the HTTP DTO, decodes base64 `attachments`, and converts JSON `data` into a case-insensitive dictionary tree.
+2. Application validates the command (recipients, template), resolves `template` to a `MailTemplate` enum value, picks the request or template default subject, and coordinates rendering and delivery through `CSharpFunctionalExtensions.Result<T, MailError>`.
+3. Infrastructure reads `AppContext.BaseDirectory/templates`, renders the body with Fluid (HTML-encoded output) and wraps it into the `_layout.liquid` the body names via the custom `{% layout %}` tag. The `mail_asset` filter turns `templates/assets/` files into `cid:` URLs and records them; the sender adds each one as an inline linked resource (so the message becomes `multipart/related`), adds any attachments as regular MIME parts (`multipart/mixed`), then sends it through MailKit.
+4. Domain contains the transport-independent `MailTemplate`, `MailAsset`, `MailAttachment`, and `OutboundEmail` models.

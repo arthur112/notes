@@ -25,7 +25,7 @@ Conventions for every note folder:
 | Folder | Technique | Stack |
 | --- | --- | --- |
 | [`Grate/`](Grate/) | SQL-script database migrations with [grate](https://grate-devs.github.io/grate/) | .NET 10 console app, SQLite, EF Core |
-| [`MailApi/`](MailApi/) | Centralised mail API with Liquid templates ([Fluid](https://github.com/sebastienros/fluid)) + SDK, with CID-embedded images | .NET 10 minimal API, MailKit, SMTP |
+| [`MailApi/`](MailApi/) | Centralised mail API with Liquid templates ([Fluid](https://github.com/sebastienros/fluid)) + SDK, with CID-embedded images and base64 attachments | .NET 10 minimal API, MailKit, SMTP |
 | [`Custom-Provider/`](Custom-Provider/) | Encrypted-at-rest secrets via a custom `IConfigurationProvider` (DPAPI + certificate variants) | .NET 10 class library (NuGet), minimal API, DPAPI/RSA |
 | [`ExcelImport/`](ExcelImport/) | Staging-layer import of wide txt/Excel files + normalization to 3NF, scaled with chunked background jobs | .NET 10, SQLite, EF Core, Sep, ExcelDataReader, FluentValidation, TickerQ |
 | [`Parallelism/`](Parallelism/) | Parallel bulk-import of 2M-row wide txt files: TPL Dataflow pipeline inside a TickerQ job, SqlBulkCopy staging + set-based normalization, rejected-row dead-lettering with inspect/replay, job retries, BenchmarkDotNet | .NET 10, SQL Server (Docker), EF Core, Sep, TickerQ, TPL Dataflow, BenchmarkDotNet |

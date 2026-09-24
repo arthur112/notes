@@ -5,4 +5,5 @@ public sealed record OutboundEmail(
     IReadOnlyCollection<string> Cc,
     string Subject,
     string HtmlBody,
-    IReadOnlyList<MailAsset> InlineImages);
+    IReadOnlyList<MailAsset> InlineImages,
+    IReadOnlyList<MailAttachment> Attachments);
