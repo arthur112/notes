@@ -5,6 +5,7 @@ import { ORDER_STATUSES } from "@/shared/domain/orders/types/order";
 import type { Order, OrderStatus, CreateOrderInput } from "@/shared/domain/orders/types/order";
 import type { OrderTotals } from "@/shared/domain/orders/api/gridify-query";
 import type { Customer } from "@/shared/domain/customers/types/customer";
+import type { Contract } from "@/shared/domain/contracts/types/contract";
 
 // The aggregate body IS the shared contract type — re-exported so the mock's
 // public surface keeps the name it exposed before.
@@ -42,7 +43,7 @@ export interface PagedCustomers {
 }
 
 /** Every body the mock server can return. */
-export type MockBody = PagedOrders | PagedCustomers | OrderTotals | Order;
+export type MockBody = PagedOrders | PagedCustomers | OrderTotals | Order | Contract;
 
 export type MockHandler = (req: MockRequest) => MockBody;
 
@@ -180,6 +181,13 @@ registerHandler("PATCH", /^\/api\/orders\/(?<id>\d+)\/status$/, (req) => {
   if (status === "delivered" && !order.paidAt) order.paidAt = new Date().toISOString();
   if (status === "cancelled" || status === "pending") order.paidAt = null;
   return { ...order };
+});
+
+registerHandler("GET", /^\/api\/contracts\/(?<contractNo>[^/]+)$/, (req) => {
+  const db = getDb();
+  const contract = db.contracts.find((c) => c.contractNo === req.params.contractNo);
+  if (!contract) throw new MockHttpError(404, `Contract "${req.params.contractNo}" not found`);
+  return { ...contract };
 });
 
 registerHandler("GET", /^\/api\/customers$/, (req) => {

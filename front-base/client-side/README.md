@@ -14,6 +14,7 @@ radically different UX, and a third app is a component gallery:
 | -------------------- | ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Orders · Ops**     | `/apps/orders-ops`     | Dense order desk: a persistent **search + status pills** row with **channel / created-period / amount** behind one labelled `Filters (n)` popover, all executed **server-side** via Gridify query strings. A scope line states the result count, rows are selectable (**bulk mark shipped/delivered, export CSV**), plus a column chooser, density toggle, page-size + jump pagination, row action menu, a deep-linkable **order detail page** (tabbed record: Details / Items / Activity + status changes), and order creation through a TanStack Form sheet. |
 | **Orders · Finance** | `/apps/orders-finance` | Lean, read-only: **month + the same status pills**, aggregate cards (count / net / VAT / total), fiscal columns (Net/VAT hidden by default so **Total always fits**), and a **collapsible** "live activity" rail fed by the shell event bus (watch the Ops app from here).                                                                                                                                                                                                                                                                                     |
+| **Contracts**       | `/apps/contracts`      | The lending desk: a **mortgage contract record** (deep-linkable at `/apps/contracts/$contractNo`, index redirects to the seeded contract). Identity block + key-facts stat strip, an **"Initial state"** origination snapshot (loan terms / risk assessment with an A–F grade scale / borrower / mortgage & collateral) and a **"Current state"** live snapshot (stat strip, active-claim banner, modification log). Claim/history interactions publish onto the shell event bus. Backed by its own `shared/domain/contracts` kernel and a `GET /api/contracts/:contractNo` mock route.                                                                                                                                                                          |
 | **Components**       | `/apps/showcase`       | Living gallery of `shared/components/ui` + shared components: primitives, pickers/selects, TanStack Form binding, DataTable + async states.                                                                                                                                                                                                                                                                                                                                                                                                                    |
 
 Both order apps talk to the same `GET /api/orders?...` contract, share schemas, query keys and
@@ -126,6 +127,8 @@ client-side/
    │  │      │                        └─ pages/      route components
    │  │      ├─ features/order-create/   # its own api/ (customers hook lives feature-locally)
    │  │      └─ features/order-detail/   # panels (KeyFacts/Details/Items/Activity) + smart page
+   │  ├─ contracts/features/contract-detail/  # dumb panels (Hero/InitialState/CurrentState,
+   │  │                                       #   StatStrip/SpecRow/RiskGradeScale) + smart page
    │  ├─ orders-finance/features/orders/
    │  └─ showcase/features/component-gallery/
    ├─ shared/
@@ -141,6 +144,8 @@ client-side/
    │  │  ├─ orders/               # THE shared kernel: types+zod, query keys, endpoints, hooks,
    │  │  │                        #   presentational order cells (status badge, status pills, currency…)
    │  │  │                        #   and the Gridify query builder (apps stay gridify-agnostic)
+   │  │  ├─ contracts/            # same idea for the lending domain: types+zod, query keys,
+   │  │  │                        #   endpoint + hook (single record read), status metadata
    │  │  └─ customers/types/      # tiny embedded aggregate used by the create form
    │  ├─ hooks/                   # use-debounce, use-mobile
    │  └─ lib/
@@ -198,7 +203,8 @@ client-side/
 
 Mutations (`POST /api/orders`, `PATCH /api/orders/:id/status`) really mutate the in-memory
 store; a page refresh reseeds. Reads cover the paged `GET /api/orders`, the `GET /api/orders/aggregate`
-totals, and the single-record `GET /api/orders/:orderNo` the detail page consumes. Swapping in a real
+totals, the single-record `GET /api/orders/:orderNo` the detail page consumes, and
+`GET /api/contracts/:contractNo` for the lending record. Swapping in a real
 backend = point `api-client.ts` at it (the `fetch` branch is already written).
 
 ## Visual

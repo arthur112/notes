@@ -10,15 +10,23 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AppsContractsRouteImport } from './routes/apps/contracts'
 import { Route as AppsOrdersFinanceRouteImport } from './routes/apps/orders-finance'
 import { Route as AppsOrdersOpsRouteImport } from './routes/apps/orders-ops'
 import { Route as AppsShowcaseRouteImport } from './routes/apps/showcase'
+import { Route as AppsContractsIndexRouteImport } from './routes/apps/contracts.index'
+import { Route as AppsContractsContractNoRouteImport } from './routes/apps/contracts.$contractNo'
 import { Route as AppsOrdersOpsIndexRouteImport } from './routes/apps/orders-ops.index'
 import { Route as AppsOrdersOpsOrderNoRouteImport } from './routes/apps/orders-ops.$orderNo'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AppsContractsRoute = AppsContractsRouteImport.update({
+  id: '/apps/contracts',
+  path: '/apps/contracts',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AppsOrdersFinanceRoute = AppsOrdersFinanceRouteImport.update({
@@ -36,6 +44,16 @@ const AppsShowcaseRoute = AppsShowcaseRouteImport.update({
   path: '/apps/showcase',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AppsContractsIndexRoute = AppsContractsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppsContractsRoute,
+} as any)
+const AppsContractsContractNoRoute = AppsContractsContractNoRouteImport.update({
+  id: '/$contractNo',
+  path: '/$contractNo',
+  getParentRoute: () => AppsContractsRoute,
+} as any)
 const AppsOrdersOpsIndexRoute = AppsOrdersOpsIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -49,56 +67,73 @@ const AppsOrdersOpsOrderNoRoute = AppsOrdersOpsOrderNoRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/apps/contracts': typeof AppsContractsRouteWithChildren
   '/apps/orders-finance': typeof AppsOrdersFinanceRoute
   '/apps/orders-ops': typeof AppsOrdersOpsRouteWithChildren
   '/apps/showcase': typeof AppsShowcaseRoute
+  '/apps/contracts/$contractNo': typeof AppsContractsContractNoRoute
   '/apps/orders-ops/$orderNo': typeof AppsOrdersOpsOrderNoRoute
+  '/apps/contracts/': typeof AppsContractsIndexRoute
   '/apps/orders-ops/': typeof AppsOrdersOpsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/apps/orders-finance': typeof AppsOrdersFinanceRoute
   '/apps/showcase': typeof AppsShowcaseRoute
+  '/apps/contracts/$contractNo': typeof AppsContractsContractNoRoute
   '/apps/orders-ops/$orderNo': typeof AppsOrdersOpsOrderNoRoute
+  '/apps/contracts': typeof AppsContractsIndexRoute
   '/apps/orders-ops': typeof AppsOrdersOpsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/apps/contracts': typeof AppsContractsRouteWithChildren
   '/apps/orders-finance': typeof AppsOrdersFinanceRoute
   '/apps/orders-ops': typeof AppsOrdersOpsRouteWithChildren
   '/apps/showcase': typeof AppsShowcaseRoute
+  '/apps/contracts/$contractNo': typeof AppsContractsContractNoRoute
   '/apps/orders-ops/$orderNo': typeof AppsOrdersOpsOrderNoRoute
+  '/apps/contracts/': typeof AppsContractsIndexRoute
   '/apps/orders-ops/': typeof AppsOrdersOpsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/apps/contracts'
     | '/apps/orders-finance'
     | '/apps/orders-ops'
     | '/apps/showcase'
+    | '/apps/contracts/$contractNo'
     | '/apps/orders-ops/$orderNo'
+    | '/apps/contracts/'
     | '/apps/orders-ops/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/apps/orders-finance'
     | '/apps/showcase'
+    | '/apps/contracts/$contractNo'
     | '/apps/orders-ops/$orderNo'
+    | '/apps/contracts'
     | '/apps/orders-ops'
   id:
     | '__root__'
     | '/'
+    | '/apps/contracts'
     | '/apps/orders-finance'
     | '/apps/orders-ops'
     | '/apps/showcase'
+    | '/apps/contracts/$contractNo'
     | '/apps/orders-ops/$orderNo'
+    | '/apps/contracts/'
     | '/apps/orders-ops/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AppsContractsRoute: typeof AppsContractsRouteWithChildren
   AppsOrdersFinanceRoute: typeof AppsOrdersFinanceRoute
   AppsOrdersOpsRoute: typeof AppsOrdersOpsRouteWithChildren
   AppsShowcaseRoute: typeof AppsShowcaseRoute
@@ -111,6 +146,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/apps/contracts': {
+      id: '/apps/contracts'
+      path: '/apps/contracts'
+      fullPath: '/apps/contracts'
+      preLoaderRoute: typeof AppsContractsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/apps/orders-finance': {
@@ -134,6 +176,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppsShowcaseRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/apps/contracts/': {
+      id: '/apps/contracts/'
+      path: '/'
+      fullPath: '/apps/contracts/'
+      preLoaderRoute: typeof AppsContractsIndexRouteImport
+      parentRoute: typeof AppsContractsRoute
+    }
+    '/apps/contracts/$contractNo': {
+      id: '/apps/contracts/$contractNo'
+      path: '/$contractNo'
+      fullPath: '/apps/contracts/$contractNo'
+      preLoaderRoute: typeof AppsContractsContractNoRouteImport
+      parentRoute: typeof AppsContractsRoute
+    }
     '/apps/orders-ops/': {
       id: '/apps/orders-ops/'
       path: '/'
@@ -151,6 +207,20 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AppsContractsRouteChildren {
+  AppsContractsContractNoRoute: typeof AppsContractsContractNoRoute
+  AppsContractsIndexRoute: typeof AppsContractsIndexRoute
+}
+
+const AppsContractsRouteChildren: AppsContractsRouteChildren = {
+  AppsContractsContractNoRoute: AppsContractsContractNoRoute,
+  AppsContractsIndexRoute: AppsContractsIndexRoute,
+}
+
+const AppsContractsRouteWithChildren = AppsContractsRoute._addFileChildren(
+  AppsContractsRouteChildren,
+)
+
 interface AppsOrdersOpsRouteChildren {
   AppsOrdersOpsOrderNoRoute: typeof AppsOrdersOpsOrderNoRoute
   AppsOrdersOpsIndexRoute: typeof AppsOrdersOpsIndexRoute
@@ -167,6 +237,7 @@ const AppsOrdersOpsRouteWithChildren = AppsOrdersOpsRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AppsContractsRoute: AppsContractsRouteWithChildren,
   AppsOrdersFinanceRoute: AppsOrdersFinanceRoute,
   AppsOrdersOpsRoute: AppsOrdersOpsRouteWithChildren,
   AppsShowcaseRoute: AppsShowcaseRoute,

@@ -1,5 +1,6 @@
 import type { Order, OrderStatus, Channel } from "@/shared/domain/orders/types/order";
 import type { Customer } from "@/shared/domain/customers/types/customer";
+import type { Contract } from "@/shared/domain/contracts/types/contract";
 import { round2 } from "@/shared/lib/format";
 
 /**
@@ -254,9 +255,117 @@ function seedOrders(rng: () => number, customers: Customer[]): Order[] {
   return orders;
 }
 
+// --- contracts ---------------------------------------------------------------
+
+/**
+ * The seeded mortgage book — a single rich record (the Contracts app has no
+ * list; its index redirects straight to this contract). Deterministic: it is
+ * literal data, not PRNG output.
+ */
+function seedContracts(): Contract[] {
+  return [
+    {
+      id: 1,
+      contractNo: "CTR-2023-004821",
+      status: "active",
+      borrowerName: "Claire Dubois",
+      product: "Residential mortgage",
+      rateSummary: "Fixed rate 4.80%",
+      outstandingPrincipal: 342_917,
+      monthlyPayment: 2_248.6,
+      nextDueDate: "2025-12-01",
+      maturityDate: "2048-03-15",
+      initial: {
+        effectiveDate: "2023-03-15",
+        loanTerms: {
+          borrowedAmount: 385_000,
+          primeMarginPct: 1.85,
+          baseRateName: "Euribor 3M",
+          baseRatePct: 2.95,
+          nominalRatePct: 4.8,
+          nominalRateKind: "fixed",
+          termMonths: 300,
+          monthlyInstallment: 2_205.41,
+        },
+        risk: {
+          grade: "B+",
+          gradeBand: "Upper medium",
+          gradeIndex: 1,
+          probabilityOfDefaultPct: 1.8,
+          scoringModel: "Retail Mortgage v4.2",
+          committeeDecision: "Approved",
+          committeeDate: "2023-03-08",
+        },
+        borrower: {
+          name: "Claire Dubois",
+          dateOfBirth: "1985-07-12",
+          ageAtSigning: 37,
+          nationalId: "FR 85 069 312 4417",
+          maritalStatus: "Married · joint application",
+          occupation: "Product engineer · CDI since 2016",
+          annualGrossIncome: 78_500,
+          coBorrower: "Marc Dubois (spouse)",
+        },
+        collateral: {
+          property: "24 Rue des Lilas, 69003 Lyon",
+          appraisedValue: 450_000,
+          appraisalLabel: "Feb 2023",
+          ltvAtOriginationPct: 85.6,
+          guarantee: "1st-rank mortgage",
+          registration: "Lyon land registry",
+          registrationDate: "2023-03-22",
+          notary: "Étude Bertrand & Associés",
+        },
+      },
+      current: {
+        periodLabel: "November 2025",
+        installmentNo: 32,
+        installmentCount: 300,
+        updatedAt: "2025-11-05",
+        remainingTermMonths: 268,
+        outstandingPrincipal: 342_917.14,
+        principalChangePct: -10.9,
+        nextInstallment: 2_248.6,
+        nextDueDate: "2025-12-01",
+        paymentMethod: "direct debit",
+        daysPastDue: 0,
+        scheduleLabel: "On time",
+        activeClaim: {
+          claimNo: "CLM-2025-0192",
+          kind: "Temporary incapacity (ITT)",
+          statusLabel: "under review",
+          since: "2025-09-04",
+          installmentsSuspended: true,
+        },
+        modifications: [
+          {
+            date: "2025-06-01",
+            kind: "Rate review",
+            description: "Euribor 3M 2.95% → 3.40%; installment becomes €2,248.60 from July 2025",
+            agent: "L. Marchand",
+          },
+          {
+            date: "2024-02-14",
+            kind: "Early repayment",
+            description: "€15,000.00 on principal; installment reduced from €2,205.41 to €2,120.16",
+            agent: "K. Aubert",
+          },
+          {
+            date: "2023-10-02",
+            kind: "Deferral",
+            description: "October 2023 installment deferred one month, no penalty",
+            agent: "L. Marchand",
+          },
+        ],
+      },
+    },
+  ];
+}
+
 export interface Db {
   orders: Order[];
   customers: Customer[];
+  contracts: Contract[];
   nextOrderId: () => number;
 }
 
@@ -267,7 +376,8 @@ export function getDb(): Db {
   const rng = mulberry32(20260809);
   const customers = seedCustomers(rng);
   const orders = seedOrders(rng, customers);
+  const contracts = seedContracts();
   const maxId = Math.max(...orders.map((o) => o.id), 0);
-  cached = { orders, customers, nextOrderId: () => maxId + 1 };
+  cached = { orders, customers, contracts, nextOrderId: () => maxId + 1 };
   return cached;
 }
