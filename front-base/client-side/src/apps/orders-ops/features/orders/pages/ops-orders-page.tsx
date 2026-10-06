@@ -25,18 +25,17 @@ import {
   type Order,
   type OrderStatus,
 } from "@/shared/domain/orders";
-import { useDebouncedValue } from "@/shared/hooks/use-debounce";
 import { useShell } from "@/shell/ShellProvider";
 
 import { OrderCreateSheet } from "../../order-create/components/order-create-sheet";
+import {
+  effectiveFiltersToOpsFilters,
+  useEffectiveOpsFilters,
+  useOpsFiltersStore,
+} from "../stores/ops-filters-store";
 import { OpsToolbar } from "../ui/ops-toolbar";
 import { buildOpsColumns } from "../ui/ops-columns";
-import {
-  DEFAULT_OPS_FILTERS,
-  isOpsFiltersDefault,
-  toOpsConditions,
-  type OpsFilters,
-} from "../types/ops-orders-filters";
+import { isOpsFiltersDefault, toOpsConditions } from "../types/ops-orders-filters";
 
 const PAGE_SIZE_OPTIONS = [25, 50, 100];
 const EMPTY_ORDERS: Order[] = [];
@@ -73,7 +72,6 @@ export function OpsOrdersPage() {
   const { publish } = useShell();
   const navigate = useNavigate();
 
-  const [filters, setFilters] = useState<OpsFilters>(DEFAULT_OPS_FILTERS);
   const [pagination, setPagination] = useState<PaginationState>({
     pageIndex: 0,
     pageSize: PAGE_SIZE_OPTIONS[0],
@@ -84,30 +82,24 @@ export function OpsOrdersPage() {
   const [density, setDensity] = useState<TableDensity>("comfortable");
   const [createOpen, setCreateOpen] = useState(false);
 
-  const debouncedQuery = useDebouncedValue(filters.query, 350);
+  // Filter state lives in the Zustand store, outside the React tree. The page
+  // subscribes to only the *effective* slices (non-query filters + debounced
+  // query), so search keystrokes never re-render the page or the table.
+  const effectiveFilters = useEffectiveOpsFilters();
+  const resetFilters = useOpsFiltersStore((state) => state.reset);
   const setStatus = useSetOrderStatusMutation();
-
-  // Any change to what the page shows invalidates a selection made on the old page.
-  const resetPage = useCallback(() => {
-    setPagination((current) => ({ ...current, pageIndex: 0 }));
-  }, []);
 
   const clearSelection = useCallback(() => setRowSelection({}), []);
 
-  const patchFilters = useCallback(
-    (patch: Partial<OpsFilters>) => {
-      setFilters((current) => ({ ...current, ...patch }));
-      resetPage();
-      setRowSelection({});
-    },
-    [resetPage],
-  );
-
-  const resetFilters = useCallback(() => {
-    setFilters(DEFAULT_OPS_FILTERS);
-    resetPage();
+  // A filter change invalidates the page and the selection made under the old
+  // filter set. Adjusted during render (not in an effect) so the reset and the
+  // new conditions land in one committed render — no fetch for a stale page.
+  const [prevFilters, setPrevFilters] = useState(effectiveFilters);
+  if (prevFilters !== effectiveFilters) {
+    setPrevFilters(effectiveFilters);
+    setPagination((current) => ({ ...current, pageIndex: 0 }));
     setRowSelection({});
-  }, [resetPage]);
+  }
 
   const handleOpen = useCallback(
     (order: Order) => {
@@ -133,10 +125,10 @@ export function OpsOrdersPage() {
     [handleOpen, handleSetStatus],
   );
 
-  const conditions = useMemo(
-    () => toOpsConditions(filters, debouncedQuery),
-    [filters, debouncedQuery],
-  );
+  const conditions = useMemo(() => {
+    const filters = effectiveFiltersToOpsFilters(effectiveFilters);
+    return toOpsConditions(filters, filters.query);
+  }, [effectiveFilters]);
   // A deterministic tiebreaker keeps offset paging from repeating/skipping rows.
   const orderBy = useMemo(
     () => (sorting[0] ? `${sorting[0].id}${sorting[0].desc ? " desc" : ""}, id desc` : "id desc"),
@@ -159,10 +151,10 @@ export function OpsOrdersPage() {
   const onSortingChange = useCallback(
     (updater: Updater<SortingState>) => {
       setSorting((current) => (typeof updater === "function" ? updater(current) : updater));
-      resetPage();
+      setPagination((current) => ({ ...current, pageIndex: 0 }));
       setRowSelection({});
     },
-    [resetPage],
+    [],
   );
 
   const table = useTable(
@@ -212,7 +204,7 @@ export function OpsOrdersPage() {
     publish("orders-ops", `Exported ${selectedOrders.length} orders to CSV`);
   }, [selectedOrders, publish]);
 
-  const noFilters = isOpsFiltersDefault(filters);
+  const noFilters = isOpsFiltersDefault(effectiveFiltersToOpsFilters(effectiveFilters));
   const count = orders.data?.count ?? 0;
   const isLoadingFirstPage = orders.isPending && orders.data === undefined;
 
@@ -229,9 +221,6 @@ export function OpsOrdersPage() {
       </PageHeader>
 
       <OpsToolbar
-        filters={filters}
-        onPatch={patchFilters}
-        onReset={resetFilters}
         channelOptions={CHANNEL_OPTIONS}
         count={count}
         busy={orders.isFetching}

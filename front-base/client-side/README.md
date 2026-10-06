@@ -122,6 +122,7 @@ client-side/
    ├─ apps/                       # one folder per lazy-loaded app
    │  ├─ orders-ops/              #    └─ features/<domain>/  DDD-ish grouping
    │  │  └─ features/orders/          ├─ types/      zod schemas + pure filter→Gridify mapping
+   │  │      │                        ├─ stores/     Zustand filter store (debounce lives inside)
    │  │      │                        ├─ ui/         dumb, app-specific components
    │  │      │                        ├─ components/ smart glue
    │  │      │                        └─ pages/      route components
@@ -147,7 +148,7 @@ client-side/
    │  │  ├─ contracts/            # same idea for the lending domain: types+zod, query keys,
    │  │  │                        #   endpoint + hook (single record read), status metadata
    │  │  └─ customers/types/      # tiny embedded aggregate used by the create form
-   │  ├─ hooks/                   # use-debounce, use-mobile
+   │  ├─ hooks/                   # use-mobile
    │  └─ lib/
    │     ├─ api-client.ts         # transport: mock today, real fetch branch ready
    │     ├─ date.ts · format.ts · utils.ts (cn)
@@ -170,9 +171,14 @@ client-side/
 - **Redundancy is allowed where it is UX.** Ops and Finance both define their own filters,
   columns, toolbars and pages — duplicated on purpose. The _domain_ (schemas, query keys, api
   functions) is not duplicated; it lives once in `shared/domain/orders`.
-- **Dumb components are controlled.** Pickers, toolbars and tables receive value + onChange;
-  state and data fetching stay in the pages/smart components. Everything dumb can be extracted
-  to a component library later (see UxGuide).
+- **Dumb components are controlled.** Pickers, selects, tables and pagination bars receive
+  value + onChange; data fetching stays in the pages/smart components. Everything dumb can be
+  extracted to a component library later (see UxGuide).
+- **Ops filter state lives in a Zustand store, outside the React tree**
+  (`orders-ops/features/orders/stores/`). Each toolbar control is connected to just its own
+  slice, and the store keeps a `debouncedQuery` twin of the search text (flushed on reset) —
+  so a keystroke re-renders only the search input, and the page derives its Gridify conditions
+  from the effective slices (non-query filters + debounced query).
 - **Table presentation is declarative.** Alignment, columns-menu labels and lock rules live on the
   column definition's typed `meta` (`DataColumnMeta`), not in bespoke cell classes — the shared
   renderer applies them so both apps get the same grid behaviour.
