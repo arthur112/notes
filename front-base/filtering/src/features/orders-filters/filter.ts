@@ -1,4 +1,7 @@
-import { addDaysYmd, type Ymd } from "@/shared/lib/date";
+import type { DateRange } from "@/shared/components/ui/date-picker";
+import type { NumberRange } from "@/shared/components/ui/number-range-input";
+import type { SearchSelectOption } from "@/shared/components/ui/search-select";
+import { addDaysYmd } from "@/shared/lib/date";
 import type { ConditionSpec } from "@/shared/lib/gridify";
 
 /**
@@ -10,7 +13,7 @@ import type { ConditionSpec } from "@/shared/lib/gridify";
 export const STATUSES = ["pending", "paid", "shipped", "delivered", "cancelled"] as const;
 export type OrderStatus = (typeof STATUSES)[number];
 
-export const STATUS_OPTIONS = STATUSES.map((value) => ({
+export const STATUS_OPTIONS: SearchSelectOption<OrderStatus>[] = STATUSES.map((value) => ({
   value,
   label: value[0].toUpperCase() + value.slice(1),
 }));
@@ -20,18 +23,16 @@ export type OrdersFilter = {
   query: string;
   /** Dropdown. */
   status: OrderStatus | null;
-  /** Number inputs — raw text; an empty string means "no bound". */
-  minTotal: string;
-  maxTotal: string;
+  /** Number range — raw text; an empty string means "no bound". */
+  total: NumberRange;
   /** Calendar — inclusive UTC `YYYY-MM-DD` bounds. */
-  createdAt: { from: Ymd | null; to: Ymd | null };
+  createdAt: DateRange;
 };
 
 export const DEFAULT_ORDERS_FILTER: OrdersFilter = {
   query: "",
   status: null,
-  minTotal: "",
-  maxTotal: "",
+  total: { min: "", max: "" },
   createdAt: { from: null, to: null },
 };
 
@@ -46,8 +47,8 @@ export function isOrdersFilterDefault(filter: OrdersFilter): boolean {
   return (
     filter.query.trim() === "" &&
     filter.status === null &&
-    parseAmount(filter.minTotal) === null &&
-    parseAmount(filter.maxTotal) === null &&
+    parseAmount(filter.total.min) === null &&
+    parseAmount(filter.total.max) === null &&
     filter.createdAt.from === null &&
     filter.createdAt.to === null
   );
@@ -60,8 +61,8 @@ export function isOrdersFilterDefault(filter: OrdersFilter): boolean {
 export function toConditions(filter: OrdersFilter): ConditionSpec[][] {
   const groups: ConditionSpec[][] = [];
   const q = filter.query.trim();
-  const min = parseAmount(filter.minTotal);
-  const max = parseAmount(filter.maxTotal);
+  const min = parseAmount(filter.total.min);
+  const max = parseAmount(filter.total.max);
   const { from, to } = filter.createdAt;
 
   if (q) {

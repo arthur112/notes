@@ -7,6 +7,8 @@ import { formatDate } from "@/shared/lib/format";
 import { todayYmd, type Ymd } from "@/shared/lib/date";
 import { cn } from "@/shared/lib/utils";
 
+import { CONTROL_CLASS } from "./control";
+
 const WEEKDAYS = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"] as const;
 
 function pad(n: number): string {
@@ -147,17 +149,26 @@ function ymdToView(ymd: Ymd | null | undefined): { year: number; month: number }
 }
 
 /** Single-day picker — value is a UTC `YYYY-MM-DD` string. */
+export type PickerTriggerProps = {
+  /** Forwarded to the trigger so a form's `<label htmlFor>` and error text can point at it. */
+  id?: string;
+  "aria-invalid"?: boolean;
+  "aria-describedby"?: string;
+  disabled?: boolean;
+};
+
 export function DatePicker({
   value,
   onChange,
   placeholder = "Pick a date",
   className,
+  ...triggerProps
 }: {
   value: Ymd | null;
   onChange: (next: Ymd | null) => void;
   placeholder?: string;
   className?: string;
-}) {
+} & PickerTriggerProps) {
   const [open, setOpen] = useState(false);
   const [view, setView] = useState(() => ymdToView(value));
 
@@ -170,8 +181,10 @@ export function DatePicker({
       }}
     >
       <PopoverTrigger
+        {...triggerProps}
         className={cn(
           buttonVariants({ variant: "outline" }),
+          CONTROL_CLASS,
           "justify-start font-normal",
           !value && "text-muted-foreground",
           className,
@@ -236,6 +249,7 @@ export function DateRangePicker({
   placeholder = "Pick a period",
   ariaLabel,
   className,
+  ...triggerProps
 }: {
   value?: DateRange;
   onChange: (next: DateRange) => void;
@@ -243,7 +257,7 @@ export function DateRangePicker({
   /** Accessible name; the visible label lives in `FilterField`. */
   ariaLabel?: string;
   className?: string;
-}) {
+} & PickerTriggerProps) {
   const [open, setOpen] = useState(false);
   const [view, setView] = useState(() => ymdToView(value.from));
 
@@ -286,9 +300,11 @@ export function DateRangePicker({
       }}
     >
       <PopoverTrigger
+        {...triggerProps}
         aria-label={ariaLabel}
         className={cn(
           buttonVariants({ variant: "outline" }),
+          CONTROL_CLASS,
           "justify-start font-normal",
           !label && "text-muted-foreground",
           className,

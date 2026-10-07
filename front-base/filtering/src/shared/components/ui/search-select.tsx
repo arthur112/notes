@@ -6,22 +6,29 @@ import { Input } from "@/shared/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/shared/components/ui/popover";
 import { cn } from "@/shared/lib/utils";
 
-export type SearchSelectOption = { value: string; label: string };
+import { CONTROL_CLASS } from "./control";
 
-export type SearchSelectProps = {
-  options: SearchSelectOption[];
-  value: string | null;
-  onChange: (next: string | null) => void;
+export type SearchSelectOption<T extends string = string> = { value: T; label: string };
+
+export type SearchSelectProps<T extends string = string> = {
+  options: readonly SearchSelectOption<T>[];
+  value: T | null;
+  onChange: (next: T | null) => void;
   placeholder?: string;
   /** Shown when the query matches nothing (default: "No results."). */
   emptyMessage?: string;
   /** Accessible name; the visible label lives in `FilterField`. */
   ariaLabel?: string;
   className?: string;
+  /** Forwarded to the trigger so a form's `<label htmlFor>` and error text can point at it. */
+  id?: string;
+  "aria-invalid"?: boolean;
+  "aria-describedby"?: string;
+  disabled?: boolean;
 };
 
 /** Single-value searchable select (popover + filtered option list). */
-export function SearchSelect({
+export function SearchSelect<T extends string = string>({
   options,
   value,
   onChange,
@@ -29,7 +36,8 @@ export function SearchSelect({
   emptyMessage = "No results.",
   ariaLabel,
   className,
-}: SearchSelectProps) {
+  ...triggerProps
+}: SearchSelectProps<T>) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
 
@@ -40,7 +48,7 @@ export function SearchSelect({
     [options, query],
   );
 
-  const pick = (optionValue: string) => {
+  const pick = (optionValue: T) => {
     onChange(optionValue);
     setOpen(false);
   };
@@ -54,9 +62,11 @@ export function SearchSelect({
       }}
     >
       <PopoverTrigger
+        {...triggerProps}
         aria-label={ariaLabel}
         className={cn(
           buttonVariants({ variant: "outline" }),
+          CONTROL_CLASS,
           "justify-between font-normal",
           !selected && "text-muted-foreground",
           className,

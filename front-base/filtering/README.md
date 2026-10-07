@@ -19,14 +19,40 @@ OrdersFilter (useState) ──▶ useDebouncedValue ──▶ toConditions() ─
 
 ## Filters
 
-| Control          | Component         | Filter field              | Gridify output                               |
-| ---------------- | ----------------- | ------------------------- | -------------------------------------------- |
-| Search           | `Input`           | `query`                   | `(orderNo=*q\|customer.name=*q)`             |
-| Dropdown         | `SearchSelect`    | `status`                  | `status=paid`                                |
-| Number inputs    | `Input` (decimal) | `minTotal` / `maxTotal`   | `total>=10.5,total<=200`                     |
-| Calendar (range) | `DateRangePicker` | `createdAt: { from, to }` | `createdAt>=2026-01-01,createdAt<2026-02-01` |
+| Control          | UI component       | Filter field              | Gridify output                               |
+| ---------------- | ------------------ | ------------------------- | -------------------------------------------- |
+| Search           | `SearchInput`      | `query`                   | `(orderNo=*q\|customer.name=*q)`             |
+| Dropdown         | `SearchSelect`     | `status`                  | `status=paid`                                |
+| Number range     | `NumberRangeInput` | `total: { min, max }`     | `total>=10.5,total<=200`                     |
+| Calendar (range) | `DateRangePicker`  | `createdAt: { from, to }` | `createdAt>=2026-01-01,createdAt<2026-02-01` |
 
 The calendar's `to` is inclusive in the UI and becomes an exclusive next-day bound in the query.
+
+## Shared controls
+
+The filter bar is built only from `shared/components/ui/` controls, and a form uses the same ones.
+That keeps the look and feel identical; each context provides its own wrapper (`FilterField` here, a
+form field with an error message later).
+
+| Control            | Value                   | Notes                               |
+| ------------------ | ----------------------- | ----------------------------------- |
+| `SearchInput`      | `string`                | `Input` with a leading search icon  |
+| `NumberInput`      | `string` (raw, decimal) | `inputMode="decimal"`, tabular-nums |
+| `NumberRangeInput` | `{ min, max }` strings  | two `NumberInput`s                  |
+| `SearchSelect<T>`  | `T \| null`             | typed by its options, so no casts   |
+| `DatePicker`       | `Ymd \| null`           | UTC `YYYY-MM-DD`                    |
+| `DateRangePicker`  | `{ from, to }`          | inclusive bounds                    |
+
+They share one contract:
+
+- **Controlled** — `value` and `onChange(next)`, where `onChange` receives the value, not an event.
+- **One size** — `CONTROL_CLASS` (`h-9 w-full`). The control fills its container, so the wrapper
+  sets the width.
+- **Label-ready** — they accept `id`, `aria-invalid`, `aria-describedby` and `disabled`, so a form's
+  `<label htmlFor>` and error text can point at them; `aria-invalid` turns them red.
+
+Number values stay **raw strings** so half-typed input (`"10,"`) survives a re-render. Parse them
+where you use them (`parseAmount` in `filter.ts`, or a zod coercion in a form).
 
 ## Layout
 
@@ -34,10 +60,12 @@ The calendar's `to` is inclusive in the UI and becomes an exclusive next-day bou
 src/
 ├─ features/orders-filters/
 │  ├─ filter.ts          # the filter object type, defaults, parseAmount, toConditions
-│  ├─ filter-bar.tsx     # dumb, controlled filter controls
+│  ├─ filter-bar.tsx     # dumb: labels the shared controls and sets their widths
 │  └─ filters-page.tsx   # smart page: state + debounce + generated string
 ├─ shared/
-│  ├─ components/        # filter-field + ui/ (button, input, popover, search-select, date-picker)
+│  ├─ components/
+│  │  ├─ filter-field.tsx  # label above a filter control
+│  │  └─ ui/               # button, input, popover + the shared controls above (control.ts = size)
 │  ├─ hooks/use-debounce.ts
 │  └─ lib/               # gridify.ts (ConditionSpec → filter string), date, format, utils
 └─ routes/               # TanStack Router file-based: __root + index
