@@ -5,9 +5,9 @@ import { addDaysYmd, type Ymd } from "@/shared/lib/date";
 import { buildFilter, type ConditionSpec } from "@/shared/lib/gridify";
 
 /**
- * The filter object the page holds in `useState`. Its shape, defaults and the
- * pure mapping to Gridify conditions live here so the components stay
- * declarative: change a field here, and the bar + query follow.
+ * The filter object the controls show, its URL form and the pure
+ * mapping to Gridify live here so the components stay declarative: change a
+ * field here, and the bar + query follow.
  */
 
 export const STATUSES = ["pending", "paid", "shipped", "delivered", "cancelled"] as const;
@@ -29,61 +29,11 @@ export type OrdersFilter = {
   createdAt: DateRange;
 };
 
-export const DEFAULT_ORDERS_FILTER: OrdersFilter = {
-  query: "",
-  status: null,
-  total: { min: "", max: "" },
-  createdAt: { from: null, to: null },
-};
-
-export function parseAmount(raw: string): number | null {
+function parseAmount(raw: string): number | null {
   const trimmed = raw.trim();
   if (!trimmed) return null;
   const value = Number(trimmed.replace(",", "."));
   return Number.isFinite(value) ? value : null;
-}
-
-export function isOrdersFilterDefault(filter: OrdersFilter): boolean {
-  return (
-    filter.query.trim() === "" &&
-    filter.status === null &&
-    parseAmount(filter.total.min) === null &&
-    parseAmount(filter.total.max) === null &&
-    filter.createdAt.from === null &&
-    filter.createdAt.to === null
-  );
-}
-
-/**
- * Map the filter to Gridify conditions. Pure — the page passes the debounced
- * filter so a keystroke doesn't rebuild the query.
- */
-export function toConditions(filter: OrdersFilter): ConditionSpec[][] {
-  const groups: ConditionSpec[][] = [];
-  const q = filter.query.trim();
-  const min = parseAmount(filter.total.min);
-  const max = parseAmount(filter.total.max);
-  const { from, to } = filter.createdAt;
-
-  if (q) {
-    groups.push([
-      { field: "orderNo", op: "contains", value: q },
-      { field: "customer.name", op: "contains", value: q },
-    ]);
-  }
-  if (filter.status) groups.push([{ field: "status", op: "eq", value: filter.status }]);
-  if (min !== null) groups.push([{ field: "total", op: "gte", value: min }]);
-  if (max !== null) groups.push([{ field: "total", op: "lte", value: max }]);
-  if (from) groups.push([{ field: "createdAt", op: "gte", value: from }]);
-  // inclusive `to` → exclusive next-day upper bound
-  if (to) groups.push([{ field: "createdAt", op: "lt", value: addDaysYmd(to, 1) }]);
-
-  return groups;
-}
-
-/** The Gridify `filter` string for a filter object — what the loader and the page fetch with. */
-export function toGridifyFilter(filter: OrdersFilter): string {
-  return buildFilter(toConditions(filter));
 }
 
 // ---------------------------------------------------------------------------
@@ -116,22 +66,38 @@ export function filterToSearch(filter: OrdersFilter): OrdersSearch {
   };
 }
 
+/**
+ * The Gridify `filter` string for a settled search — what the loader and the
+ * page fetch with. The search is already normalized by `validateOrdersSearch`.
+ */
+export function toGridifyFilter({ q, status, min, max, from, to }: OrdersSearch): string {
+  const groups: ConditionSpec[][] = [];
+  if (q) {
+    groups.push([
+      { field: "orderNo", op: "contains", value: q },
+      { field: "customer.name", op: "contains", value: q },
+    ]);
+  }
+  if (status) groups.push([{ field: "status", op: "eq", value: status }]);
+  if (min !== undefined) groups.push([{ field: "total", op: "gte", value: min }]);
+  if (max !== undefined) groups.push([{ field: "total", op: "lte", value: max }]);
+  if (from) groups.push([{ field: "createdAt", op: "gte", value: from }]);
+  // inclusive `to` → exclusive next-day upper bound
+  if (to) groups.push([{ field: "createdAt", op: "lt", value: addDaysYmd(to, 1) }]);
+  return buildFilter(groups);
+}
+
 /** URL search → filter, for the first render and for Back/Forward. */
 export function searchToFilter(search: OrdersSearch): OrdersFilter {
   return {
     query: search.q ?? "",
     status: search.status ?? null,
     total: {
-      min: search.min === undefined ? "" : String(search.min),
-      max: search.max === undefined ? "" : String(search.max),
+      min: search.min?.toString() ?? "",
+      max: search.max?.toString() ?? "",
     },
     createdAt: { from: search.from ?? null, to: search.to ?? null },
   };
-}
-
-/** Order-stable identity of a search, to tell our own URL writes from Back/Forward. */
-export function searchKey(search: OrdersSearch): string {
-  return JSON.stringify([search.q, search.status, search.min, search.max, search.from, search.to]);
 }
 
 // The router JSON-parses each value (`?q=123` → 123, `?min=10.5` → 10.5);

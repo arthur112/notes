@@ -34,17 +34,10 @@ export interface ConditionSpec {
   field: string;
   op: MatchOp;
   value: string | number | boolean;
-  /** Appends the `/i` case-insensitive marker to the emitted condition. */
-  caseInsensitive?: boolean;
 }
 
 function addCondition(builder: GridifyQueryBuilder, condition: ConditionSpec): void {
-  builder.addCondition(
-    condition.field,
-    GRIDIFY_OPS[condition.op],
-    condition.value,
-    condition.caseInsensitive !== true,
-  );
+  builder.addCondition(condition.field, GRIDIFY_OPS[condition.op], condition.value);
 }
 
 function addOrGroup(builder: GridifyQueryBuilder, group: ConditionSpec[]): void {

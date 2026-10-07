@@ -4,27 +4,31 @@ import { DateRangePicker } from "@/shared/components/ui/date-picker";
 import { NumberRangeInput } from "@/shared/components/ui/number-range-input";
 import { SearchInput } from "@/shared/components/ui/search-input";
 import { SearchSelect } from "@/shared/components/ui/search-select";
+import { useBufferedValue } from "@/shared/hooks/use-buffered-value";
 
 import { STATUS_OPTIONS, type OrdersFilter } from "./filter";
 
 export type FilterBarProps = {
+  /** The settled filter. */
   filter: OrdersFilter;
   onPatch: (patch: Partial<OrdersFilter>) => void;
   onReset: () => void;
 };
 
 /**
- * Dumb by construction — every control is controlled by the page's filter
- * object. The controls are the shared `ui/` ones a form would use too; the bar
- * only labels them and sets their widths.
+ * Controlled by the page's settled filter. Picks (status, dates) are patched at
+ * once; typed fields (search, totals) keep a draft while edited and are
+ * patched once typing pauses or the field loses focus.
  */
 export function FilterBar({ filter, onPatch, onReset }: FilterBarProps) {
+  const query = useBufferedValue(filter.query, (query) => onPatch({ query }));
+  const total = useBufferedValue(filter.total, (total) => onPatch({ total }));
+
   return (
     <div className="flex flex-wrap items-end gap-4 rounded-lg border bg-card p-4">
       <FilterField label="Search" className="min-w-56 flex-1">
         <SearchInput
-          value={filter.query}
-          onChange={(query) => onPatch({ query })}
+          {...query}
           placeholder="Order no or customer…"
           aria-label="Search orders by number or customer"
         />
@@ -36,14 +40,13 @@ export function FilterBar({ filter, onPatch, onReset }: FilterBarProps) {
           value={filter.status}
           onChange={(status) => onPatch({ status })}
           placeholder="Any status"
-          ariaLabel="Status"
+          aria-label="Status"
         />
       </FilterField>
 
       <FilterField label="Order total (€)" className="w-56">
         <NumberRangeInput
-          value={filter.total}
-          onChange={(total) => onPatch({ total })}
+          {...total}
           minAriaLabel="Minimum order total"
           maxAriaLabel="Maximum order total"
         />
@@ -53,7 +56,7 @@ export function FilterBar({ filter, onPatch, onReset }: FilterBarProps) {
         <DateRangePicker
           value={filter.createdAt}
           onChange={(createdAt) => onPatch({ createdAt })}
-          ariaLabel="Created period"
+          aria-label="Created period"
         />
       </FilterField>
 

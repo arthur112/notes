@@ -2,15 +2,10 @@ import { keepPreviousData, queryOptions, useQuery } from "@tanstack/react-query"
 
 import { fetchOrders } from "./orders-api";
 
-export const orderQueryKeys = {
-  all: ["orders"] as const,
-  list: (filter: string) => ["orders", "list", filter] as const,
-} as const;
-
 /**
- * One definition shared by the route loader (`ensureQueryData` /
- * `prefetchQuery`) and the page (`useQuery`), so both hit the same cache entry.
- * The Gridify filter string **is** the key: a new string means a new fetch.
+ * One definition shared by the route loader (`prefetchQuery`) and the page
+ * (`useQuery`), so both hit the same cache entry. The Gridify filter string
+ * **is** the key: a new string means a new fetch.
  *
  * `staleTime` must be > 0: with 0, data the loader just fetched would already
  * be stale when the page subscribes, and the page would fetch it a second time.
@@ -18,7 +13,7 @@ export const orderQueryKeys = {
  */
 export function ordersQueryOptions(filter: string) {
   return queryOptions({
-    queryKey: orderQueryKeys.list(filter),
+    queryKey: ["orders", filter],
     queryFn: () => fetchOrders(filter),
     staleTime: 30_000,
   });

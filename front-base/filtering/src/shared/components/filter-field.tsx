@@ -9,12 +9,10 @@ import { cn } from "@/shared/lib/utils";
  */
 export function FilterField({
   label,
-  hint,
   children,
   className,
 }: {
   label: string;
-  hint?: string;
   children: ReactNode;
   className?: string;
 }) {
@@ -22,7 +20,6 @@ export function FilterField({
     <div className={cn("space-y-1.5", className)}>
       <span className="block text-xs font-medium text-muted-foreground">{label}</span>
       {children}
-      {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
     </div>
   );
 }

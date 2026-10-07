@@ -1,30 +1,22 @@
 import { useMemo, useState } from "react";
-import { Check, ChevronsUpDown, Search, X } from "lucide-react";
+import { Check, ChevronsUpDown, X } from "lucide-react";
 
 import { buttonVariants } from "@/shared/components/ui/button";
-import { Input } from "@/shared/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/shared/components/ui/popover";
 import { cn } from "@/shared/lib/utils";
 
-import { CONTROL_CLASS } from "./control";
+import { CONTROL_CLASS, type ControlProps } from "./control";
+import { SearchInput } from "./search-input";
 
 export type SearchSelectOption<T extends string = string> = { value: T; label: string };
 
-export type SearchSelectProps<T extends string = string> = {
+export type SearchSelectProps<T extends string = string> = ControlProps & {
   options: readonly SearchSelectOption<T>[];
   value: T | null;
   onChange: (next: T | null) => void;
   placeholder?: string;
   /** Shown when the query matches nothing (default: "No results."). */
   emptyMessage?: string;
-  /** Accessible name; the visible label lives in `FilterField`. */
-  ariaLabel?: string;
-  className?: string;
-  /** Forwarded to the trigger so a form's `<label htmlFor>` and error text can point at it. */
-  id?: string;
-  "aria-invalid"?: boolean;
-  "aria-describedby"?: string;
-  disabled?: boolean;
 };
 
 /** Single-value searchable select (popover + filtered option list). */
@@ -34,7 +26,6 @@ export function SearchSelect<T extends string = string>({
   onChange,
   placeholder = "Select…",
   emptyMessage = "No results.",
-  ariaLabel,
   className,
   ...triggerProps
 }: SearchSelectProps<T>) {
@@ -63,7 +54,6 @@ export function SearchSelect<T extends string = string>({
     >
       <PopoverTrigger
         {...triggerProps}
-        aria-label={ariaLabel}
         className={cn(
           buttonVariants({ variant: "outline" }),
           CONTROL_CLASS,
@@ -90,13 +80,12 @@ export function SearchSelect<T extends string = string>({
         )}
       </PopoverTrigger>
       <PopoverContent className="w-(--anchor-width) min-w-56 p-0">
-        <div className="relative border-b border-border">
-          <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
+        <div className="border-b border-border">
+          <SearchInput
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={setQuery}
             placeholder="Search…"
-            className="border-0 pl-9 shadow-none focus-visible:border-transparent focus-visible:ring-0"
+            className="border-0 shadow-none focus-visible:border-transparent focus-visible:ring-0"
           />
         </div>
         <div className="max-h-56 overflow-y-auto p-1">

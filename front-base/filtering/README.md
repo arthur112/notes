@@ -5,34 +5,37 @@ the Gridify filter string they produce, sent through React Query to a tiny mock 
 iterate on filtering. There is no shell and no data table.
 
 It uses the **pre-Zustand** filtering approach from `client-side` (before commit `b2a05b4`) for the
-controls, and keeps the **settled filter in the URL** so the route loader can fetch it:
+controls, and makes the **URL the only filter state** so the route loader can fetch it:
 
-- the page owns **one filter object** in `useState`, which drives the controls;
-- a dumb `FilterBar` gets `filter` + `onPatch(partial)` + `onReset`;
-- the **whole filter object** is debounced (`useDebouncedValue`, 350 ms), then written to the URL
-  search params (`/?q=acme&status=paid&min=10.5&from=…&to=…`);
+- the page derives the filter from the URL search params (`/?q=acme&status=paid&min=10.5&from=…&to=…`);
+  there is no `useState` copy of it, and no effect;
+- `FilterBar` gets `filter` + `onPatch(partial)` + `onReset`, and each patch is a `navigate({ search })`;
+- picks (status, dates, reset) navigate at once; **typed fields** (search, totals) keep a draft while
+  edited and patch once typing pauses for 350 ms or the field loses focus (`useBufferedValue`);
 - the route validates the search with a plain function, and its **loader** fetches through the shared `QueryClient`;
-- the page's `useOrders` reads the same query from the URL. `toConditions` + `buildFilter` (the only
-  code that touches `gridify-client`) turn the filter into the Gridify string, which is the query key.
+- the page's `useOrders` reads the same query from the URL. `toGridifyFilter(search)` (through
+  `buildFilter`, the only code that touches `gridify-client`) turns the settled search into the Gridify
+  string, which is the query key.
 
 ```text
-controls (useState) ─▶ debounce ─▶ navigate({ search }) ─▶ URL
-                                                           ├─▶ loader: queryClient.prefetchQuery (not awaited)
-                                                           └─▶ page:   useOrders(toGridifyFilter(search))
-                                                                         └─▶ mock GET /api/orders?filter=…
+picks ──────────────────────────────┐
+typed fields ─▶ draft ─▶ 350 ms/blur ─┴─▶ navigate({ search }) ─▶ URL
+                                                                  ├─▶ controls: searchToFilter(search)
+                                                                  ├─▶ loader:   queryClient.prefetchQuery (not awaited)
+                                                                  └─▶ page:     useOrders(toGridifyFilter(search))
+                                                                                  └─▶ mock GET /api/orders?filter=…
 ```
 
 ## Route ↔ React Query
 
-| Piece                        | Where                              | What it does                                                                                                              |
-| ---------------------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| Router context               | `router.tsx`, `__root`             | `createRootRouteWithContext<{ queryClient }>`, so loaders reach the one `QueryClient`.                                    |
-| `validateSearch`             | `routes/index.tsx`                 | `validateOrdersSearch` (`filter.ts`): reads the URL leniently into a filter, then re-serializes it with `filterToSearch`. |
-| `loaderDeps`                 | `routes/index.tsx`                 | `({ search }) => search`: the loader re-runs whenever the settled filter changes.                                         |
-| Loader                       | every match of `/`                 | `prefetchQuery`, not awaited: the page shows at once with its loading state; `useQuery` joins the in-flight request.      |
-| `ordersQueryOptions`         | `api/use-orders.ts`                | One `queryOptions` for loader and page, so both use the same cache entry.                                                 |
-| `staleTime: 30_000`          | `ordersQueryOptions`               | Needed: with 0, data the loader just fetched is already stale when the page subscribes, so it would fetch twice.          |
-| `defaultPreloadStaleTime: 0` | `router.tsx`                       | React Query owns caching; the router doesn't cache loader results on top of it.                                           |
+| Piece                | Where                  | What it does                                                                                                              |
+| -------------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| Router context       | `router.tsx`, `__root` | `createRootRouteWithContext<{ queryClient }>`, so loaders reach the one `QueryClient`.                                    |
+| `validateSearch`     | `routes/index.tsx`     | `validateOrdersSearch` (`filter.ts`): reads the URL leniently into a filter, then re-serializes it with `filterToSearch`. |
+| `loaderDeps`         | `routes/index.tsx`     | `({ search }) => search`: the loader re-runs whenever the settled filter changes.                                         |
+| Loader               | every match of `/`     | `prefetchQuery`, not awaited: the page shows at once with its loading state; `useQuery` joins the in-flight request.      |
+| `ordersQueryOptions` | `api/use-orders.ts`    | One `queryOptions` for loader and page, so both use the same cache entry.                                                 |
+| `staleTime: 30_000`  | `ordersQueryOptions`   | Needed: with 0, data the loader just fetched is already stale when the page subscribes, so it would fetch twice.          |
 
 **Why a loader that doesn't wait.** `autoCodeSplitting` makes the page a lazy chunk. Without the
 loader, the request would only start once that chunk has downloaded and rendered. With it, the request
@@ -40,10 +43,13 @@ starts as soon as the router matches the URL, in parallel with the chunk downloa
 means the router never holds the page back: the filter bar is usable at once, and the table shows its
 loading state until the rows arrive.
 
-**Two-way sync without loops.** The page keeps the last search it wrote (or adopted) in a ref:
-
-- settled controls → URL only when the new search differs from it;
-- URL → controls only when the URL differs from it. That happens on Back/Forward or a pasted link.
+**One copy of the filter, no sync.** The controls read the URL, so Back/Forward and links need no
+code. Only typed fields need a debounce, so it lives there: `useBufferedValue` shows a draft while the
+field is edited (half-typed `10.` or a trailing space survive) and the URL value otherwise, so the
+field shows the normalized value (`10`, trimmed) once you leave it. Patches use
+`navigate({ search: (prev) => … })`, so a debounced patch landing later applies to the current
+search, not to a stale one. The one gap: Back/Forward while a typed field still has focus keeps
+its draft until the field is blurred.
 
 Each settled change is a history entry, so **Back undoes a filter**.
 
@@ -79,7 +85,7 @@ Checked in headless Chromium:
 | ------------------------------------------------------------- | ----- | ------------------------------------------------------------------------------- |
 | Load `/`                                                      | 1     | `/`                                                                             |
 | Type `acme` (4 keystrokes)                                    | 1     | `/?q=acme`                                                                      |
-| Status → Paid                                                 | 1     | `/?q=acme&status=paid`                                                          |
+| Status → Paid                                                 | 1     | `/?q=acme&status=paid`, at once (no debounce on picks)                          |
 | Min total `10.5`                                              | 1     | `/?q=acme&status=paid&min=10.5`                                                 |
 | Back                                                          | 0     | `/?q=acme&status=paid`; min input cleared (cached)                              |
 | Forward                                                       | 0     | min input back to `10.5` (cached)                                               |
@@ -112,7 +118,6 @@ form field with an error message later).
 | `NumberInput`      | `string` (raw, decimal) | `inputMode="decimal"`, tabular-nums |
 | `NumberRangeInput` | `{ min, max }` strings  | two `NumberInput`s                  |
 | `SearchSelect<T>`  | `T \| null`             | typed by its options, so no casts   |
-| `DatePicker`       | `Ymd \| null`           | UTC `YYYY-MM-DD`                    |
 | `DateRangePicker`  | `{ from, to }`          | inclusive bounds                    |
 
 They share one contract:
@@ -120,8 +125,9 @@ They share one contract:
 - **Controlled** — `value` and `onChange(next)`, where `onChange` receives the value, not an event.
 - **One size** — `CONTROL_CLASS` (`h-9 w-full`). The control fills its container, so the wrapper
   sets the width.
-- **Label-ready** — they accept `id`, `aria-invalid`, `aria-describedby` and `disabled`, so a form's
-  `<label htmlFor>` and error text can point at them; `aria-invalid` turns them red.
+- **Label-ready** — they accept the shared `ControlProps` (`id`, `aria-label`, `aria-invalid`,
+  `aria-describedby`, `disabled`, `className`), so a form's `<label htmlFor>` and error text can
+  point at them; `aria-invalid` turns them red.
 
 Number values stay **raw strings** so half-typed input (`"10,"`) survives a re-render. Parse them
 where you use them (`parseAmount` in `filter.ts`, or in a form's submit/validation).
@@ -133,15 +139,15 @@ src/
 ├─ features/orders-filters/
 │  ├─ api/
 │  │  ├─ orders-api.ts   # mock GET /api/orders?filter=… (logs, echoes, fixed rows)
-│  │  └─ use-orders.ts   # query keys + ordersQueryOptions (loader + page) + useOrders
-│  ├─ filter.ts          # filter object, toConditions/toGridifyFilter, URL search type, validateSearch, filter ⇄ search
+│  │  └─ use-orders.ts   # ordersQueryOptions (loader + page) + useOrders
+│  ├─ filter.ts          # filter object, URL search type, validateSearch, filter ⇄ search, toGridifyFilter
 │  ├─ filter-bar.tsx     # dumb: labels the shared controls and sets their widths
-│  └─ filters-page.tsx   # smart page: controls state ⇄ URL sync, query, request log
+│  └─ filters-page.tsx   # smart page: filter from URL, patch = navigate, query, request log
 ├─ shared/
 │  ├─ components/
 │  │  ├─ filter-field.tsx  # label above a filter control
-│  │  └─ ui/               # button, input, popover + the shared controls above (control.ts = size)
-│  ├─ hooks/use-debounce.ts
+│  │  └─ ui/               # button, input, popover + the shared controls above (control.ts = size + ControlProps)
+│  ├─ hooks/use-buffered-value.ts  # draft while editing, commit on pause/blur
 │  └─ lib/               # gridify.ts (ConditionSpec → filter string), date, format, utils
 ├─ router.tsx            # QueryClient + router (queryClient in context)
 └─ routes/               # __root (router context) + index (validateSearch, loaderDeps, loader)

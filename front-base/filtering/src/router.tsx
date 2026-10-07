@@ -19,8 +19,6 @@ export const router = createRouter({
   routeTree,
   // Loaders reach React Query through the router context.
   context: { queryClient },
-  // React Query owns caching; don't let the router cache preloaded loader results too.
-  defaultPreloadStaleTime: 0,
 });
 
 declare module "@tanstack/react-router" {

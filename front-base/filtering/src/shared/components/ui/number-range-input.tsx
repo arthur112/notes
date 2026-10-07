@@ -1,28 +1,27 @@
 import { cn } from "@/shared/lib/utils";
 
+import type { ControlProps } from "./control";
 import { NumberInput } from "./number-input";
 
 /** Raw min/max text; an empty string means "no bound". */
 export type NumberRange = { min: string; max: string };
 
-export type NumberRangeInputProps = {
+/** `id` goes to the `min` input so a `<label htmlFor>` focuses it. */
+export type NumberRangeInputProps = Omit<ControlProps, "aria-label"> & {
   value: NumberRange;
   onChange: (next: NumberRange) => void;
+  /** Fires when focus leaves either input (it bubbles from the group). */
+  onBlur?: () => void;
   /** Accessible names of the two inputs. */
   minAriaLabel?: string;
   maxAriaLabel?: string;
-  /** Forwarded to the `min` input so a `<label htmlFor>` focuses it. */
-  id?: string;
-  "aria-invalid"?: boolean;
-  "aria-describedby"?: string;
-  disabled?: boolean;
-  className?: string;
 };
 
 /** Two number inputs, `Min – Max`. */
 export function NumberRangeInput({
   value,
   onChange,
+  onBlur,
   minAriaLabel = "Minimum",
   maxAriaLabel = "Maximum",
   id,
@@ -30,7 +29,7 @@ export function NumberRangeInput({
   ...shared
 }: NumberRangeInputProps) {
   return (
-    <div role="group" className={cn("flex items-center gap-2", className)}>
+    <div role="group" onBlur={onBlur} className={cn("flex items-center gap-2", className)}>
       <NumberInput
         {...shared}
         id={id}

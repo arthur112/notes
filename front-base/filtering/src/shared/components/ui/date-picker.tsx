@@ -4,42 +4,39 @@ import { CalendarDays } from "lucide-react";
 import { buttonVariants } from "@/shared/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/shared/components/ui/popover";
 import { formatDate } from "@/shared/lib/format";
-import { todayYmd, type Ymd } from "@/shared/lib/date";
+import { todayYmd, toYmd, type Ymd } from "@/shared/lib/date";
 import { cn } from "@/shared/lib/utils";
 
-import { CONTROL_CLASS } from "./control";
+import { CONTROL_CLASS, type ControlProps } from "./control";
 
 const WEEKDAYS = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"] as const;
 
-function pad(n: number): string {
-  return String(n).padStart(2, "0");
+/**
+ * The month on screen. `month` is 0-based and may overflow (-1, 12, …):
+ * everything reads it through `Date.UTC`, which normalizes it.
+ */
+type View = { year: number; month: number };
+
+function ymdToView(ymd: Ymd | null): View {
+  const [year, month] = (ymd ?? todayYmd()).split("-").map(Number);
+  return { year, month: month - 1 };
 }
 
-/** A month of day cells on a UTC grid. */
-export function MonthGrid({
-  year,
-  month,
-  selected,
-  rangeFrom,
-  rangeTo,
+/** A month of day cells on a UTC grid, highlighting the inclusive `from`–`to` range. */
+function MonthGrid({
+  view,
+  from,
+  to,
   onSelectDay,
 }: {
-  year: number;
-  month: number; // 0-based
-  selected?: Ymd;
-  rangeFrom?: Ymd | null;
-  rangeTo?: Ymd | null;
+  view: View;
+  from: Ymd | null;
+  to: Ymd | null;
   onSelectDay: (ymd: Ymd) => void;
 }) {
-  const firstDay = new Date(Date.UTC(year, month, 1));
-  const lead = (firstDay.getUTCDay() + 6) % 7; // Monday-first
-  const daysInMonth = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+  const lead = (new Date(Date.UTC(view.year, view.month, 1)).getUTCDay() + 6) % 7; // Monday-first
+  const daysInMonth = new Date(Date.UTC(view.year, view.month + 1, 0)).getUTCDate();
   const today = todayYmd();
-
-  const cells: (string | null)[] = [
-    ...Array.from({ length: lead }, () => null),
-    ...Array.from({ length: daysInMonth }, (_, i) => `${year}-${pad(month + 1)}-${pad(i + 1)}`),
-  ];
 
   return (
     <div>
@@ -51,18 +48,11 @@ export function MonthGrid({
         ))}
       </div>
       <div className="grid grid-cols-7 gap-0.5">
-        {cells.map((ymd, i) => {
-          if (!ymd) return <span key={`empty-${i}`} />;
-          const inRange =
-            rangeFrom &&
-            rangeTo &&
-            ymd >= rangeFrom &&
-            ymd <= rangeTo &&
-            (ymd === rangeFrom || ymd === rangeTo || (ymd > rangeFrom && ymd < rangeTo));
-          const isStart = rangeFrom === ymd;
-          const isEnd = rangeTo === ymd;
-          const isSelected = selected === ymd;
-          const isToday = ymd === today;
+        {Array.from({ length: lead }, (_, i) => (
+          <span key={`empty-${i}`} />
+        ))}
+        {Array.from({ length: daysInMonth }, (_, i) => {
+          const ymd = toYmd(new Date(Date.UTC(view.year, view.month, i + 1)));
           return (
             <button
               key={ymd}
@@ -70,18 +60,17 @@ export function MonthGrid({
               onClick={() => onSelectDay(ymd)}
               className={cn(
                 "relative rounded-md py-1.5 text-sm tabular-nums transition-colors hover:bg-accent hover:text-accent-foreground",
-                isToday && "font-semibold text-primary",
-                inRange && "rounded-none bg-primary/10 hover:bg-primary/15",
-                isStart &&
+                ymd === today && "font-semibold text-primary",
+                from &&
+                  to &&
+                  ymd >= from &&
+                  ymd <= to &&
+                  "rounded-none bg-primary/10 hover:bg-primary/15",
+                (ymd === from || ymd === to) &&
                   "rounded-md bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground",
-                isEnd &&
-                  isStart === false &&
-                  "rounded-md bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground",
-                isSelected &&
-                  "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground",
               )}
             >
-              {Number(ymd.slice(8, 10))}
+              {i + 1}
             </button>
           );
         })}
@@ -90,218 +79,56 @@ export function MonthGrid({
   );
 }
 
-/** Navigation header (chevrons + "Mar 2026") for a day/range picker. */
-export function MonthNavHeader({
-  year,
-  month,
-  onPrev,
-  onNext,
-  onToday,
-}: {
-  year: number;
-  month: number;
-  onPrev: () => void;
-  onNext: () => void;
-  onToday?: () => void;
-}) {
-  const label = `${new Date(Date.UTC(year, month, 1)).toLocaleString("en-GB", { month: "short" })} ${year}`;
-  return (
-    <div className="mb-2 flex items-center justify-between gap-1">
-      <button
-        type="button"
-        onClick={onPrev}
-        aria-label="Previous month"
-        className={cn(buttonVariants({ variant: "ghost", size: "icon-sm" }))}
-      >
-        ←
-      </button>
-      <div className="flex items-center gap-1">
-        <span className="text-sm font-medium tabular-nums">{label}</span>
-        {onToday && (
-          <button
-            type="button"
-            onClick={onToday}
-            className="rounded-md px-1.5 py-0.5 text-xs text-primary hover:bg-accent"
-          >
-            Today
-          </button>
-        )}
-      </div>
-      <button
-        type="button"
-        onClick={onNext}
-        aria-label="Next month"
-        className={cn(buttonVariants({ variant: "ghost", size: "icon-sm" }))}
-      >
-        →
-      </button>
-    </div>
-  );
-}
-
-function ymdToView(ymd: Ymd | null | undefined): { year: number; month: number } {
-  if (ymd) {
-    const [y, m] = ymd.split("-").map(Number);
-    return { year: y, month: m - 1 };
-  }
-  const now = new Date();
-  return { year: now.getUTCFullYear(), month: now.getUTCMonth() };
-}
-
-/** Single-day picker — value is a UTC `YYYY-MM-DD` string. */
-export type PickerTriggerProps = {
-  /** Forwarded to the trigger so a form's `<label htmlFor>` and error text can point at it. */
-  id?: string;
-  "aria-invalid"?: boolean;
-  "aria-describedby"?: string;
-  disabled?: boolean;
-};
-
-export function DatePicker({
-  value,
-  onChange,
-  placeholder = "Pick a date",
-  className,
-  ...triggerProps
-}: {
-  value: Ymd | null;
-  onChange: (next: Ymd | null) => void;
-  placeholder?: string;
-  className?: string;
-} & PickerTriggerProps) {
-  const [open, setOpen] = useState(false);
-  const [view, setView] = useState(() => ymdToView(value));
-
-  return (
-    <Popover
-      open={open}
-      onOpenChange={(next) => {
-        setOpen(next);
-        if (next) setView(ymdToView(value));
-      }}
-    >
-      <PopoverTrigger
-        {...triggerProps}
-        className={cn(
-          buttonVariants({ variant: "outline" }),
-          CONTROL_CLASS,
-          "justify-start font-normal",
-          !value && "text-muted-foreground",
-          className,
-        )}
-      >
-        <CalendarDays />
-        {value ? formatDate(value) : placeholder}
-      </PopoverTrigger>
-      <PopoverContent className="w-72 p-3" align="start">
-        <MonthNavHeader
-          year={view.year}
-          month={view.month}
-          onPrev={() =>
-            setView((v) =>
-              v.month === 0 ? { year: v.year - 1, month: 11 } : { ...v, month: v.month - 1 },
-            )
-          }
-          onNext={() =>
-            setView((v) =>
-              v.month === 11 ? { year: v.year + 1, month: 0 } : { ...v, month: v.month + 1 },
-            )
-          }
-          onToday={() => {
-            const t = todayYmd();
-            onChange(t);
-            setOpen(false);
-          }}
-        />
-        <MonthGrid
-          year={view.year}
-          month={view.month}
-          selected={value ?? undefined}
-          onSelectDay={(ymd) => {
-            onChange(ymd);
-            setOpen(false);
-          }}
-        />
-        {value && (
-          <div className="mt-2 flex justify-end">
-            <button
-              type="button"
-              onClick={() => onChange(null)}
-              className="rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-accent"
-            >
-              Clear
-            </button>
-          </div>
-        )}
-      </PopoverContent>
-    </Popover>
-  );
-}
-
 export type DateRange = { from: Ymd | null; to: Ymd | null };
 
 const EMPTY_RANGE: DateRange = { from: null, to: null };
 
-/** Two-click range picker over the same UTC calendar. */
+/** Two-click range picker over a UTC calendar. */
 export function DateRangePicker({
   value = EMPTY_RANGE,
   onChange,
   placeholder = "Pick a period",
-  ariaLabel,
   className,
   ...triggerProps
-}: {
+}: ControlProps & {
   value?: DateRange;
   onChange: (next: DateRange) => void;
   placeholder?: string;
-  /** Accessible name; the visible label lives in `FilterField`. */
-  ariaLabel?: string;
-  className?: string;
-} & PickerTriggerProps) {
+}) {
   const [open, setOpen] = useState(false);
   const [view, setView] = useState(() => ymdToView(value.from));
+  const { from, to } = value;
 
-  const label = value.from
-    ? value.to
-      ? `${formatDate(value.from)} – ${formatDate(value.to)}`
-      : `From ${formatDate(value.from)}`
-    : value.to
-      ? `Until ${formatDate(value.to)}`
+  const label = from
+    ? to
+      ? `${formatDate(from)} – ${formatDate(to)}`
+      : `From ${formatDate(from)}`
+    : to
+      ? `Until ${formatDate(to)}`
       : null;
 
   const onSelectDay = (ymd: Ymd) => {
-    const from = value.from;
-    const to = value.to;
-    if (!from || (from && to)) {
-      onChange({ from: ymd, to: null });
-    } else if (ymd < from) {
+    // First pick (or a pick before `from`) starts a new range; the second closes it.
+    if (!from || to || ymd < from) {
       onChange({ from: ymd, to: null });
     } else {
       onChange({ from, to: ymd });
-      // keep the popover open so the user sees the range, close on second pick
       setOpen(false);
     }
   };
 
-  const clear = () => {
-    onChange(EMPTY_RANGE);
-    setOpen(false);
-  };
+  const shiftMonth = (n: number) => setView((v) => ({ ...v, month: v.month + n }));
 
   return (
     <Popover
       open={open}
       onOpenChange={(next) => {
         setOpen(next);
-        if (next) {
-          const initial = ymdToView(value.from);
-          setView(initial);
-        }
+        if (next) setView(ymdToView(from));
       }}
     >
       <PopoverTrigger
         {...triggerProps}
-        aria-label={ariaLabel}
         className={cn(
           buttonVariants({ variant: "outline" }),
           CONTROL_CLASS,
@@ -314,39 +141,47 @@ export function DateRangePicker({
         <span className="truncate">{label ?? placeholder}</span>
       </PopoverTrigger>
       <PopoverContent className="w-72 p-3" align="start">
-        <MonthNavHeader
-          year={view.year}
-          month={view.month}
-          onPrev={() =>
-            setView((v) =>
-              v.month === 0 ? { year: v.year - 1, month: 11 } : { ...v, month: v.month - 1 },
-            )
-          }
-          onNext={() =>
-            setView((v) =>
-              v.month === 11 ? { year: v.year + 1, month: 0 } : { ...v, month: v.month + 1 },
-            )
-          }
-        />
-        <MonthGrid
-          year={view.year}
-          month={view.month}
-          rangeFrom={value.from}
-          rangeTo={value.to}
-          onSelectDay={onSelectDay}
-        />
+        <div className="mb-2 flex items-center justify-between gap-1">
+          <button
+            type="button"
+            onClick={() => shiftMonth(-1)}
+            aria-label="Previous month"
+            className={buttonVariants({ variant: "ghost", size: "icon-sm" })}
+          >
+            ←
+          </button>
+          <span className="text-sm font-medium tabular-nums">
+            {new Date(Date.UTC(view.year, view.month, 1)).toLocaleString("en-GB", {
+              month: "short",
+              year: "numeric",
+              timeZone: "UTC",
+            })}
+          </span>
+          <button
+            type="button"
+            onClick={() => shiftMonth(1)}
+            aria-label="Next month"
+            className={buttonVariants({ variant: "ghost", size: "icon-sm" })}
+          >
+            →
+          </button>
+        </div>
+        <MonthGrid view={view} from={from} to={to} onSelectDay={onSelectDay} />
         <div className="mt-2 flex items-center justify-between border-t pt-2">
           <button
             type="button"
-            onClick={clear}
-            disabled={!value.from && !value.to}
+            onClick={() => {
+              onChange(EMPTY_RANGE);
+              setOpen(false);
+            }}
+            disabled={!from && !to}
             className="rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-accent disabled:opacity-50"
           >
             Clear
           </button>
           <span className="text-xs text-muted-foreground tabular-nums">
-            {value.from && value.to
-              ? `${Math.round((new Date(value.to).getTime() - new Date(value.from).getTime()) / 86_400_000) + 1} days`
+            {from && to
+              ? `${Math.round((Date.parse(to) - Date.parse(from)) / 86_400_000) + 1} days`
               : "Pick start then end"}
           </span>
         </div>
