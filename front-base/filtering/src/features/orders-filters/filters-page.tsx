@@ -7,13 +7,14 @@ import { FilterBar } from "./filter-bar";
 import { DEFAULT_ORDERS_FILTER, toConditions, type OrdersFilter } from "./filter";
 
 /**
- * Smart page: owns the filter object in component state, debounces the text
- * query, and derives the Gridify filter string from it. No data fetching —
+ * Smart page: owns the filter object in component state and derives the
+ * Gridify filter string from a **debounced** copy of it — the controls stay
+ * instant, the query only rebuilds once input settles. No data fetching —
  * the generated string is the output.
  */
 export function FiltersPage() {
   const [filter, setFilter] = useState<OrdersFilter>(DEFAULT_ORDERS_FILTER);
-  const debouncedQuery = useDebouncedValue(filter.query, 350);
+  const debouncedFilter = useDebouncedValue(filter, 350);
 
   const patchFilter = useCallback((patch: Partial<OrdersFilter>) => {
     setFilter((current) => ({ ...current, ...patch }));
@@ -21,7 +22,7 @@ export function FiltersPage() {
 
   const resetFilter = useCallback(() => setFilter(DEFAULT_ORDERS_FILTER), []);
 
-  const conditions = useMemo(() => toConditions(filter, debouncedQuery), [filter, debouncedQuery]);
+  const conditions = useMemo(() => toConditions(debouncedFilter), [debouncedFilter]);
   const gridifyFilter = useMemo(() => buildFilter(conditions), [conditions]);
 
   return (

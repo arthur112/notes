@@ -16,7 +16,7 @@ export const STATUS_OPTIONS = STATUSES.map((value) => ({
 }));
 
 export type OrdersFilter = {
-  /** Free-text search over order number + customer name (debounced by the page). */
+  /** Free-text search over order number + customer name. */
   query: string;
   /** Dropdown. */
   status: OrderStatus | null;
@@ -54,12 +54,12 @@ export function isOrdersFilterDefault(filter: OrdersFilter): boolean {
 }
 
 /**
- * Map the filter to Gridify conditions. The text query is debounced upstream
- * and injected here so a keystroke doesn't rebuild the query.
+ * Map the filter to Gridify conditions. Pure — the page passes the debounced
+ * filter so a keystroke doesn't rebuild the query.
  */
-export function toConditions(filter: OrdersFilter, query: string): ConditionSpec[][] {
+export function toConditions(filter: OrdersFilter): ConditionSpec[][] {
   const groups: ConditionSpec[][] = [];
-  const q = query.trim();
+  const q = filter.query.trim();
   const min = parseAmount(filter.minTotal);
   const max = parseAmount(filter.maxTotal);
   const { from, to } = filter.createdAt;

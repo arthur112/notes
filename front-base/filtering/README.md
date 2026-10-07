@@ -8,22 +8,23 @@ It uses the **pre-Zustand** filtering approach from `client-side` (before commit
 
 - the page owns **one filter object** in `useState`;
 - a dumb `FilterBar` gets `filter` + `onPatch(partial)` + `onReset`;
-- only the text query is debounced (`useDebouncedValue`, 350 ms);
-- `toConditions(filter, debouncedQuery)` maps the object to plain `ConditionSpec[][]`;
+- the **whole filter object** is debounced (`useDebouncedValue`, 350 ms): controls update instantly,
+  the query only rebuilds once input settles;
+- `toConditions(debouncedFilter)` maps the object to plain `ConditionSpec[][]`;
 - `buildFilter(conditions)` is the only code that touches `gridify-client`.
 
 ```text
-OrdersFilter (useState) ──▶ toConditions() ──▶ ConditionSpec[][] ──▶ buildFilter() ──▶ "status=paid,total>=10.5,…"
+OrdersFilter (useState) ──▶ useDebouncedValue ──▶ toConditions() ──▶ ConditionSpec[][] ──▶ buildFilter() ──▶ "status=paid,total>=10.5,…"
 ```
 
 ## Filters
 
-| Control            | Component         | Filter field              | Gridify output                               |
-| ------------------ | ----------------- | ------------------------- | -------------------------------------------- |
-| Search (debounced) | `Input`           | `query`                   | `(orderNo=*q\|customer.name=*q)`             |
-| Dropdown           | `SearchSelect`    | `status`                  | `status=paid`                                |
-| Number inputs      | `Input` (decimal) | `minTotal` / `maxTotal`   | `total>=10.5,total<=200`                     |
-| Calendar (range)   | `DateRangePicker` | `createdAt: { from, to }` | `createdAt>=2026-01-01,createdAt<2026-02-01` |
+| Control          | Component         | Filter field              | Gridify output                               |
+| ---------------- | ----------------- | ------------------------- | -------------------------------------------- |
+| Search           | `Input`           | `query`                   | `(orderNo=*q\|customer.name=*q)`             |
+| Dropdown         | `SearchSelect`    | `status`                  | `status=paid`                                |
+| Number inputs    | `Input` (decimal) | `minTotal` / `maxTotal`   | `total>=10.5,total<=200`                     |
+| Calendar (range) | `DateRangePicker` | `createdAt: { from, to }` | `createdAt>=2026-01-01,createdAt<2026-02-01` |
 
 The calendar's `to` is inclusive in the UI and becomes an exclusive next-day bound in the query.
 
