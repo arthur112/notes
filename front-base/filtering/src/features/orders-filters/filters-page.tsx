@@ -1,28 +1,66 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { getRouteApi, useLocation } from "@tanstack/react-router";
 
 import { useDebouncedValue } from "@/shared/hooks/use-debounce";
 import { formatDate } from "@/shared/lib/format";
-import { buildFilter } from "@/shared/lib/gridify";
 import { cn } from "@/shared/lib/utils";
 
 import type { OrdersResponse } from "./api/orders-api";
 import { useOrders } from "./api/use-orders";
 import { FilterBar } from "./filter-bar";
-import { DEFAULT_ORDERS_FILTER, toConditions, type OrdersFilter } from "./filter";
+import {
+  DEFAULT_ORDERS_FILTER,
+  filterToSearch,
+  searchKey,
+  searchToFilter,
+  toGridifyFilter,
+  type OrdersFilter,
+} from "./filter";
 
 type RequestLogEntry = Pick<OrdersResponse, "requestNo" | "filter" | "receivedAt">;
 
 const MAX_LOG_ENTRIES = 10;
 
+const routeApi = getRouteApi("/");
+
 /**
- * Smart page: owns the filter object in component state and derives the
- * Gridify filter string from a **debounced** copy of it — the controls stay
- * instant, the query only rebuilds once input settles. The string feeds
- * `useOrders`, so every settled change is one request to the mock API.
+ * Smart page. Two copies of the filter, each with one job:
+ *
+ * - **local state** drives the controls, so typing is instant;
+ * - the **URL** holds the settled filter: the debounced local filter is pushed
+ *   there, and the route loader + `useOrders` fetch from it.
+ *
+ * Back/Forward (or a pasted link) changes the URL without us, so the controls
+ * are re-seeded from it.
  */
 export function FiltersPage() {
-  const [filter, setFilter] = useState<OrdersFilter>(DEFAULT_ORDERS_FILTER);
+  const search = routeApi.useSearch();
+  const navigate = routeApi.useNavigate();
+  const href = useLocation({ select: (location) => location.href });
+
+  const [filter, setFilter] = useState<OrdersFilter>(() => searchToFilter(search));
   const debouncedFilter = useDebouncedValue(filter, 350);
+
+  // The last search this page wrote (or adopted), to tell our own URL writes
+  // from Back/Forward and stop the two effects below from ping-ponging.
+  const syncedKey = useRef(searchKey(search));
+
+  // Settled controls → URL. Each settled change is a history entry, so Back undoes a filter.
+  useEffect(() => {
+    const next = filterToSearch(debouncedFilter);
+    const key = searchKey(next);
+    if (key === syncedKey.current) return;
+    syncedKey.current = key;
+    void navigate({ search: next });
+  }, [debouncedFilter, navigate]);
+
+  // URL changed without us (Back/Forward, a pasted link) → controls.
+  useEffect(() => {
+    const key = searchKey(search);
+    if (key === syncedKey.current) return;
+    syncedKey.current = key;
+    setFilter(searchToFilter(search));
+  }, [search]);
 
   const patchFilter = useCallback((patch: Partial<OrdersFilter>) => {
     setFilter((current) => ({ ...current, ...patch }));
@@ -30,8 +68,8 @@ export function FiltersPage() {
 
   const resetFilter = useCallback(() => setFilter(DEFAULT_ORDERS_FILTER), []);
 
-  const conditions = useMemo(() => toConditions(debouncedFilter), [debouncedFilter]);
-  const gridifyFilter = useMemo(() => buildFilter(conditions), [conditions]);
+  // What is fetched comes from the URL — the same derivation the loader uses.
+  const gridifyFilter = useMemo(() => toGridifyFilter(searchToFilter(search)), [search]);
 
   const orders = useOrders(gridifyFilter);
 
@@ -53,11 +91,16 @@ export function FiltersPage() {
       <header>
         <h1 className="text-xl font-semibold">Filtering</h1>
         <p className="text-sm text-muted-foreground">
-          A filter object in page state → Gridify filter string → React Query → mock API.
+          Filter controls → debounced URL search → route loader + React Query → mock API.
         </p>
       </header>
 
       <FilterBar filter={filter} onPatch={patchFilter} onReset={resetFilter} />
+
+      <section className="space-y-2">
+        <h2 className="text-sm font-medium">URL</h2>
+        <pre className="overflow-x-auto rounded-lg border bg-muted p-4 text-sm">{href}</pre>
+      </section>
 
       <section className="space-y-2">
         <h2 className="text-sm font-medium">Gridify filter</h2>

@@ -1,4 +1,4 @@
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { keepPreviousData, queryOptions, useQuery } from "@tanstack/react-query";
 
 import { fetchOrders } from "./orders-api";
 
@@ -8,15 +8,23 @@ export const orderQueryKeys = {
 } as const;
 
 /**
- * The Gridify filter string **is** the query key: a new string means a new
- * cache entry and a fetch. `keepPreviousData` keeps the last rows on screen
- * while the next request is in flight. With the default `staleTime: 0`, going
- * back to an earlier filter shows its cached rows instantly and still refetches.
+ * One definition shared by the route loader (`ensureQueryData` /
+ * `prefetchQuery`) and the page (`useQuery`), so both hit the same cache entry.
+ * The Gridify filter string **is** the key: a new string means a new fetch.
+ *
+ * `staleTime` must be > 0: with 0, data the loader just fetched would already
+ * be stale when the page subscribes, and the page would fetch it a second time.
+ * Within the window, returning to an earlier filter is served from cache.
  */
-export function useOrders(filter: string) {
-  return useQuery({
+export function ordersQueryOptions(filter: string) {
+  return queryOptions({
     queryKey: orderQueryKeys.list(filter),
     queryFn: () => fetchOrders(filter),
-    placeholderData: keepPreviousData,
+    staleTime: 30_000,
   });
+}
+
+/** `keepPreviousData` keeps the last rows on screen while the next filter loads. */
+export function useOrders(filter: string) {
+  return useQuery({ ...ordersQueryOptions(filter), placeholderData: keepPreviousData });
 }

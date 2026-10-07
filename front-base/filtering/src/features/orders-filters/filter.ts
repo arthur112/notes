@@ -1,8 +1,8 @@
 import type { DateRange } from "@/shared/components/ui/date-picker";
 import type { NumberRange } from "@/shared/components/ui/number-range-input";
 import type { SearchSelectOption } from "@/shared/components/ui/search-select";
-import { addDaysYmd } from "@/shared/lib/date";
-import type { ConditionSpec } from "@/shared/lib/gridify";
+import { addDaysYmd, type Ymd } from "@/shared/lib/date";
+import { buildFilter, type ConditionSpec } from "@/shared/lib/gridify";
 
 /**
  * The filter object the page holds in `useState`. Its shape, defaults and the
@@ -79,4 +79,90 @@ export function toConditions(filter: OrdersFilter): ConditionSpec[][] {
   if (to) groups.push([{ field: "createdAt", op: "lt", value: addDaysYmd(to, 1) }]);
 
   return groups;
+}
+
+/** The Gridify `filter` string for a filter object — what the loader and the page fetch with. */
+export function toGridifyFilter(filter: OrdersFilter): string {
+  return buildFilter(toConditions(filter));
+}
+
+// ---------------------------------------------------------------------------
+// URL search params: the settled (debounced) filter lives in the URL, so the
+// route loader can fetch it and a link/reload/Back restores it.
+// ---------------------------------------------------------------------------
+
+/** The settled filter as flat URL keys; absent key = no constraint. */
+export type OrdersSearch = {
+  q?: string;
+  status?: OrderStatus;
+  min?: number;
+  max?: number;
+  from?: Ymd;
+  to?: Ymd;
+};
+
+/** Filter → URL search; empty and unparsable values are left out. */
+export function filterToSearch(filter: OrdersFilter): OrdersSearch {
+  const q = filter.query.trim();
+  const min = parseAmount(filter.total.min);
+  const max = parseAmount(filter.total.max);
+  return {
+    q: q || undefined,
+    status: filter.status ?? undefined,
+    min: min ?? undefined,
+    max: max ?? undefined,
+    from: filter.createdAt.from ?? undefined,
+    to: filter.createdAt.to ?? undefined,
+  };
+}
+
+/** URL search → filter, for the first render and for Back/Forward. */
+export function searchToFilter(search: OrdersSearch): OrdersFilter {
+  return {
+    query: search.q ?? "",
+    status: search.status ?? null,
+    total: {
+      min: search.min === undefined ? "" : String(search.min),
+      max: search.max === undefined ? "" : String(search.max),
+    },
+    createdAt: { from: search.from ?? null, to: search.to ?? null },
+  };
+}
+
+/** Order-stable identity of a search, to tell our own URL writes from Back/Forward. */
+export function searchKey(search: OrdersSearch): string {
+  return JSON.stringify([search.q, search.status, search.min, search.max, search.from, search.to]);
+}
+
+// The router JSON-parses each value (`?q=123` → 123, `?min=10.5` → 10.5);
+// these read it back as the raw form the controls hold.
+
+function rawText(value: unknown): string {
+  return typeof value === "string" || typeof value === "number" ? String(value) : "";
+}
+
+const YMD = /^\d{4}-\d{2}-\d{2}$/;
+
+function rawYmd(value: unknown): Ymd | null {
+  return typeof value === "string" && YMD.test(value) ? value : null;
+}
+
+function isStatus(value: unknown): value is OrderStatus {
+  return STATUSES.includes(value as OrderStatus);
+}
+
+/**
+ * The route's `validateSearch`. Rather than a second set of rules, it reads the
+ * URL leniently into a filter and re-serializes it with `filterToSearch` — the
+ * same function that writes the URL — so a URL is valid exactly when the page
+ * could have produced it. Anything else (`status=bogus`, `min=abc`,
+ * `from=nope`) is dropped, never a route error.
+ */
+export function validateOrdersSearch(raw: Record<string, unknown>): OrdersSearch {
+  return filterToSearch({
+    query: rawText(raw.q),
+    status: isStatus(raw.status) ? raw.status : null,
+    total: { min: rawText(raw.min), max: rawText(raw.max) },
+    createdAt: { from: rawYmd(raw.from), to: rawYmd(raw.to) },
+  });
 }
