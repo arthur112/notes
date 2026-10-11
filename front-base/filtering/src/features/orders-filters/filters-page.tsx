@@ -50,7 +50,7 @@ export function FiltersPage() {
         </Link>
       </header>
 
-      <FilterBar search={search} onPatch={patch} onReset={() => void navigate({ search: {} })} />
+      <FilterBar search={search} onPatch={patch} />
 
       <section className="space-y-2">
         <h2 className="text-sm font-medium">URL</h2>
