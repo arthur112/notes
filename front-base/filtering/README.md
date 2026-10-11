@@ -4,8 +4,8 @@ The most minimal version of [`client-side`](../client-side): one page, a few fil
 the Gridify filter string they produce, sent through React Query to a tiny mock API. It is a sandbox to
 iterate on filtering. There is no shell and no data table.
 
-It uses the **pre-Zustand** filtering approach from `client-side` (before commit `b2a05b4`) for the
-controls, and makes the **URL the only filter state** so the route loader can fetch it:
+It reuses the filter controls from `client-side` and makes the **URL the only filter state**, so the
+route loader can fetch it:
 
 - the page derives the filter from the URL search params (`/?q=acme&status=paid&min=10.5&from=…&to=…`);
   there is no `useState` copy of it, and no effect;
