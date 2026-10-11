@@ -1,15 +1,8 @@
-import { StrictMode } from "react";
-import { createRoot } from "react-dom/client";
-import { QueryClientProvider } from "@tanstack/react-query";
-import { RouterProvider } from "@tanstack/react-router";
+// react-scan must hook into React before react-dom loads, so the app is
+// imported after it. The DEV branch (and the package) is dropped from builds.
+if (import.meta.env.DEV) {
+  const { scan } = await import("react-scan");
+  scan();
+}
 
-import { queryClient, router } from "./router";
-import "./styles.css";
-
-createRoot(document.getElementById("root")!).render(
-  <StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <RouterProvider router={router} />
-    </QueryClientProvider>
-  </StrictMode>,
-);
+await import("./app");
