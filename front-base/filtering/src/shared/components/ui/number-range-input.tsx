@@ -10,7 +10,7 @@ export type NumberRange = { min: string; max: string };
 export type NumberRangeInputProps = Omit<ControlProps, "aria-label"> & {
   value: NumberRange;
   onChange: (next: NumberRange) => void;
-  /** Fires when focus leaves either input (it bubbles from the group). */
+  /** Fires when focus leaves the group, not when it moves between the two inputs. */
   onBlur?: () => void;
   /** Accessible names of the two inputs. */
   minAriaLabel?: string;
@@ -29,7 +29,14 @@ export function NumberRangeInput({
   ...shared
 }: NumberRangeInputProps) {
   return (
-    <div role="group" onBlur={onBlur} className={cn("flex items-center gap-2", className)}>
+    <div
+      role="group"
+      onBlur={(event) => {
+        // Moving between min and max stays inside the group: not a blur.
+        if (!event.currentTarget.contains(event.relatedTarget)) onBlur?.();
+      }}
+      className={cn("flex items-center gap-2", className)}
+    >
       <NumberInput
         {...shared}
         id={id}
