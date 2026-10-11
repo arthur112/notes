@@ -3,7 +3,7 @@ import { ListFilter } from "lucide-react";
 import { FilterField } from "@/shared/components/filter-field";
 import { Button, buttonVariants } from "@/shared/components/ui/button";
 import { DateRangePicker } from "@/shared/components/ui/date-picker";
-import { NumberRangeInput } from "@/shared/components/ui/number-range-input";
+import { NumberRangeInput, type NumberRange } from "@/shared/components/ui/number-range-input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/shared/components/ui/popover";
 import { SearchInput } from "@/shared/components/ui/search-input";
 import { SearchSelect } from "@/shared/components/ui/search-select";
@@ -25,14 +25,6 @@ export type FilterBarProps = {
  * pauses or the field loses focus.
  */
 export function FilterBar({ search, onPatch }: FilterBarProps) {
-  const query = useBufferedValue(search.q ?? "", (q) => onPatch({ q }));
-  // The range's `{ min, max }` and the dates' `{ from, to }` are named like
-  // their search keys, so they are patched as they are.
-  const total = useBufferedValue(
-    { min: String(search.min ?? ""), max: String(search.max ?? "") },
-    onPatch,
-  );
-
   // The popover's filters; the trigger counts the set ones.
   const activeCount = [search.status, search.min ?? search.max, search.from ?? search.to].filter(
     (value) => value !== undefined,
@@ -41,11 +33,7 @@ export function FilterBar({ search, onPatch }: FilterBarProps) {
   return (
     <div className="flex gap-2">
       <div className="flex-1">
-        <SearchInput
-          {...query}
-          placeholder="Order no or customer…"
-          aria-label="Search orders by number or customer"
-        />
+        <QueryField value={search.q ?? ""} onPatch={onPatch} />
       </div>
 
       <Popover>
@@ -70,14 +58,14 @@ export function FilterBar({ search, onPatch }: FilterBarProps) {
           </FilterField>
 
           <FilterField label="Order total (€)">
-            <NumberRangeInput
-              {...total}
-              minAriaLabel="Minimum order total"
-              maxAriaLabel="Maximum order total"
+            <TotalField
+              value={{ min: String(search.min ?? ""), max: String(search.max ?? "") }}
+              onPatch={onPatch}
             />
           </FilterField>
 
           <FilterField label="Created between">
+            {/* `{ from, to }` is named like its search keys, so it is patched as it is. */}
             <DateRangePicker
               value={{ from: search.from ?? null, to: search.to ?? null }}
               onChange={onPatch}
@@ -97,5 +85,37 @@ export function FilterBar({ search, onPatch }: FilterBarProps) {
         </PopoverContent>
       </Popover>
     </div>
+  );
+}
+
+// Each typed field owns its draft, so a keystroke re-renders that field only,
+// not the whole bar. The page re-renders once per patch, not per keystroke.
+
+function QueryField({ value, onPatch }: { value: string; onPatch: FilterBarProps["onPatch"] }) {
+  const query = useBufferedValue(value, (q) => onPatch({ q }));
+  return (
+    <SearchInput
+      {...query}
+      placeholder="Order no or customer…"
+      aria-label="Search orders by number or customer"
+    />
+  );
+}
+
+function TotalField({
+  value,
+  onPatch,
+}: {
+  value: NumberRange;
+  onPatch: FilterBarProps["onPatch"];
+}) {
+  // `{ min, max }` is named like its search keys, so it is patched as it is.
+  const total = useBufferedValue(value, onPatch);
+  return (
+    <NumberRangeInput
+      {...total}
+      minAriaLabel="Minimum order total"
+      maxAriaLabel="Maximum order total"
+    />
   );
 }
