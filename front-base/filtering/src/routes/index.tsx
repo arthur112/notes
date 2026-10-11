@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 import { ordersQueryOptions } from "@/features/orders-filters/api/use-orders";
-import { toGridifyFilter, validateOrdersSearch } from "@/features/orders-filters/filter";
+import { validateOrdersSearch } from "@/features/orders-filters/filter";
 import { FiltersPage } from "@/features/orders-filters/filters-page";
 
 export const Route = createFileRoute("/")({
@@ -13,7 +13,7 @@ export const Route = createFileRoute("/")({
   // parallel with the download of the code-split page chunk instead of after it.
   // The page's useQuery joins the in-flight request rather than sending another.
   loader: ({ context, deps }) => {
-    void context.queryClient.prefetchQuery(ordersQueryOptions(toGridifyFilter(deps)));
+    void context.queryClient.prefetchQuery(ordersQueryOptions(deps));
   },
   component: FiltersPage,
 });

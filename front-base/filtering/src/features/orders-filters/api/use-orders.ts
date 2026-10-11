@@ -1,25 +1,27 @@
 import { keepPreviousData, queryOptions, useQuery } from "@tanstack/react-query";
 
+import { toGridifyFilter, type OrdersSearch } from "../filter";
 import { fetchOrders } from "./orders-api";
 
 /**
  * One definition shared by the route loader (`prefetchQuery`) and the page
- * (`useQuery`), so both hit the same cache entry. The Gridify filter string
- * **is** the key: a new string means a new fetch.
+ * (`useQuery`), so both hit the same cache entry. The key is the validated
+ * search: the same filter means the same entry. The Gridify string is an API
+ * detail, built only when fetching.
  *
  * `staleTime` must be > 0: with 0, data the loader just fetched would already
  * be stale when the page subscribes, and the page would fetch it a second time.
  * Within the window, returning to an earlier filter is served from cache.
  */
-export function ordersQueryOptions(filter: string) {
+export function ordersQueryOptions(search: OrdersSearch) {
   return queryOptions({
-    queryKey: ["orders", filter],
-    queryFn: () => fetchOrders(filter),
+    queryKey: ["orders", search],
+    queryFn: () => fetchOrders(toGridifyFilter(search)),
     staleTime: 30_000,
   });
 }
 
 /** `keepPreviousData` keeps the last rows on screen while the next filter loads. */
-export function useOrders(filter: string) {
-  return useQuery({ ...ordersQueryOptions(filter), placeholderData: keepPreviousData });
+export function useOrders(search: OrdersSearch) {
+  return useQuery({ ...ordersQueryOptions(search), placeholderData: keepPreviousData });
 }

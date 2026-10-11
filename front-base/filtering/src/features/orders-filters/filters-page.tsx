@@ -33,10 +33,9 @@ export function FiltersPage() {
   const patch = (changes: Partial<OrdersFilter>) =>
     void navigate({ search: (prev) => filterToSearch({ ...searchToFilter(prev), ...changes }) });
 
-  // What is fetched comes from the URL — the same derivation the loader uses.
+  // Same search, same query as the loader. The Gridify string is only shown here.
+  const orders = useOrders(search);
   const gridifyFilter = toGridifyFilter(search);
-
-  const orders = useOrders(gridifyFilter);
 
   // Debug aid: one log line per response that reached the mock "server".
   const [log, setLog] = useState<RequestLogEntry[]>([]);

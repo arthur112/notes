@@ -13,17 +13,17 @@ route loader can fetch it:
 - picks (status, dates, reset) navigate at once; **typed fields** (search, totals) keep a draft while
   edited and patch once typing pauses for 350 ms or the field loses focus (`useBufferedValue`);
 - the route validates the search with a plain function, and its **loader** fetches through the shared `QueryClient`;
-- the page's `useOrders` reads the same query from the URL. `toGridifyFilter(search)` (through
-  `buildFilter`, the only code that touches `gridify-client`) turns the settled search into the Gridify
-  string, which is the query key.
+- the page's `useOrders(search)` reads the same query. The validated search is the query key;
+  `toGridifyFilter(search)` (through `buildFilter`, the only code that touches `gridify-client`) turns
+  it into the Gridify string only inside the `queryFn`.
 
 ```text
 picks ──────────────────────────────┐
 typed fields ─▶ draft ─▶ 350 ms/blur ─┴─▶ navigate({ search }) ─▶ URL
                                                                   ├─▶ controls: searchToFilter(search)
                                                                   ├─▶ loader:   queryClient.prefetchQuery (not awaited)
-                                                                  └─▶ page:     useOrders(toGridifyFilter(search))
-                                                                                  └─▶ mock GET /api/orders?filter=…
+                                                                  └─▶ page:     useOrders(search)
+                                                                                  └─▶ queryFn: mock GET /api/orders?filter=toGridifyFilter(search)
 ```
 
 ## Route ↔ React Query
@@ -34,7 +34,7 @@ typed fields ─▶ draft ─▶ 350 ms/blur ─┴─▶ navigate({ search }) �
 | `validateSearch`     | `routes/index.tsx`     | `validateOrdersSearch` (`filter.ts`): reads the URL leniently into a filter, then re-serializes it with `filterToSearch`. |
 | `loaderDeps`         | `routes/index.tsx`     | `({ search }) => search`: the loader re-runs whenever the settled filter changes.                                         |
 | Loader               | every match of `/`     | `prefetchQuery`, not awaited: the page shows at once with its loading state; `useQuery` joins the in-flight request.      |
-| `ordersQueryOptions` | `api/use-orders.ts`    | One `queryOptions` for loader and page, so both use the same cache entry.                                                 |
+| `ordersQueryOptions` | `api/use-orders.ts`    | One `queryOptions` for loader and page, keyed `["orders", search]`, so both use the same cache entry.                     |
 | `staleTime: 30_000`  | `ordersQueryOptions`   | Needed: with 0, data the loader just fetched is already stale when the page subscribes, so it would fetch twice.          |
 
 **Why a loader that doesn't wait.** `autoCodeSplitting` makes the page a lazy chunk. Without the
