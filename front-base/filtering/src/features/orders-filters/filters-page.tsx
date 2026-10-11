@@ -136,6 +136,12 @@ export function FiltersPage() {
                     Loading…
                   </td>
                 </tr>
+              ) : orders.isError ? (
+                <tr>
+                  <td colSpan={5} className="px-4 py-3 text-destructive">
+                    Could not load orders: {orders.error.message}
+                  </td>
+                </tr>
               ) : (
                 orders.data?.data.map((order) => (
                   <tr key={order.orderNo}>
