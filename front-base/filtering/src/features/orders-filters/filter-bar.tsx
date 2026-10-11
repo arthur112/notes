@@ -6,12 +6,13 @@ import { SearchInput } from "@/shared/components/ui/search-input";
 import { SearchSelect } from "@/shared/components/ui/search-select";
 import { useBufferedValue } from "@/shared/hooks/use-buffered-value";
 
-import { STATUS_OPTIONS, parseAmount, type OrdersSearch } from "./filter";
+import { STATUS_OPTIONS, type OrdersSearch, type OrdersSearchInput } from "./filter";
 
 export type FilterBarProps = {
   /** The settled filter, from the URL. */
   search: OrdersSearch;
-  onPatch: (changes: OrdersSearch) => void;
+  /** Raw control values; the route's `validateSearch` parses them. */
+  onPatch: (changes: OrdersSearchInput) => void;
   onReset: () => void;
 };
 
@@ -22,10 +23,11 @@ export type FilterBarProps = {
  */
 export function FilterBar({ search, onPatch, onReset }: FilterBarProps) {
   const query = useBufferedValue(search.q ?? "", (q) => onPatch({ q }));
-  // The inputs hold raw text, so a half-typed `10,` survives until the commit.
+  // The range's `{ min, max }` and the dates' `{ from, to }` are named like
+  // their search keys, so they are patched as they are.
   const total = useBufferedValue(
-    { min: search.min?.toString() ?? "", max: search.max?.toString() ?? "" },
-    ({ min, max }) => onPatch({ min: parseAmount(min), max: parseAmount(max) }),
+    { min: String(search.min ?? ""), max: String(search.max ?? "") },
+    onPatch,
   );
 
   return (
@@ -42,7 +44,7 @@ export function FilterBar({ search, onPatch, onReset }: FilterBarProps) {
         <SearchSelect
           options={STATUS_OPTIONS}
           value={search.status ?? null}
-          onChange={(status) => onPatch({ status: status ?? undefined })}
+          onChange={(status) => onPatch({ status })}
           placeholder="Any status"
           aria-label="Status"
         />
@@ -59,7 +61,7 @@ export function FilterBar({ search, onPatch, onReset }: FilterBarProps) {
       <FilterField label="Created between" className="w-64">
         <DateRangePicker
           value={{ from: search.from ?? null, to: search.to ?? null }}
-          onChange={({ from, to }) => onPatch({ from: from ?? undefined, to: to ?? undefined })}
+          onChange={onPatch}
           aria-label="Created period"
         />
       </FilterField>

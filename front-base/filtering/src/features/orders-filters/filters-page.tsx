@@ -7,7 +7,7 @@ import { cn } from "@/shared/lib/utils";
 import { getRequestLog, subscribeRequestLog } from "./api/orders-api";
 import { useOrders } from "./api/use-orders";
 import { FilterBar } from "./filter-bar";
-import { toGridifyFilter, type OrdersSearch } from "./filter";
+import { toGridifyFilter, type OrdersSearchInput } from "./filter";
 
 const routeApi = getRouteApi("/");
 
@@ -24,8 +24,8 @@ export function FiltersPage() {
 
   // Each patch is a history entry, so Back undoes a filter. It applies to the
   // current search, not this render's, since a debounced patch can land later.
-  // The router runs `validateSearch` on the result, which normalizes it.
-  const patch = (changes: OrdersSearch) =>
+  // The router runs `validateSearch` on the result, which parses the raw values.
+  const patch = (changes: OrdersSearchInput) =>
     void navigate({ search: (prev) => ({ ...prev, ...changes }) });
 
   // Same search, same query as the loader. The Gridify string is only shown here.

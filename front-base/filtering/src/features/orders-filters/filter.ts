@@ -1,3 +1,5 @@
+import type { SearchSchemaInput } from "@tanstack/react-router";
+
 import type { SearchSelectOption } from "@/shared/components/ui/search-select";
 import { addDaysYmd, type Ymd } from "@/shared/lib/date";
 import { buildFilter, type ConditionSpec } from "@/shared/lib/gridify";
@@ -29,8 +31,15 @@ export type OrdersSearch = {
   to?: Ymd;
 };
 
+/**
+ * What the URL or a patch may hold for each key: the typed value, the raw text
+ * a control holds (`" acme "`, `"10,5"`), or `null` for "cleared".
+ * `validateOrdersSearch` parses it, so controls patch their values as they are.
+ */
+export type OrdersSearchInput = { [K in keyof OrdersSearch]?: OrdersSearch[K] | string | null };
+
 /** Raw text (`" 10,5 "`) or a number → an amount; empty or unparsable → no bound. */
-export function parseAmount(raw: unknown): number | undefined {
+function parseAmount(raw: unknown): number | undefined {
   const value = typeof raw === "string" && raw.trim() ? Number(raw.replace(",", ".")) : raw;
   return typeof value === "number" && Number.isFinite(value) ? value : undefined;
 }
@@ -67,12 +76,15 @@ function isStatus(value: unknown): value is OrderStatus {
 }
 
 /**
- * The route's `validateSearch`. The router runs it on the URL (every value a
- * string) and on the search each navigation builds, so patches may hold raw
- * text: it is trimmed and parsed here. It is lenient: an invalid value
- * (`status=bogus`, `min=abc`, `from=nope`) is dropped, never a route error.
+ * The route's `validateSearch`, and the one place that parses the filter. The
+ * router runs it on the URL (every value a string) and on the search each
+ * navigation builds, so patches may hold raw values: text is trimmed, amounts
+ * parsed, `null` dropped. It is lenient: an invalid value (`status=bogus`,
+ * `min=abc`, `from=nope`) is dropped, never a route error. The
+ * `SearchSchemaInput` tag makes `OrdersSearchInput` the type `navigate`
+ * accepts; without it the router would expect the validated type.
  */
-export function validateOrdersSearch(raw: Record<string, unknown>): OrdersSearch {
+export function validateOrdersSearch(raw: OrdersSearchInput & SearchSchemaInput): OrdersSearch {
   const q = typeof raw.q === "string" ? raw.q.trim() : "";
   return {
     q: q || undefined,
