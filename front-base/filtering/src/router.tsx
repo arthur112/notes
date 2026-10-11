@@ -19,6 +19,18 @@ export const router = createRouter({
   routeTree,
   // Loaders reach React Query through the router context.
   context: { queryClient },
+  // Flat, plain-text search params (`?q=123&min=10.5`) instead of the default
+  // JSON values, which quote number-like strings (`q=%22123%22`). Every value
+  // arrives as a string; `validateSearch` turns it into the typed search.
+  parseSearch: (searchStr) => Object.fromEntries(new URLSearchParams(searchStr)),
+  stringifySearch: (search) => {
+    const params = new URLSearchParams();
+    for (const [key, value] of Object.entries(search)) {
+      if (value !== undefined) params.set(key, String(value));
+    }
+    const searchStr = params.toString();
+    return searchStr ? `?${searchStr}` : "";
+  },
 });
 
 declare module "@tanstack/react-router" {

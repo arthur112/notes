@@ -100,8 +100,9 @@ export function searchToFilter(search: OrdersSearch): OrdersFilter {
   };
 }
 
-// The router JSON-parses each value (`?q=123` → 123, `?min=10.5` → 10.5);
-// these read it back as the raw form the controls hold.
+// Values come as strings from the URL, or typed (`min: 10.5`) when a navigation
+// re-validates the search it builds; these read either as the raw form the
+// controls hold.
 
 function rawText(value: unknown): string {
   return typeof value === "string" || typeof value === "number" ? String(value) : "";

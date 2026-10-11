@@ -59,12 +59,12 @@ normalization rules already live in `filter.ts` (`parseAmount`, trimming, droppi
 `OrdersFilter`, and serializes it with `filterToSearch`, the same function that writes the URL. So
 a URL is valid exactly when the page could have produced it, and there is no second rule set to keep in
 sync. Invalid values are dropped, never a route error. `?status=bogus&min=abc&from=nope` → `/`, and a
-hand-typed `max="10,5"` is normalized to `max=10.5`.
+hand-typed `max=10,5` is normalized to `max=10.5`.
 
-**URL encoding.** The router JSON-parses search values (`?min=10.5` arrives as a number), so the
-validator accepts strings or numbers. `min`/`max` are written as numbers, because a number-like string
-comes out quoted (`min=%2210.5%22`). That's also why a numeric search text shows as `q=%22123%22`;
-it still round-trips correctly.
+**URL encoding.** By default the router JSON-encodes search values, which quotes number-like strings
+(`q=%22123%22`). The search params here are flat, so `router.tsx` sets `parseSearch` /
+`stringifySearch` to plain `URLSearchParams`: the URL reads `?q=123&min=10.5`, every value arrives
+as a string, and `validateSearch` is the one place that types it.
 
 ## Data fetching (mock)
 
@@ -91,7 +91,7 @@ Checked in headless Chromium:
 | Forward                                                       | 0     | min input back to `10.5` (cached)                                               |
 | Clear all                                                     | 0     | `/` (cached from the first load)                                                |
 | Deep link `?q=globex&status=pending&min=5&from&to`, fresh tab | 1     | every control seeded from the URL; the loader fetch is not repeated by the page |
-| Invalid `?status=bogus&min=abc&max="10,5"&from=nope`          | 1     | invalid keys dropped, `max` normalized → `max=10.5`                             |
+| Invalid `?status=bogus&min=abc&max=10,5&from=nope`            | 1     | invalid keys dropped, `max` normalized → `max=10.5`                             |
 
 The 0-call rows are cache hits within the 30 s `staleTime`. Past it, the same actions refetch.
 
