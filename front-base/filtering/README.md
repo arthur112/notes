@@ -2,7 +2,8 @@
 
 The most minimal version of [`client-side`](../client-side): one page, a few filter controls, and
 the Gridify filter string they produce, sent through React Query to a tiny mock API. It is a sandbox to
-iterate on filtering. There is no shell and no data table.
+iterate on filtering. There is no shell and no data table. A **create / edit order form** built
+with TanStack Form shares the same controls (see [Order form](#order-form-tanstack-form)).
 
 It reuses the filter controls from `client-side` and makes the **URL the only filter state**, so the
 route loader can fetch it:
@@ -29,14 +30,14 @@ typed fields ─▶ draft ─▶ 350 ms/blur ─┴─▶ navigate({ search }) �
 
 ## Route ↔ React Query
 
-| Piece                | Where                  | What it does                                                                                                              |
-| -------------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| Router context       | `router.tsx`, `__root` | `createRootRouteWithContext<{ queryClient }>`, so loaders reach the one `QueryClient`.                                    |
-| `validateSearch`     | `routes/index.tsx`     | `validateOrdersSearch` (`filter.ts`): reads the URL and each navigation's next search leniently into `OrdersSearch`.      |
-| `loaderDeps`         | `routes/index.tsx`     | `({ search }) => search`: the loader re-runs whenever the settled filter changes.                                         |
-| Loader               | every match of `/`     | `prefetchQuery`, not awaited: the page shows at once with its loading state; `useQuery` joins the in-flight request.      |
-| `ordersQueryOptions` | `api/use-orders.ts`    | One `queryOptions` for loader and page, keyed `["orders", search]`, so both use the same cache entry.                     |
-| `staleTime: 30_000`  | `ordersQueryOptions`   | Needed: with 0, data the loader just fetched is already stale when the page subscribes, so it would fetch twice.          |
+| Piece                | Where                  | What it does                                                                                                         |
+| -------------------- | ---------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| Router context       | `router.tsx`, `__root` | `createRootRouteWithContext<{ queryClient }>`, so loaders reach the one `QueryClient`.                               |
+| `validateSearch`     | `routes/index.tsx`     | `validateOrdersSearch` (`filter.ts`): reads the URL and each navigation's next search leniently into `OrdersSearch`. |
+| `loaderDeps`         | `routes/index.tsx`     | `({ search }) => search`: the loader re-runs whenever the settled filter changes.                                    |
+| Loader               | every match of `/`     | `prefetchQuery`, not awaited: the page shows at once with its loading state; `useQuery` joins the in-flight request. |
+| `ordersQueryOptions` | `api/use-orders.ts`    | One `queryOptions` for loader and page, keyed `["orders", search]`, so both use the same cache entry.                |
+| `staleTime: 30_000`  | `ordersQueryOptions`   | Needed: with 0, data the loader just fetched is already stale when the page subscribes, so it would fetch twice.     |
 
 **Why a loader that doesn't wait.** `autoCodeSplitting` makes the page a lazy chunk. Without the
 loader, the request would only start once that chunk has downloaded and rendered. With it, the request
@@ -71,9 +72,9 @@ as a string, and `validateSearch` is the one place that types it.
 ## Data fetching (mock)
 
 `api/orders-api.ts` fakes `GET /api/orders?filter=…`. It logs each call to the console
-(`[mock] #3 GET /api/orders?filter=…`), waits 300 ms, and returns six fixed orders plus an echo of the
-filter it received and a request number. **It does not evaluate the filter**, so the rows never
-change. The goal is only to check that each filter change triggers a request. `useOrders` adds
+(`[mock] #3 GET /api/orders?filter=…`), waits 300 ms, and returns every order in its in-memory store (six seeded) plus an echo
+of the filter it received and a request number. **It does not evaluate the filter**, so the rows only
+change when the order form saves. The goal is only to check that each filter change triggers a request. `useOrders` adds
 `placeholderData: keepPreviousData`, so the previous rows stay visible (dimmed) while the next request
 runs. `refetchOnWindowFocus: false` on the `QueryClient` means the only requests come from filter
 changes.
@@ -112,8 +113,8 @@ The calendar's `to` is inclusive in the UI and becomes an exclusive next-day bou
 ## Shared controls
 
 The filter bar is built only from `shared/components/ui/` controls, and a form uses the same ones.
-That keeps the look and feel identical; each context provides its own wrapper (`FilterField` here, a
-form field with an error message later).
+That keeps the look and feel identical; each context provides its own wrapper (`FilterField` in the
+bar, `FormField` with its error message in the form).
 
 | Control            | Value                   | Notes                               |
 | ------------------ | ----------------------- | ----------------------------------- |
@@ -122,6 +123,7 @@ form field with an error message later).
 | `NumberRangeInput` | `{ min, max }` strings  | two `NumberInput`s                  |
 | `SearchSelect<T>`  | `T \| null`             | typed by its options, so no casts   |
 | `DateRangePicker`  | `{ from, to }`          | inclusive bounds                    |
+| `DatePicker`       | `Ymd \| null`           | single day, same calendar           |
 
 They share one contract:
 
@@ -133,34 +135,88 @@ They share one contract:
   point at them; `aria-invalid` turns them red.
 
 Number values stay **raw strings** so half-typed input (`"10,"`) survives a re-render. Parse them
-where you use them (here the route's `validateSearch`, in a form its submit/validation).
+where you use them (here the route's `validateSearch`, in the form its Zod schema).
+
+## Order form (TanStack Form)
+
+`/orders/new` and `/orders/$orderNo/edit` (**New order** in the header, or click an order number) render
+one `OrderForm`. On save, the form returns to the list, which refetches and shows the change.
+
+| Piece                   | Where                                    | Why                                                                                                                                                                                                                           |
+| ----------------------- | ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `createFormHook`        | `shared/components/form/use-app-form.ts` | One `useAppForm` per app, with `TextField` / `NumberField` / `SelectField` / `DateField` and `SubmitButton` pre-bound. A form writes `<form.AppField name="dueDate">{(f) => <f.DateField label="Due date" />}`, never markup. |
+| `FormField`             | `shared/components/form/fields.tsx`      | Label + control + first error, wired through `ControlProps` (`htmlFor`, `aria-invalid`, `aria-describedby`); "Checking…" while an async validator runs.                                                                       |
+| `formOptions`           | `order-form-options.ts`                  | Defaults, validation logic and validators shared by `useAppForm` and `withForm`, which must agree on every validator type.                                                                                                    |
+| `withForm`              | `order-lines.tsx`                        | Splits a section (the lines) out of the form, typed against the parent's `form`.                                                                                                                                              |
+| Array field             | `order-lines.tsx`                        | `mode="array"` + `pushValue` / `removeValue`; each cell is its own field at `lines[i].…`. The total is a `form.Subscribe` on the lines, so typing re-renders the total only.                                                  |
+| Zod, no adapter         | `orderFormSchema`                        | TanStack Form takes it as a Standard Schema. Its **input** is the raw form values (`"10,5"`, `null`), its **output** the API payload. Each issue lands on the field at its path (`lines[0].quantity`).                        |
+| `revalidateLogic()`     | `orderFormOptions`                       | `validators.onDynamic`: quiet until the first submit, then revalidates on every change, so a fixed field clears its error as you type. No `isTouched` gating in the fields.                                                   |
+| Async field validator   | `reference` in `order-form.tsx`          | `onChangeAsync` + `onChangeAsyncDebounceMs: 400`: one server check per typing pause.                                                                                                                                          |
+| Save as `onSubmitAsync` | `saveOrder` in `order-form-options.ts`   | Runs only once the schema passes. A 422 returns `{ form, fields }`: the message shows above the buttons, each field error under its field, and each clears when its field changes. `onSubmit` then only invalidates + leaves. |
+| `useBlocker`            | `order-form.tsx`                         | Confirms before leaving with unsaved changes (`!form.state.isDefaultValue`, read at navigation time, not subscribed). After a save, `formApi.reset(value)` makes the form pristine so it can leave.                           |
+| Awaited loader          | `routes/orders.$orderNo.edit.tsx`        | `ensureQueryData`, **awaited**, unlike the list's loader: the form reads `defaultValues` once, at mount, so the order must be there first. The page keys the form by `orderNo`.                                               |
+
+**Two gotchas.** `onSubmit` / validators receive the schema's _input_ (raw strings), not its output:
+`saveOrder` calls `orderFormSchema.parse(value)` for the typed payload. And validators get only
+`{ value, formApi, signal }`, while `withForm` requires the same validators as the form, so the save
+can't close over a hook (`useMutation`). It calls the API directly and picks create or update from the
+`orderNo` carried in the form values. The component's `onSubmit` invalidates the queries.
+
+The mock has one rule only the server knows: **Umbrella is on credit hold**. It also re-checks the
+reference, since the client check is only a hint.
+
+Checked in headless Chromium:
+
+| Action                                         | Result                                                                               |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------ |
+| Open `/orders/new`                             | no errors shown                                                                      |
+| Submit empty                                   | Pick a customer · Pick a due date · Required (product) · Required (unit price)       |
+| Type a product                                 | its error clears at once; the others stay                                            |
+| Qty `3`, unit price `10,5`                     | Total 31.50 €                                                                        |
+| Reference `PO-1001`                            | "Checking…" through debounce + request, then "Already used on another order"; 1 call |
+| Customer Umbrella, submit                      | "Umbrella is on credit hold." under customer + "The server rejected the order."      |
+| Customer → Globex                              | both errors cleared; submit creates `ORD-100107`, list refetches and shows it        |
+| Click `ORD-100107`                             | edit form seeded (`Widget`, `3`, `10.5`, `PO-2042`, Globex)                          |
+| Cancel on a pristine form                      | leaves, no prompt                                                                    |
+| Change qty, Cancel                             | "Discard unsaved changes?"; dismiss stays on the form                                |
+| Add a line, Save changes                       | no prompt; list shows the new total (44.00)                                          |
+| Remove the only line, submit                   | "Add at least one line"                                                              |
+| Deep link `/orders/ORD-100101/edit`, fresh tab | seeded from the awaited loader; saving keeps its own `PO-1001` (not "taken")         |
 
 ## Layout
 
 ```text
 src/
-├─ features/orders-filters/
-│  ├─ api/
-│  │  ├─ orders-api.ts   # mock GET /api/orders?filter=… (logs, echoes, fixed rows)
-│  │  └─ use-orders.ts   # ordersQueryOptions (loader + page) + useOrders
-│  ├─ filter.ts          # OrdersSearch (the filter), its raw input type, validateSearch, toGridifyFilter
-│  ├─ filter-bar.tsx     # dumb: maps the search onto the shared controls, labels them, sets widths
-│  └─ filters-page.tsx   # smart page: search from URL, patch = navigate, query, request log
+├─ features/
+│  ├─ orders-filters/
+│  │  ├─ api/
+│  │  │  ├─ orders-api.ts   # mock orders store: list (logs, echoes the filter), detail, create/update (422), reference check
+│  │  │  └─ use-orders.ts   # ordersQueryOptions (loader + page), useOrders, orderQueryOptions (edit loader + page)
+│  │  ├─ filter.ts          # OrdersSearch (the filter), its raw input type, validateSearch, toGridifyFilter
+│  │  ├─ filter-bar.tsx     # dumb: maps the search onto the shared controls, labels them, sets widths
+│  │  └─ filters-page.tsx   # smart page: search from URL, patch = navigate, query, request log
+│  └─ order-form/
+│     ├─ order-form-options.ts  # form values, Zod schema (raw → payload), save validator, formOptions
+│     ├─ order-form.tsx         # useAppForm: fields, async reference check, blocker, submit
+│     ├─ order-lines.tsx        # withForm section: array field + live total
+│     └─ order-form-page.tsx    # NewOrderPage / EditOrderPage (route components)
 ├─ shared/
 │  ├─ components/
 │  │  ├─ filter-field.tsx  # label above a filter control
+│  │  ├─ form/             # form-context, fields (FormField + field components, SubmitButton), use-app-form
 │  │  └─ ui/               # button, input, popover + the shared controls above (control.ts = size + ControlProps)
 │  ├─ hooks/use-buffered-value.ts  # draft while editing, commit on pause/blur
 │  └─ lib/               # gridify.ts (ConditionSpec → filter string), date, format, utils
 ├─ router.tsx            # QueryClient + router (queryClient in context)
-└─ routes/               # __root (router context) + index (validateSearch, loaderDeps, loader)
+└─ routes/               # __root (router context), index (validateSearch, loaderDeps, loader),
+                         # orders.new, orders.$orderNo.edit (awaited loader)
 ```
 
 ## Stack
 
 Same as `client-side`, minus what filtering does not need: React 19 · TypeScript 7 · Vite 8 ·
 Tailwind v4 · shadcn-style components on Base UI (_base-nova_) · TanStack Router (file-based) ·
-TanStack Query 5 · `gridify-client` 2 · oxlint · oxfmt.
+TanStack Query 5 · TanStack Form 1 · Zod 4 · `gridify-client` 2 · oxlint · oxfmt.
 
 ## Running
 

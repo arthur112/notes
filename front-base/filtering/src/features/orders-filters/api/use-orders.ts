@@ -1,7 +1,7 @@
 import { keepPreviousData, queryOptions, useQuery } from "@tanstack/react-query";
 
 import { toGridifyFilter, type OrdersSearch } from "../filter";
-import { fetchOrders } from "./orders-api";
+import { fetchOrder, fetchOrders } from "./orders-api";
 
 /**
  * One definition shared by the route loader (`prefetchQuery`) and the page
@@ -24,4 +24,13 @@ export function ordersQueryOptions(search: OrdersSearch) {
 /** `keepPreviousData` keeps the last rows on screen while the next filter loads. */
 export function useOrders(search: OrdersSearch) {
   return useQuery({ ...ordersQueryOptions(search), placeholderData: keepPreviousData });
+}
+
+/** One order, for the edit route's loader and its form. */
+export function orderQueryOptions(orderNo: string) {
+  return queryOptions({
+    queryKey: ["order", orderNo],
+    queryFn: () => fetchOrder(orderNo),
+    staleTime: 30_000,
+  });
 }

@@ -10,33 +10,53 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as OrdersNewRouteImport } from './routes/orders.new'
+import { Route as OrdersOrderNoEditRouteImport } from './routes/orders.$orderNo.edit'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const OrdersNewRoute = OrdersNewRouteImport.update({
+  id: '/orders/new',
+  path: '/orders/new',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OrdersOrderNoEditRoute = OrdersOrderNoEditRouteImport.update({
+  id: '/orders/$orderNo/edit',
+  path: '/orders/$orderNo/edit',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/orders/new': typeof OrdersNewRoute
+  '/orders/$orderNo/edit': typeof OrdersOrderNoEditRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/orders/new': typeof OrdersNewRoute
+  '/orders/$orderNo/edit': typeof OrdersOrderNoEditRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/orders/new': typeof OrdersNewRoute
+  '/orders/$orderNo/edit': typeof OrdersOrderNoEditRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths: '/' | '/orders/new' | '/orders/$orderNo/edit'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to: '/' | '/orders/new' | '/orders/$orderNo/edit'
+  id: '__root__' | '/' | '/orders/new' | '/orders/$orderNo/edit'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  OrdersNewRoute: typeof OrdersNewRoute
+  OrdersOrderNoEditRoute: typeof OrdersOrderNoEditRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +68,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/orders/new': {
+      id: '/orders/new'
+      path: '/orders/new'
+      fullPath: '/orders/new'
+      preLoaderRoute: typeof OrdersNewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/orders/$orderNo/edit': {
+      id: '/orders/$orderNo/edit'
+      path: '/orders/$orderNo/edit'
+      fullPath: '/orders/$orderNo/edit'
+      preLoaderRoute: typeof OrdersOrderNoEditRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  OrdersNewRoute: OrdersNewRoute,
+  OrdersOrderNoEditRoute: OrdersOrderNoEditRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

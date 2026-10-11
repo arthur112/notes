@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from "react";
-import { getRouteApi, useLocation } from "@tanstack/react-router";
+import { Link, getRouteApi, useLocation } from "@tanstack/react-router";
 
+import { buttonVariants } from "@/shared/components/ui/button";
 import { formatDate } from "@/shared/lib/format";
 import { cn } from "@/shared/lib/utils";
 
@@ -36,12 +37,17 @@ export function FiltersPage() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-6 p-6">
-      <header>
-        <h1 className="text-xl font-semibold">Filtering</h1>
-        <p className="text-sm text-muted-foreground">
-          Filter controls (typed fields debounced) → URL search → route loader + React Query → mock
-          API.
-        </p>
+      <header className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-xl font-semibold">Filtering</h1>
+          <p className="text-sm text-muted-foreground">
+            Filter controls (typed fields debounced) → URL search → route loader + React Query →
+            mock API.
+          </p>
+        </div>
+        <Link to="/orders/new" className={buttonVariants({ size: "lg" })}>
+          New order
+        </Link>
       </header>
 
       <FilterBar search={search} onPatch={patch} onReset={() => void navigate({ search: {} })} />
@@ -93,7 +99,9 @@ export function FiltersPage() {
       <section className="space-y-2">
         <h2 className="text-sm font-medium">
           Orders{" "}
-          <span className="text-muted-foreground">(mock rows — the filter is not applied)</span>
+          <span className="text-muted-foreground">
+            (every stored order — the filter is not applied)
+          </span>
         </h2>
         <div
           aria-busy={orders.isFetching}
@@ -128,7 +136,15 @@ export function FiltersPage() {
               ) : (
                 orders.data?.data.map((order) => (
                   <tr key={order.orderNo}>
-                    <td className="px-4 py-2 font-medium">{order.orderNo}</td>
+                    <td className="px-4 py-2 font-medium">
+                      <Link
+                        to="/orders/$orderNo/edit"
+                        params={{ orderNo: order.orderNo }}
+                        className="underline-offset-4 hover:underline"
+                      >
+                        {order.orderNo}
+                      </Link>
+                    </td>
                     <td className="px-4 py-2">{order.customer}</td>
                     <td className="px-4 py-2 capitalize">{order.status}</td>
                     <td className="px-4 py-2 tabular-nums">{formatDate(order.createdAt)}</td>

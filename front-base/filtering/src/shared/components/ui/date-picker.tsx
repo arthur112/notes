@@ -79,6 +79,89 @@ function MonthGrid({
   );
 }
 
+/** Previous / current / next month header above the grid. */
+function MonthNav({ view, onShift }: { view: View; onShift: (n: number) => void }) {
+  return (
+    <div className="mb-2 flex items-center justify-between gap-1">
+      <button
+        type="button"
+        onClick={() => onShift(-1)}
+        aria-label="Previous month"
+        className={buttonVariants({ variant: "ghost", size: "icon-sm" })}
+      >
+        ←
+      </button>
+      <span className="text-sm font-medium tabular-nums">
+        {new Date(Date.UTC(view.year, view.month, 1)).toLocaleString("en-GB", {
+          month: "short",
+          year: "numeric",
+          timeZone: "UTC",
+        })}
+      </span>
+      <button
+        type="button"
+        onClick={() => onShift(1)}
+        aria-label="Next month"
+        className={buttonVariants({ variant: "ghost", size: "icon-sm" })}
+      >
+        →
+      </button>
+    </div>
+  );
+}
+
+/** Single-day picker over the same UTC calendar. */
+export function DatePicker({
+  value,
+  onChange,
+  placeholder = "Pick a date",
+  className,
+  ...triggerProps
+}: ControlProps & {
+  value: Ymd | null;
+  onChange: (next: Ymd | null) => void;
+  placeholder?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [view, setView] = useState(() => ymdToView(value));
+
+  return (
+    <Popover
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (next) setView(ymdToView(value));
+      }}
+    >
+      <PopoverTrigger
+        {...triggerProps}
+        className={cn(
+          buttonVariants({ variant: "outline" }),
+          CONTROL_CLASS,
+          "justify-start font-normal",
+          !value && "text-muted-foreground",
+          className,
+        )}
+      >
+        <CalendarDays />
+        <span className="truncate">{value ? formatDate(value) : placeholder}</span>
+      </PopoverTrigger>
+      <PopoverContent className="w-72 p-3" align="start">
+        <MonthNav view={view} onShift={(n) => setView((v) => ({ ...v, month: v.month + n }))} />
+        <MonthGrid
+          view={view}
+          from={value}
+          to={value}
+          onSelectDay={(ymd) => {
+            onChange(ymd);
+            setOpen(false);
+          }}
+        />
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 export type DateRange = { from: Ymd | null; to: Ymd | null };
 
 const EMPTY_RANGE: DateRange = { from: null, to: null };
@@ -141,31 +224,7 @@ export function DateRangePicker({
         <span className="truncate">{label ?? placeholder}</span>
       </PopoverTrigger>
       <PopoverContent className="w-72 p-3" align="start">
-        <div className="mb-2 flex items-center justify-between gap-1">
-          <button
-            type="button"
-            onClick={() => shiftMonth(-1)}
-            aria-label="Previous month"
-            className={buttonVariants({ variant: "ghost", size: "icon-sm" })}
-          >
-            ←
-          </button>
-          <span className="text-sm font-medium tabular-nums">
-            {new Date(Date.UTC(view.year, view.month, 1)).toLocaleString("en-GB", {
-              month: "short",
-              year: "numeric",
-              timeZone: "UTC",
-            })}
-          </span>
-          <button
-            type="button"
-            onClick={() => shiftMonth(1)}
-            aria-label="Next month"
-            className={buttonVariants({ variant: "ghost", size: "icon-sm" })}
-          >
-            →
-          </button>
-        </div>
+        <MonthNav view={view} onShift={shiftMonth} />
         <MonthGrid view={view} from={from} to={to} onSelectDay={onSelectDay} />
         <div className="mt-2 flex items-center justify-between border-t pt-2">
           <button
