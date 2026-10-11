@@ -1,17 +1,13 @@
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import { getRouteApi, useLocation } from "@tanstack/react-router";
 
 import { formatDate } from "@/shared/lib/format";
 import { cn } from "@/shared/lib/utils";
 
-import type { OrdersResponse } from "./api/orders-api";
+import { getRequestLog, subscribeRequestLog } from "./api/orders-api";
 import { useOrders } from "./api/use-orders";
 import { FilterBar } from "./filter-bar";
 import { toGridifyFilter, type OrdersSearch } from "./filter";
-
-type RequestLogEntry = Pick<OrdersResponse, "requestNo" | "filter" | "receivedAt">;
-
-const MAX_LOG_ENTRIES = 10;
 
 const routeApi = getRouteApi("/");
 
@@ -36,18 +32,7 @@ export function FiltersPage() {
   const orders = useOrders(search);
   const gridifyFilter = toGridifyFilter(search);
 
-  // Debug aid: one log line per response that reached the mock "server".
-  const [log, setLog] = useState<RequestLogEntry[]>([]);
-  const response = orders.data;
-  useEffect(() => {
-    if (!response) return;
-    const { requestNo, filter: received, receivedAt } = response;
-    setLog((current) =>
-      current.some((entry) => entry.requestNo === requestNo)
-        ? current
-        : [{ requestNo, filter: received, receivedAt }, ...current].slice(0, MAX_LOG_ENTRIES),
-    );
-  }, [response]);
+  const log = useSyncExternalStore(subscribeRequestLog, getRequestLog);
 
   return (
     <div className="mx-auto max-w-5xl space-y-6 p-6">

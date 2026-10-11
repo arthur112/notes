@@ -71,6 +71,22 @@ const MOCK_ORDERS: Order[] = [
 
 let requestCount = 0;
 
+export type RequestLogEntry = Pick<OrdersResponse, "requestNo" | "filter" | "receivedAt">;
+
+const MAX_LOG_ENTRIES = 10;
+let requestLog: RequestLogEntry[] = [];
+const logListeners = new Set<() => void>();
+
+/** Debug aid: the last calls that reached the mock "server", newest first (`useSyncExternalStore`). */
+export function subscribeRequestLog(listener: () => void): () => void {
+  logListeners.add(listener);
+  return () => logListeners.delete(listener);
+}
+
+export function getRequestLog(): RequestLogEntry[] {
+  return requestLog;
+}
+
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -82,10 +98,9 @@ export async function fetchOrders(filter: string): Promise<OrdersResponse> {
 
   await sleep(300);
 
-  return {
-    requestNo,
-    filter,
-    receivedAt: new Date().toISOString(),
-    data: structuredClone(MOCK_ORDERS),
-  };
+  const receivedAt = new Date().toISOString();
+  requestLog = [{ requestNo, filter, receivedAt }, ...requestLog].slice(0, MAX_LOG_ENTRIES);
+  logListeners.forEach((listener) => listener());
+
+  return { requestNo, filter, receivedAt, data: structuredClone(MOCK_ORDERS) };
 }

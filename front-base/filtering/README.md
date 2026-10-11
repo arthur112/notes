@@ -77,7 +77,8 @@ runs. `refetchOnWindowFocus: false` on the `QueryClient` means the only requests
 changes.
 
 The page shows the current **URL**, the **Gridify filter**, and a **Requests** log, with one line per
-response: request number, time, and the filter the mock received.
+response: request number, time, and the filter the mock received. The mock keeps that log itself and
+the page reads it with `useSyncExternalStore`, so it needs no effect.
 
 Checked in headless Chromium:
 
