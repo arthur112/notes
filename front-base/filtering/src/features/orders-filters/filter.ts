@@ -1,13 +1,11 @@
-import type { DateRange } from "@/shared/components/ui/date-picker";
-import type { NumberRange } from "@/shared/components/ui/number-range-input";
 import type { SearchSelectOption } from "@/shared/components/ui/search-select";
 import { addDaysYmd, type Ymd } from "@/shared/lib/date";
 import { buildFilter, type ConditionSpec } from "@/shared/lib/gridify";
 
 /**
- * The filter object the controls show, its URL form and the pure
- * mapping to Gridify live here so the components stay declarative: change a
- * field here, and the bar + query follow.
+ * The filter is the URL search: its type, its validation and the pure mapping
+ * to Gridify live here, so the components stay declarative: change a field
+ * here, and the bar + query follow.
  */
 
 export const STATUSES = ["pending", "paid", "shipped", "delivered", "cancelled"] as const;
@@ -18,57 +16,28 @@ export const STATUS_OPTIONS: SearchSelectOption<OrderStatus>[] = STATUSES.map((v
   label: value[0].toUpperCase() + value.slice(1),
 }));
 
-export type OrdersFilter = {
-  /** Free-text search over order number + customer name. */
-  query: string;
-  /** Dropdown. */
-  status: OrderStatus | null;
-  /** Number range — raw text; an empty string means "no bound". */
-  total: NumberRange;
-  /** Calendar — inclusive UTC `YYYY-MM-DD` bounds. */
-  createdAt: DateRange;
-};
-
-function parseAmount(raw: string): number | null {
-  const trimmed = raw.trim();
-  if (!trimmed) return null;
-  const value = Number(trimmed.replace(",", "."));
-  return Number.isFinite(value) ? value : null;
-}
-
-// ---------------------------------------------------------------------------
-// URL search params: the settled (debounced) filter lives in the URL, so the
-// route loader can fetch it and a link/reload/Back restores it.
-// ---------------------------------------------------------------------------
-
 /** The settled filter as flat URL keys; absent key = no constraint. */
 export type OrdersSearch = {
+  /** Free-text search over order number + customer name. */
   q?: string;
   status?: OrderStatus;
+  /** Order total bounds. */
   min?: number;
   max?: number;
+  /** Creation bounds — inclusive UTC `YYYY-MM-DD`. */
   from?: Ymd;
   to?: Ymd;
 };
 
-/** Filter → URL search; empty and unparsable values are left out. */
-export function filterToSearch(filter: OrdersFilter): OrdersSearch {
-  const q = filter.query.trim();
-  const min = parseAmount(filter.total.min);
-  const max = parseAmount(filter.total.max);
-  return {
-    q: q || undefined,
-    status: filter.status ?? undefined,
-    min: min ?? undefined,
-    max: max ?? undefined,
-    from: filter.createdAt.from ?? undefined,
-    to: filter.createdAt.to ?? undefined,
-  };
+/** Raw text (`" 10,5 "`) or a number → an amount; empty or unparsable → no bound. */
+export function parseAmount(raw: unknown): number | undefined {
+  const value = typeof raw === "string" && raw.trim() ? Number(raw.replace(",", ".")) : raw;
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
 }
 
 /**
- * The Gridify `filter` string for a settled search — what the loader and the
- * page fetch with. The search is already normalized by `validateOrdersSearch`.
+ * The Gridify `filter` string for a settled search — what the orders query
+ * sends. The search is already normalized by `validateOrdersSearch`.
  */
 export function toGridifyFilter({ q, status, min, max, from, to }: OrdersSearch): string {
   const groups: ConditionSpec[][] = [];
@@ -87,31 +56,10 @@ export function toGridifyFilter({ q, status, min, max, from, to }: OrdersSearch)
   return buildFilter(groups);
 }
 
-/** URL search → filter, for the first render and for Back/Forward. */
-export function searchToFilter(search: OrdersSearch): OrdersFilter {
-  return {
-    query: search.q ?? "",
-    status: search.status ?? null,
-    total: {
-      min: search.min?.toString() ?? "",
-      max: search.max?.toString() ?? "",
-    },
-    createdAt: { from: search.from ?? null, to: search.to ?? null },
-  };
-}
-
-// Values come as strings from the URL, or typed (`min: 10.5`) when a navigation
-// re-validates the search it builds; these read either as the raw form the
-// controls hold.
-
-function rawText(value: unknown): string {
-  return typeof value === "string" || typeof value === "number" ? String(value) : "";
-}
-
 const YMD = /^\d{4}-\d{2}-\d{2}$/;
 
-function rawYmd(value: unknown): Ymd | null {
-  return typeof value === "string" && YMD.test(value) ? value : null;
+function ymd(value: unknown): Ymd | undefined {
+  return typeof value === "string" && YMD.test(value) ? value : undefined;
 }
 
 function isStatus(value: unknown): value is OrderStatus {
@@ -119,17 +67,19 @@ function isStatus(value: unknown): value is OrderStatus {
 }
 
 /**
- * The route's `validateSearch`. Rather than a second set of rules, it reads the
- * URL leniently into a filter and re-serializes it with `filterToSearch` — the
- * same function that writes the URL — so a URL is valid exactly when the page
- * could have produced it. Anything else (`status=bogus`, `min=abc`,
- * `from=nope`) is dropped, never a route error.
+ * The route's `validateSearch`. The router runs it on the URL (every value a
+ * string) and on the search each navigation builds, so patches may hold raw
+ * text: it is trimmed and parsed here. It is lenient: an invalid value
+ * (`status=bogus`, `min=abc`, `from=nope`) is dropped, never a route error.
  */
 export function validateOrdersSearch(raw: Record<string, unknown>): OrdersSearch {
-  return filterToSearch({
-    query: rawText(raw.q),
-    status: isStatus(raw.status) ? raw.status : null,
-    total: { min: rawText(raw.min), max: rawText(raw.max) },
-    createdAt: { from: rawYmd(raw.from), to: rawYmd(raw.to) },
-  });
+  const q = typeof raw.q === "string" ? raw.q.trim() : "";
+  return {
+    q: q || undefined,
+    status: isStatus(raw.status) ? raw.status : undefined,
+    min: parseAmount(raw.min),
+    max: parseAmount(raw.max),
+    from: ymd(raw.from),
+    to: ymd(raw.to),
+  };
 }

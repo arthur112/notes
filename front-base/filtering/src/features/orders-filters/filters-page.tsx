@@ -7,7 +7,7 @@ import { cn } from "@/shared/lib/utils";
 import type { OrdersResponse } from "./api/orders-api";
 import { useOrders } from "./api/use-orders";
 import { FilterBar } from "./filter-bar";
-import { filterToSearch, searchToFilter, toGridifyFilter, type OrdersFilter } from "./filter";
+import { toGridifyFilter, type OrdersSearch } from "./filter";
 
 type RequestLogEntry = Pick<OrdersResponse, "requestNo" | "filter" | "receivedAt">;
 
@@ -26,12 +26,11 @@ export function FiltersPage() {
   const navigate = routeApi.useNavigate();
   const href = useLocation({ select: (location) => location.href });
 
-  const filter = searchToFilter(search);
-
   // Each patch is a history entry, so Back undoes a filter. It applies to the
   // current search, not this render's, since a debounced patch can land later.
-  const patch = (changes: Partial<OrdersFilter>) =>
-    void navigate({ search: (prev) => filterToSearch({ ...searchToFilter(prev), ...changes }) });
+  // The router runs `validateSearch` on the result, which normalizes it.
+  const patch = (changes: OrdersSearch) =>
+    void navigate({ search: (prev) => ({ ...prev, ...changes }) });
 
   // Same search, same query as the loader. The Gridify string is only shown here.
   const orders = useOrders(search);
@@ -60,7 +59,7 @@ export function FiltersPage() {
         </p>
       </header>
 
-      <FilterBar filter={filter} onPatch={patch} onReset={() => void navigate({ search: {} })} />
+      <FilterBar search={search} onPatch={patch} onReset={() => void navigate({ search: {} })} />
 
       <section className="space-y-2">
         <h2 className="text-sm font-medium">URL</h2>
@@ -158,9 +157,9 @@ export function FiltersPage() {
       </section>
 
       <section className="space-y-2">
-        <h2 className="text-sm font-medium">Filter object</h2>
+        <h2 className="text-sm font-medium">Validated search</h2>
         <pre className="overflow-x-auto rounded-lg border bg-muted p-4 text-xs">
-          {JSON.stringify(filter, null, 2)}
+          {JSON.stringify(search, null, 2)}
         </pre>
       </section>
     </div>

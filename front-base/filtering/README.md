@@ -7,9 +7,10 @@ iterate on filtering. There is no shell and no data table.
 It reuses the filter controls from `client-side` and makes the **URL the only filter state**, so the
 route loader can fetch it:
 
-- the page derives the filter from the URL search params (`/?q=acme&status=paid&min=10.5&from=…&to=…`);
-  there is no `useState` copy of it, and no effect;
-- `FilterBar` gets `filter` + `onPatch(partial)` + `onReset`, and each patch is a `navigate({ search })`;
+- the filter **is** the validated URL search (`/?q=acme&status=paid&min=10.5&from=…&to=…`), typed
+  `OrdersSearch`; there is no separate filter object, no `useState` copy of it, and no effect;
+- `FilterBar` gets `search` + `onPatch(partial)` + `onReset`, and each patch is a
+  `navigate({ search: (prev) => ({ ...prev, ...changes }) })`;
 - picks (status, dates, reset) navigate at once; **typed fields** (search, totals) keep a draft while
   edited and patch once typing pauses for 350 ms or the field loses focus (`useBufferedValue`);
 - the route validates the search with a plain function, and its **loader** fetches through the shared `QueryClient`;
@@ -20,7 +21,7 @@ route loader can fetch it:
 ```text
 picks ──────────────────────────────┐
 typed fields ─▶ draft ─▶ 350 ms/blur ─┴─▶ navigate({ search }) ─▶ URL
-                                                                  ├─▶ controls: searchToFilter(search)
+                                                                  ├─▶ controls: search
                                                                   ├─▶ loader:   queryClient.prefetchQuery (not awaited)
                                                                   └─▶ page:     useOrders(search)
                                                                                   └─▶ queryFn: mock GET /api/orders?filter=toGridifyFilter(search)
@@ -31,7 +32,7 @@ typed fields ─▶ draft ─▶ 350 ms/blur ─┴─▶ navigate({ search }) �
 | Piece                | Where                  | What it does                                                                                                              |
 | -------------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------------- |
 | Router context       | `router.tsx`, `__root` | `createRootRouteWithContext<{ queryClient }>`, so loaders reach the one `QueryClient`.                                    |
-| `validateSearch`     | `routes/index.tsx`     | `validateOrdersSearch` (`filter.ts`): reads the URL leniently into a filter, then re-serializes it with `filterToSearch`. |
+| `validateSearch`     | `routes/index.tsx`     | `validateOrdersSearch` (`filter.ts`): reads the URL and each navigation's next search leniently into `OrdersSearch`.      |
 | `loaderDeps`         | `routes/index.tsx`     | `({ search }) => search`: the loader re-runs whenever the settled filter changes.                                         |
 | Loader               | every match of `/`     | `prefetchQuery`, not awaited: the page shows at once with its loading state; `useQuery` joins the in-flight request.      |
 | `ordersQueryOptions` | `api/use-orders.ts`    | One `queryOptions` for loader and page, keyed `["orders", search]`, so both use the same cache entry.                     |
@@ -53,13 +54,12 @@ its draft until the field is blurred.
 
 Each settled change is a history entry, so **Back undoes a filter**.
 
-**Validation without a schema library.** `validateSearch` accepts a plain function, and the
-normalization rules already live in `filter.ts` (`parseAmount`, trimming, dropping empty values).
-`validateOrdersSearch` reads each raw value as the text the controls would hold, builds an
-`OrdersFilter`, and serializes it with `filterToSearch`, the same function that writes the URL. So
-a URL is valid exactly when the page could have produced it, and there is no second rule set to keep in
-sync. Invalid values are dropped, never a route error. `?status=bogus&min=abc&from=nope` → `/`, and a
-hand-typed `max=10,5` is normalized to `max=10.5`.
+**Validation without a schema library.** `validateSearch` accepts a plain function:
+`validateOrdersSearch` trims the text, parses amounts with `parseAmount`, checks the status and date
+formats, and drops empty values. The router runs it on the URL **and** on the search every
+navigation builds, so it is also the normalizer: a patch can carry a raw `"acme "`, and the URL gets
+`q=acme`. Invalid values are dropped, never a route error. `?status=bogus&min=abc&from=nope` → `/`,
+and a hand-typed `max=10,5` is normalized to `max=10.5`.
 
 **URL encoding.** By default the router JSON-encodes search values, which quotes number-like strings
 (`q=%22123%22`). The search params here are flat, so `router.tsx` sets `parseSearch` /
@@ -97,12 +97,12 @@ The 0-call rows are cache hits within the 30 s `staleTime`. Past it, the same ac
 
 ## Filters
 
-| Control          | UI component       | Filter field              | Gridify output                               |
-| ---------------- | ------------------ | ------------------------- | -------------------------------------------- |
-| Search           | `SearchInput`      | `query`                   | `(orderNo=*q\|customer.name=*q)`             |
-| Dropdown         | `SearchSelect`     | `status`                  | `status=paid`                                |
-| Number range     | `NumberRangeInput` | `total: { min, max }`     | `total>=10.5,total<=200`                     |
-| Calendar (range) | `DateRangePicker`  | `createdAt: { from, to }` | `createdAt>=2026-01-01,createdAt<2026-02-01` |
+| Control          | UI component       | Search keys  | Gridify output                               |
+| ---------------- | ------------------ | ------------ | -------------------------------------------- |
+| Search           | `SearchInput`      | `q`          | `(orderNo=*q\|customer.name=*q)`             |
+| Dropdown         | `SearchSelect`     | `status`     | `status=paid`                                |
+| Number range     | `NumberRangeInput` | `min`, `max` | `total>=10.5,total<=200`                     |
+| Calendar (range) | `DateRangePicker`  | `from`, `to` | `createdAt>=2026-01-01,createdAt<2026-02-01` |
 
 The calendar's `to` is inclusive in the UI and becomes an exclusive next-day bound in the query.
 
@@ -130,7 +130,8 @@ They share one contract:
   point at them; `aria-invalid` turns them red.
 
 Number values stay **raw strings** so half-typed input (`"10,"`) survives a re-render. Parse them
-where you use them (`parseAmount` in `filter.ts`, or in a form's submit/validation).
+where you use them (`parseAmount` in `filter.ts` when `FilterBar` commits, or in a form's
+submit/validation).
 
 ## Layout
 
@@ -140,9 +141,9 @@ src/
 │  ├─ api/
 │  │  ├─ orders-api.ts   # mock GET /api/orders?filter=… (logs, echoes, fixed rows)
 │  │  └─ use-orders.ts   # ordersQueryOptions (loader + page) + useOrders
-│  ├─ filter.ts          # filter object, URL search type, validateSearch, filter ⇄ search, toGridifyFilter
-│  ├─ filter-bar.tsx     # dumb: labels the shared controls and sets their widths
-│  └─ filters-page.tsx   # smart page: filter from URL, patch = navigate, query, request log
+│  ├─ filter.ts          # OrdersSearch (the filter), validateSearch, parseAmount, toGridifyFilter
+│  ├─ filter-bar.tsx     # dumb: maps the search onto the shared controls, labels them, sets widths
+│  └─ filters-page.tsx   # smart page: search from URL, patch = navigate, query, request log
 ├─ shared/
 │  ├─ components/
 │  │  ├─ filter-field.tsx  # label above a filter control

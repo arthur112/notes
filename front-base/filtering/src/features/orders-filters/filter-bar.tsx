@@ -6,12 +6,12 @@ import { SearchInput } from "@/shared/components/ui/search-input";
 import { SearchSelect } from "@/shared/components/ui/search-select";
 import { useBufferedValue } from "@/shared/hooks/use-buffered-value";
 
-import { STATUS_OPTIONS, type OrdersFilter } from "./filter";
+import { STATUS_OPTIONS, parseAmount, type OrdersSearch } from "./filter";
 
 export type FilterBarProps = {
-  /** The settled filter. */
-  filter: OrdersFilter;
-  onPatch: (patch: Partial<OrdersFilter>) => void;
+  /** The settled filter, from the URL. */
+  search: OrdersSearch;
+  onPatch: (changes: OrdersSearch) => void;
   onReset: () => void;
 };
 
@@ -20,9 +20,13 @@ export type FilterBarProps = {
  * once; typed fields (search, totals) keep a draft while edited and are
  * patched once typing pauses or the field loses focus.
  */
-export function FilterBar({ filter, onPatch, onReset }: FilterBarProps) {
-  const query = useBufferedValue(filter.query, (query) => onPatch({ query }));
-  const total = useBufferedValue(filter.total, (total) => onPatch({ total }));
+export function FilterBar({ search, onPatch, onReset }: FilterBarProps) {
+  const query = useBufferedValue(search.q ?? "", (q) => onPatch({ q }));
+  // The inputs hold raw text, so a half-typed `10,` survives until the commit.
+  const total = useBufferedValue(
+    { min: search.min?.toString() ?? "", max: search.max?.toString() ?? "" },
+    ({ min, max }) => onPatch({ min: parseAmount(min), max: parseAmount(max) }),
+  );
 
   return (
     <div className="flex flex-wrap items-end gap-4 rounded-lg border bg-card p-4">
@@ -37,8 +41,8 @@ export function FilterBar({ filter, onPatch, onReset }: FilterBarProps) {
       <FilterField label="Status" className="w-44">
         <SearchSelect
           options={STATUS_OPTIONS}
-          value={filter.status}
-          onChange={(status) => onPatch({ status })}
+          value={search.status ?? null}
+          onChange={(status) => onPatch({ status: status ?? undefined })}
           placeholder="Any status"
           aria-label="Status"
         />
@@ -54,8 +58,8 @@ export function FilterBar({ filter, onPatch, onReset }: FilterBarProps) {
 
       <FilterField label="Created between" className="w-64">
         <DateRangePicker
-          value={filter.createdAt}
-          onChange={(createdAt) => onPatch({ createdAt })}
+          value={{ from: search.from ?? null, to: search.to ?? null }}
+          onChange={({ from, to }) => onPatch({ from: from ?? undefined, to: to ?? undefined })}
           aria-label="Created period"
         />
       </FilterField>
