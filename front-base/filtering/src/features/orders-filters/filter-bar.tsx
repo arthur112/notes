@@ -6,10 +6,15 @@ import { DateRangePicker } from "@/shared/components/ui/date-picker";
 import { NumberRangeInput, type NumberRange } from "@/shared/components/ui/number-range-input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/shared/components/ui/popover";
 import { SearchInput } from "@/shared/components/ui/search-input";
-import { SearchSelect } from "@/shared/components/ui/search-select";
+import { SearchMultiSelect, SearchSelect } from "@/shared/components/ui/search-select";
 import { useBufferedValue } from "@/shared/hooks/use-buffered-value";
 
-import { STATUS_OPTIONS, type OrdersSearch, type OrdersSearchInput } from "./filter";
+import {
+  CUSTOMER_OPTIONS,
+  STATUS_OPTIONS,
+  type OrdersSearch,
+  type OrdersSearchInput,
+} from "./filter";
 
 export type FilterBarProps = {
   /** The settled filter, from the URL. */
@@ -20,15 +25,18 @@ export type FilterBarProps = {
 
 /**
  * A search bar plus a "Filters" popover holding the other fields. Controlled by
- * the page's settled filter. Picks (status, dates) are patched at once; typed
+ * the page's settled filter. Picks (status, customers, dates) are patched at once; typed
  * fields (search, totals) keep a draft while edited and are patched once typing
  * pauses or the field loses focus.
  */
 export function FilterBar({ search, onPatch }: FilterBarProps) {
   // The popover's filters; the trigger counts the set ones.
-  const activeCount = [search.status, search.min ?? search.max, search.from ?? search.to].filter(
-    (value) => value !== undefined,
-  ).length;
+  const activeCount = [
+    search.status,
+    search.customers,
+    search.min ?? search.max,
+    search.created,
+  ].filter((value) => value !== undefined).length;
 
   return (
     <div className="flex gap-2">
@@ -57,6 +65,16 @@ export function FilterBar({ search, onPatch }: FilterBarProps) {
             />
           </FilterField>
 
+          <FilterField label="Customers">
+            <SearchMultiSelect
+              options={CUSTOMER_OPTIONS}
+              value={search.customers ?? []}
+              onChange={(customers) => onPatch({ customers })}
+              placeholder="Any customer"
+              aria-label="Customers"
+            />
+          </FilterField>
+
           <FilterField label="Order total (€)">
             <TotalField
               value={{ min: String(search.min ?? ""), max: String(search.max ?? "") }}
@@ -66,8 +84,10 @@ export function FilterBar({ search, onPatch }: FilterBarProps) {
 
           <FilterField label="Created between">
             <DateRangePicker
-              value={{ from: search.from ?? null, to: search.to ?? null }}
-              onChange={({ from, to }) => onPatch({ from: from ?? undefined, to: to ?? undefined })}
+              value={{ from: search.created?.from ?? null, to: search.created?.to ?? null }}
+              onChange={({ from, to }) =>
+                onPatch({ created: { from: from ?? undefined, to: to ?? undefined } })
+              }
               aria-label="Created period"
             />
           </FilterField>
@@ -80,10 +100,10 @@ export function FilterBar({ search, onPatch }: FilterBarProps) {
             onClick={() =>
               onPatch({
                 status: undefined,
+                customers: undefined,
                 min: undefined,
                 max: undefined,
-                from: undefined,
-                to: undefined,
+                created: undefined,
               })
             }
           >

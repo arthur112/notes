@@ -10,39 +10,87 @@ import { SearchInput } from "./search-input";
 
 export type SearchSelectOption<T extends string = string> = { value: T; label: string };
 
-export type SearchSelectProps<T extends string = string> = ControlProps & {
+type BaseProps<T extends string> = ControlProps & {
   options: readonly SearchSelectOption<T>[];
-  value: T | null;
-  onChange: (next: T | null) => void;
   placeholder?: string;
   /** Shown when the query matches nothing (default: "No results."). */
   emptyMessage?: string;
 };
 
-/** Single-value searchable select (popover + filtered option list). */
+export type SearchSelectProps<T extends string = string> = BaseProps<T> & {
+  value: T | null;
+  onChange: (next: T | null) => void;
+};
+
+/** Single-value searchable select (popover + filtered option list). Closes on pick. */
 export function SearchSelect<T extends string = string>({
-  options,
   value,
   onChange,
+  ...props
+}: SearchSelectProps<T>) {
+  return (
+    <OptionsPopover
+      {...props}
+      isSelected={(option) => option === value}
+      onPick={onChange}
+      onClear={value === null ? undefined : () => onChange(null)}
+      closeOnPick
+    />
+  );
+}
+
+export type SearchMultiSelectProps<T extends string = string> = BaseProps<T> & {
+  value: readonly T[];
+  onChange: (next: T[]) => void;
+};
+
+/** Multi-value searchable select: a pick toggles the option and keeps the list open. */
+export function SearchMultiSelect<T extends string = string>({
+  value,
+  onChange,
+  ...props
+}: SearchMultiSelectProps<T>) {
+  return (
+    <OptionsPopover
+      {...props}
+      isSelected={(option) => value.includes(option)}
+      onPick={(option) =>
+        onChange(value.includes(option) ? value.filter((v) => v !== option) : [...value, option])
+      }
+      onClear={value.length === 0 ? undefined : () => onChange([])}
+    />
+  );
+}
+
+function OptionsPopover<T extends string>({
+  options,
+  isSelected,
+  onPick,
+  onClear,
+  closeOnPick = false,
   placeholder = "Select…",
   emptyMessage = "No results.",
   className,
   ...triggerProps
-}: SearchSelectProps<T>) {
+}: BaseProps<T> & {
+  isSelected: (option: T) => boolean;
+  onPick: (option: T) => void;
+  /** Set when something is selected: shows the clear button. */
+  onClear?: () => void;
+  closeOnPick?: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
 
-  const selected = options.find((o) => o.value === value) ?? null;
+  const label = options
+    .filter((o) => isSelected(o.value))
+    .map((o) => o.label)
+    .join(", ");
 
   const filtered = useMemo(
     () => options.filter((o) => o.label.toLowerCase().includes(query.trim().toLowerCase())),
     [options, query],
   );
-
-  const pick = (optionValue: T) => {
-    onChange(optionValue);
-    setOpen(false);
-  };
 
   return (
     <Popover
@@ -58,18 +106,18 @@ export function SearchSelect<T extends string = string>({
           buttonVariants({ variant: "outline" }),
           CONTROL_CLASS,
           "justify-between font-normal",
-          !selected && "text-muted-foreground",
+          !label && "text-muted-foreground",
           className,
         )}
       >
-        <span className="truncate">{selected ? selected.label : placeholder}</span>
-        {selected ? (
+        <span className="truncate">{label || placeholder}</span>
+        {onClear ? (
           <button
             type="button"
             aria-label="Clear selection"
             onClick={(event) => {
               event.stopPropagation();
-              onChange(null);
+              onClear();
             }}
             className="rounded-full p-0.5 hover:bg-muted"
           >
@@ -93,21 +141,24 @@ export function SearchSelect<T extends string = string>({
             <p className="px-2 py-4 text-center text-sm text-muted-foreground">{emptyMessage}</p>
           ) : (
             filtered.map((option) => {
-              const isSelected = option.value === value;
+              const selected = isSelected(option.value);
               return (
                 <button
                   key={option.value}
                   type="button"
-                  onClick={() => pick(option.value)}
+                  onClick={() => {
+                    onPick(option.value);
+                    if (closeOnPick) setOpen(false);
+                  }}
                   className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-accent hover:text-accent-foreground"
                 >
                   <span
                     className={cn(
                       "flex size-4 shrink-0 items-center justify-center rounded-[4px] border border-input",
-                      isSelected && "border-primary bg-primary text-primary-foreground",
+                      selected && "border-primary bg-primary text-primary-foreground",
                     )}
                   >
-                    {isSelected && <Check className="size-3" />}
+                    {selected && <Check className="size-3" />}
                   </span>
                   <span className="truncate">{option.label}</span>
                 </button>

@@ -2,16 +2,11 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Link, useBlocker, useNavigate } from "@tanstack/react-router";
 
 import { isReferenceTaken, type OrderDetail } from "@/features/orders-filters/api/orders-api";
-import { STATUS_OPTIONS } from "@/features/orders-filters/filter";
+import { CUSTOMER_OPTIONS, STATUS_OPTIONS } from "@/features/orders-filters/filter";
 import { useAppForm } from "@/shared/components/form/use-app-form";
 import { buttonVariants } from "@/shared/components/ui/button";
 
-import {
-  CUSTOMER_OPTIONS,
-  emptyOrderForm,
-  orderFormOptions,
-  toFormValues,
-} from "./order-form-options";
+import { emptyOrderForm, orderFormOptions, toFormValues } from "./order-form-options";
 import { OrderLines } from "./order-lines";
 
 /**

@@ -8,11 +8,11 @@ with TanStack Form shares the same controls (see [Order form](#order-form-tansta
 It reuses the filter controls from `client-side` and makes the **URL the only filter state**, so the
 route loader can fetch it:
 
-- the filter **is** the validated URL search (`/?q=acme&status=paid&min=10.5&from=…&to=…`), typed
+- the filter **is** the validated URL search (`/?q=acme&status=paid&customers=[…]&min=10.5&created={…}`), typed
   `OrdersSearch`; there is no separate filter object, no `useState` copy of it, and no effect;
 - `FilterBar` gets `search` + `onPatch(raw partial)` + `onReset`, and each patch is a
   `navigate({ search: (prev) => ({ ...prev, ...changes }) })`;
-- picks (status, dates, reset) navigate at once; **typed fields** (search, totals) keep a draft while
+- picks (status, customers, dates, reset) navigate at once; **typed fields** (search, totals) keep a draft while
   edited and patch once typing pauses for 350 ms or the field loses focus (`useBufferedValue`);
 - the route validates the search with a plain function, and its **loader** fetches through the shared `QueryClient`;
 - the page's `useOrders(search)` reads the same query. The validated search is the query key;
@@ -57,18 +57,29 @@ Each settled change is a history entry, so **Back undoes a filter**.
 
 **Validation with Zod, leniently.** `validateSearch` takes `ordersSearchSchema` (`filter.ts`)
 directly, as a Standard Schema (no adapter), like the order form does. It trims the text, parses
-amounts, checks the status and date formats, and drops empty values. The router runs it on the URL
+amounts, checks the status and date formats, and drops empty values (an empty `customers` pick, a
+`created` range with no bound). The router runs it on the URL
 **and** on the search every navigation builds, so it is the one parser: `FilterBar` patches the
 controls' raw values (`"acme "`, `{ min: "10,5", max: "" }`, a cleared pick as `undefined`) and the
 URL gets `q=acme&min=10.5`. The schema's input type (`OrdersSearchInput`) is what `navigate` accepts,
 its output (`OrdersSearch`) the typed search. Each key goes through `lenient()`: an invalid value is
-caught as `undefined`, never a route error. `?status=bogus&min=abc&from=nope` → `/`, and a
+caught as `undefined`, never a route error. `?status=bogus&min=abc&customers="Hooli"` → `/`, and a
 hand-typed `max=10,5` is normalized to `max=10.5`.
 
-**URL encoding.** By default the router JSON-encodes search values, which quotes number-like strings
-(`q=%22123%22`). The search params here are flat, so `router.tsx` sets `parseSearch` /
-`stringifySearch` to plain `URLSearchParams`: the URL reads `?q=123&min=10.5`, every value arrives
-as a string, and `validateSearch` is the one place that types it.
+**URL encoding.** The router keeps its default `parseSearch` / `stringifySearch`, which JSON-encode
+each value, so the search holds the three shapes a filter needs:
+
+| Shape  | Key         | URL (decoded)                                     | Parsed back as                             |
+| ------ | ----------- | ------------------------------------------------- | ------------------------------------------ |
+| Flat   | `status`    | `status=paid`, `min=10.5`                         | `"paid"`, `10.5` (a number)                |
+| Array  | `customers` | `customers=["Acme Corp","Globex"]`                | `["Acme Corp", "Globex"]`                  |
+| Object | `created`   | `created={"from":"2026-01-01","to":"2026-01-31"}` | `{ from: "2026-01-01", to: "2026-01-31" }` |
+
+The cost is readability: values are percent-encoded JSON, and a number-like string is quoted so it
+stays a string (`q: "123"` → `q=%22123%22`). A hand-typed `?q=123` arrives as the number `123`, so
+`q` accepts a number and turns it back into text. A plain `URLSearchParams` parser reads every
+value as one string: it cannot tell `["a","b"]` from `"a,b"` and keeps only the last of repeated
+keys, so arrays and objects would need their own encoding.
 
 ## Data fetching (mock)
 
@@ -95,19 +106,20 @@ Checked in headless Chromium:
 | Back                                                          | 0     | `/?q=acme&status=paid`; min input cleared (cached)                              |
 | Forward                                                       | 0     | min input back to `10.5` (cached)                                               |
 | Clear all                                                     | 0     | `/` (cached from the first load)                                                |
-| Deep link `?q=globex&status=pending&min=5&from&to`, fresh tab | 1     | every control seeded from the URL; the loader fetch is not repeated by the page |
-| Invalid `?status=bogus&min=abc&max=10,5&from=nope`            | 1     | invalid keys dropped, `max` normalized → `max=10.5`                             |
+| Deep link `?q=globex&status=pending&min=5&created`, fresh tab | 1     | every control seeded from the URL; the loader fetch is not repeated by the page |
+| Invalid `?status=bogus&min=abc&max=10,5&created={}`           | 1     | invalid keys dropped, `max` normalized → `max=10.5`                             |
 
 The 0-call rows are cache hits within the 30 s `staleTime`. Past it, the same actions refetch.
 
 ## Filters
 
-| Control          | UI component       | Search keys  | Gridify output                               |
-| ---------------- | ------------------ | ------------ | -------------------------------------------- |
-| Search           | `SearchInput`      | `q`          | `(orderNo=*q\|customer.name=*q)`             |
-| Dropdown         | `SearchSelect`     | `status`     | `status=paid`                                |
-| Number range     | `NumberRangeInput` | `min`, `max` | `total>=10.5,total<=200`                     |
-| Calendar (range) | `DateRangePicker`  | `from`, `to` | `createdAt>=2026-01-01,createdAt<2026-02-01` |
+| Control          | UI component        | Search keys  | Gridify output                                    |
+| ---------------- | ------------------- | ------------ | ------------------------------------------------- |
+| Search           | `SearchInput`       | `q`          | `(orderNo=*q\|customer.name=*q)`                  |
+| Dropdown         | `SearchSelect`      | `status`     | `status=paid`                                     |
+| Multi-select     | `SearchMultiSelect` | `customers`  | `(customer.name=Acme Corp\|customer.name=Globex)` |
+| Number range     | `NumberRangeInput`  | `min`, `max` | `total>=10.5,total<=200`                          |
+| Calendar (range) | `DateRangePicker`   | `created`    | `createdAt>=2026-01-01,createdAt<2026-02-01`      |
 
 The calendar's `to` is inclusive in the UI and becomes an exclusive next-day bound in the query.
 
@@ -117,14 +129,15 @@ The filter bar is built only from `shared/components/ui/` controls, and a form u
 That keeps the look and feel identical; each context provides its own wrapper (`FilterField` in the
 bar, `FormField` with its error message in the form).
 
-| Control            | Value                   | Notes                               |
-| ------------------ | ----------------------- | ----------------------------------- |
-| `SearchInput`      | `string`                | `Input` with a leading search icon  |
-| `NumberInput`      | `string` (raw, decimal) | `inputMode="decimal"`, tabular-nums |
-| `NumberRangeInput` | `{ min, max }` strings  | two `NumberInput`s                  |
-| `SearchSelect<T>`  | `T \| null`             | typed by its options, so no casts   |
-| `DateRangePicker`  | `{ from, to }`          | inclusive bounds                    |
-| `DatePicker`       | `Ymd \| null`           | single day, same calendar           |
+| Control                | Value                   | Notes                               |
+| ---------------------- | ----------------------- | ----------------------------------- |
+| `SearchInput`          | `string`                | `Input` with a leading search icon  |
+| `NumberInput`          | `string` (raw, decimal) | `inputMode="decimal"`, tabular-nums |
+| `NumberRangeInput`     | `{ min, max }` strings  | two `NumberInput`s                  |
+| `SearchSelect<T>`      | `T \| null`             | typed by its options, so no casts   |
+| `SearchMultiSelect<T>` | `T[]`                   | a pick toggles; the list stays open |
+| `DateRangePicker`      | `{ from, to }`          | inclusive bounds                    |
+| `DatePicker`           | `Ymd \| null`           | single day, same calendar           |
 
 They share one contract:
 

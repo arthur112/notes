@@ -1,7 +1,6 @@
 import { formOptions, revalidateLogic } from "@tanstack/react-form";
 import { z } from "zod";
 
-import type { SearchSelectOption } from "@/shared/components/ui/search-select";
 import type { Ymd } from "@/shared/lib/date";
 
 import {
@@ -11,14 +10,6 @@ import {
   type OrderDetail,
 } from "@/features/orders-filters/api/orders-api";
 import { STATUSES, type OrderStatus } from "@/features/orders-filters/filter";
-
-export const CUSTOMER_OPTIONS: SearchSelectOption[] = [
-  "Acme Corp",
-  "Globex",
-  "Hooli",
-  "Initech",
-  "Umbrella",
-].map((name) => ({ value: name, label: name }));
 
 /** What the controls hold: raw text for numbers (`"10,"` survives), `null` for "not picked". */
 export type OrderFormLine = { product: string; quantity: string; unitPrice: string };
