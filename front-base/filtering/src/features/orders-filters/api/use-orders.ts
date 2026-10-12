@@ -4,7 +4,7 @@ import { toGridifyFilter, type OrdersSearch } from "../filter";
 import { fetchCustomers, fetchOrder, fetchOrders } from "./orders-api";
 
 /**
- * One definition shared by the route loader (`prefetchQuery`) and the page
+ * One definition shared by the route loader (`queryClient.query`) and the page
  * (`useQuery`), so both hit the same cache entry. The key is the validated
  * search: the same filter means the same entry. The Gridify string is an API
  * detail, built only when fetching.

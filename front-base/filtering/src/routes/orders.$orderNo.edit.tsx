@@ -7,6 +7,9 @@ export const Route = createFileRoute("/orders/$orderNo/edit")({
   // Awaited, unlike the list's loader: the form reads its defaults once, at
   // mount, so the order must be there before the page renders.
   loader: ({ context, params }) =>
-    context.queryClient.ensureQueryData(orderQueryOptions(params.orderNo)),
+    context.queryClient.query({
+      ...orderQueryOptions(params.orderNo),
+      staleTime: "static",
+    }),
   component: EditOrderPage,
 });

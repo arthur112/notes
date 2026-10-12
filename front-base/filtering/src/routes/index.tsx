@@ -1,3 +1,4 @@
+import { noop } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 
 import { ordersQueryOptions } from "@/features/orders-filters/api/use-orders";
@@ -13,7 +14,7 @@ export const Route = createFileRoute("/")({
   // parallel with the download of the code-split page chunk instead of after it.
   // The page's useQuery joins the in-flight request rather than sending another.
   loader: ({ context, deps }) => {
-    void context.queryClient.prefetchQuery(ordersQueryOptions(deps));
+    context.queryClient.query(ordersQueryOptions(deps)).catch(noop);
   },
   component: FiltersPage,
 });
