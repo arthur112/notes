@@ -1,11 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 import { ordersQueryOptions } from "@/features/orders-filters/api/use-orders";
-import { validateOrdersSearch } from "@/features/orders-filters/filter";
+import { ordersSearchSchema } from "@/features/orders-filters/filter";
 import { FiltersPage } from "@/features/orders-filters/filters-page";
 
 export const Route = createFileRoute("/")({
-  validateSearch: validateOrdersSearch,
+  validateSearch: ordersSearchSchema,
   // The loader re-runs whenever the search (= the settled filter) changes.
   loaderDeps: ({ search }) => search,
   // Start the fetch without awaiting it, so the page (and its filter bar) shows

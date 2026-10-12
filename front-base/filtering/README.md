@@ -30,14 +30,14 @@ typed fields ─▶ draft ─▶ 350 ms/blur ─┴─▶ navigate({ search }) �
 
 ## Route ↔ React Query
 
-| Piece                | Where                  | What it does                                                                                                         |
-| -------------------- | ---------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| Router context       | `router.tsx`, `__root` | `createRootRouteWithContext<{ queryClient }>`, so loaders reach the one `QueryClient`.                               |
-| `validateSearch`     | `routes/index.tsx`     | `validateOrdersSearch` (`filter.ts`): reads the URL and each navigation's next search leniently into `OrdersSearch`. |
-| `loaderDeps`         | `routes/index.tsx`     | `({ search }) => search`: the loader re-runs whenever the settled filter changes.                                    |
-| Loader               | every match of `/`     | `prefetchQuery`, not awaited: the page shows at once with its loading state; `useQuery` joins the in-flight request. |
-| `ordersQueryOptions` | `api/use-orders.ts`    | One `queryOptions` for loader and page, keyed `["orders", search]`, so both use the same cache entry.                |
-| `staleTime: 30_000`  | `ordersQueryOptions`   | Needed: with 0, data the loader just fetched is already stale when the page subscribes, so it would fetch twice.     |
+| Piece                | Where                  | What it does                                                                                                            |
+| -------------------- | ---------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| Router context       | `router.tsx`, `__root` | `createRootRouteWithContext<{ queryClient }>`, so loaders reach the one `QueryClient`.                                  |
+| `validateSearch`     | `routes/index.tsx`     | `ordersSearchSchema` (`filter.ts`, Zod): reads the URL and each navigation's next search leniently into `OrdersSearch`. |
+| `loaderDeps`         | `routes/index.tsx`     | `({ search }) => search`: the loader re-runs whenever the settled filter changes.                                       |
+| Loader               | every match of `/`     | `prefetchQuery`, not awaited: the page shows at once with its loading state; `useQuery` joins the in-flight request.    |
+| `ordersQueryOptions` | `api/use-orders.ts`    | One `queryOptions` for loader and page, keyed `["orders", search]`, so both use the same cache entry.                   |
+| `staleTime: 30_000`  | `ordersQueryOptions`   | Needed: with 0, data the loader just fetched is already stale when the page subscribes, so it would fetch twice.        |
 
 **Why a loader that doesn't wait.** `autoCodeSplitting` makes the page a lazy chunk. Without the
 loader, the request would only start once that chunk has downloaded and rendered. With it, the request
@@ -55,14 +55,15 @@ its draft until the field is blurred.
 
 Each settled change is a history entry, so **Back undoes a filter**.
 
-**Validation without a schema library.** `validateSearch` accepts a plain function:
-`validateOrdersSearch` trims the text, parses amounts, checks the status and date formats, and drops
-empty values. The router runs it on the URL **and** on the search every navigation builds, so it is
-the one parser: `FilterBar` patches the controls' raw values (`"acme "`, `{ min: "10,5", max: "" }`,
-a cleared status as `null`) and the URL gets `q=acme&min=10.5`. Its parameter is typed
-`OrdersSearchInput & SearchSchemaInput`; the `SearchSchemaInput` tag tells the router that this
-looser type is what `navigate` accepts. Invalid values are dropped, never a route error.
-`?status=bogus&min=abc&from=nope` → `/`, and a hand-typed `max=10,5` is normalized to `max=10.5`.
+**Validation with Zod, leniently.** `validateSearch` takes `ordersSearchSchema` (`filter.ts`)
+directly, as a Standard Schema (no adapter), like the order form does. It trims the text, parses
+amounts, checks the status and date formats, and drops empty values. The router runs it on the URL
+**and** on the search every navigation builds, so it is the one parser: `FilterBar` patches the
+controls' raw values (`"acme "`, `{ min: "10,5", max: "" }`, a cleared pick as `undefined`) and the
+URL gets `q=acme&min=10.5`. The schema's input type (`OrdersSearchInput`) is what `navigate` accepts,
+its output (`OrdersSearch`) the typed search. Each key goes through `lenient()`: an invalid value is
+caught as `undefined`, never a route error. `?status=bogus&min=abc&from=nope` → `/`, and a
+hand-typed `max=10,5` is normalized to `max=10.5`.
 
 **URL encoding.** By default the router JSON-encodes search values, which quotes number-like strings
 (`q=%22123%22`). The search params here are flat, so `router.tsx` sets `parseSearch` /
@@ -135,7 +136,7 @@ They share one contract:
   point at them; `aria-invalid` turns them red.
 
 Number values stay **raw strings** so half-typed input (`"10,"`) survives a re-render. Parse them
-where you use them (here the route's `validateSearch`, in the form its Zod schema).
+where you use them (here in the Zod schemas of the route's `validateSearch` and of the form).
 
 ## Order form (TanStack Form)
 
@@ -192,7 +193,7 @@ src/
 │  │  ├─ api/
 │  │  │  ├─ orders-api.ts   # mock orders store: list (logs, echoes the filter), detail, create/update (422), reference check
 │  │  │  └─ use-orders.ts   # ordersQueryOptions (loader + page), useOrders, orderQueryOptions (edit loader + page)
-│  │  ├─ filter.ts          # OrdersSearch (the filter), its raw input type, validateSearch, toGridifyFilter
+│  │  ├─ filter.ts          # ordersSearchSchema (validateSearch), OrdersSearch + its raw input type, toGridifyFilter
 │  │  ├─ filter-bar.tsx     # dumb: maps the search onto the shared controls, labels them, sets widths
 │  │  └─ filters-page.tsx   # smart page: search from URL, patch = navigate, query, request log
 │  └─ order-form/

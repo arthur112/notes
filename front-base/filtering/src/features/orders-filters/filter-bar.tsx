@@ -51,7 +51,7 @@ export function FilterBar({ search, onPatch }: FilterBarProps) {
             <SearchSelect
               options={STATUS_OPTIONS}
               value={search.status ?? null}
-              onChange={(status) => onPatch({ status })}
+              onChange={(status) => onPatch({ status: status ?? undefined })}
               placeholder="Any status"
               aria-label="Status"
             />
@@ -65,10 +65,9 @@ export function FilterBar({ search, onPatch }: FilterBarProps) {
           </FilterField>
 
           <FilterField label="Created between">
-            {/* `{ from, to }` is named like its search keys, so it is patched as it is. */}
             <DateRangePicker
               value={{ from: search.from ?? null, to: search.to ?? null }}
-              onChange={onPatch}
+              onChange={({ from, to }) => onPatch({ from: from ?? undefined, to: to ?? undefined })}
               aria-label="Created period"
             />
           </FilterField>
@@ -78,7 +77,15 @@ export function FilterBar({ search, onPatch }: FilterBarProps) {
             size="lg"
             className="w-full"
             disabled={activeCount === 0}
-            onClick={() => onPatch({ status: null, min: null, max: null, from: null, to: null })}
+            onClick={() =>
+              onPatch({
+                status: undefined,
+                min: undefined,
+                max: undefined,
+                from: undefined,
+                to: undefined,
+              })
+            }
           >
             Clear filters
           </Button>

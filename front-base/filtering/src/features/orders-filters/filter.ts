@@ -1,7 +1,7 @@
-import type { SearchSchemaInput } from "@tanstack/react-router";
+import { z } from "zod";
 
 import type { SearchSelectOption } from "@/shared/components/ui/search-select";
-import { addDaysYmd, type Ymd } from "@/shared/lib/date";
+import { addDaysYmd } from "@/shared/lib/date";
 import { buildFilter, type ConditionSpec } from "@/shared/lib/gridify";
 
 /**
@@ -18,35 +18,51 @@ export const STATUS_OPTIONS: SearchSelectOption<OrderStatus>[] = STATUSES.map((v
   label: value[0].toUpperCase() + value.slice(1),
 }));
 
-/** The settled filter as flat URL keys; absent key = no constraint. */
-export type OrdersSearch = {
-  /** Free-text search over order number + customer name. */
-  q?: string;
-  status?: OrderStatus;
-  /** Order total bounds. */
-  min?: number;
-  max?: number;
-  /** Creation bounds — inclusive UTC `YYYY-MM-DD`. */
-  from?: Ymd;
-  to?: Ymd;
-};
+/**
+ * A lenient search key: an invalid value (`status=bogus`, `min=abc`,
+ * `from=nope`) means "no constraint", never a route error.
+ */
+const lenient = <T extends z.ZodType>(schema: T) => schema.optional().catch(undefined);
+
+/** Raw text (`" 10,5 "`) or a number → an amount; empty or unparsable fails. */
+const amount = z
+  .union([
+    z.number(),
+    z
+      .string()
+      .trim()
+      .min(1)
+      .transform((raw) => Number(raw.replace(",", "."))),
+  ])
+  .pipe(z.number());
 
 /**
- * What the URL or a patch may hold for each key: the typed value, the raw text
- * a control holds (`" acme "`, `"10,5"`), or `null` for "cleared".
- * `validateOrdersSearch` parses it, so controls patch their values as they are.
+ * The route's `validateSearch`, and the one place that parses the filter. The
+ * router runs it on the URL (every value a string) and on the search each
+ * navigation builds, so patches may hold the raw text a control holds
+ * (`" acme "`, `"10,5"`): text is trimmed, amounts parsed. The router takes it as a Standard Schema (no adapter): its input
+ * type is what `navigate` accepts, its output the typed search.
  */
-export type OrdersSearchInput = { [K in keyof OrdersSearch]?: OrdersSearch[K] | string | null };
+export const ordersSearchSchema = z.object({
+  /** Free-text search over order number + customer name. */
+  q: lenient(z.string().trim().min(1)),
+  status: lenient(z.enum(STATUSES)),
+  /** Order total bounds. */
+  min: lenient(amount),
+  max: lenient(amount),
+  /** Creation bounds — inclusive UTC `YYYY-MM-DD`. */
+  from: lenient(z.iso.date()),
+  to: lenient(z.iso.date()),
+});
 
-/** Raw text (`" 10,5 "`) or a number → an amount; empty or unparsable → no bound. */
-function parseAmount(raw: unknown): number | undefined {
-  const value = typeof raw === "string" && raw.trim() ? Number(raw.replace(",", ".")) : raw;
-  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
-}
+/** The settled filter as flat URL keys; `undefined` = no constraint. */
+export type OrdersSearch = z.output<typeof ordersSearchSchema>;
+/** What a patch may hold: the typed value, a control's raw text, or `undefined` for "cleared". */
+export type OrdersSearchInput = z.input<typeof ordersSearchSchema>;
 
 /**
  * The Gridify `filter` string for a settled search — what the orders query
- * sends. The search is already normalized by `validateOrdersSearch`.
+ * sends. The search is already normalized by `ordersSearchSchema`.
  */
 export function toGridifyFilter({ q, status, min, max, from, to }: OrdersSearch): string {
   const groups: ConditionSpec[][] = [];
@@ -63,35 +79,4 @@ export function toGridifyFilter({ q, status, min, max, from, to }: OrdersSearch)
   // inclusive `to` → exclusive next-day upper bound
   if (to) groups.push([{ field: "createdAt", op: "lt", value: addDaysYmd(to, 1) }]);
   return buildFilter(groups);
-}
-
-const YMD = /^\d{4}-\d{2}-\d{2}$/;
-
-function ymd(value: unknown): Ymd | undefined {
-  return typeof value === "string" && YMD.test(value) ? value : undefined;
-}
-
-function isStatus(value: unknown): value is OrderStatus {
-  return STATUSES.includes(value as OrderStatus);
-}
-
-/**
- * The route's `validateSearch`, and the one place that parses the filter. The
- * router runs it on the URL (every value a string) and on the search each
- * navigation builds, so patches may hold raw values: text is trimmed, amounts
- * parsed, `null` dropped. It is lenient: an invalid value (`status=bogus`,
- * `min=abc`, `from=nope`) is dropped, never a route error. The
- * `SearchSchemaInput` tag makes `OrdersSearchInput` the type `navigate`
- * accepts; without it the router would expect the validated type.
- */
-export function validateOrdersSearch(raw: OrdersSearchInput & SearchSchemaInput): OrdersSearch {
-  const q = typeof raw.q === "string" ? raw.q.trim() : "";
-  return {
-    q: q || undefined,
-    status: isStatus(raw.status) ? raw.status : undefined,
-    min: parseAmount(raw.min),
-    max: parseAmount(raw.max),
-    from: ymd(raw.from),
-    to: ymd(raw.to),
-  };
 }
