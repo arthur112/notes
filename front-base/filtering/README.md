@@ -95,6 +95,11 @@ The page shows the current **URL**, the **Gridify filter**, and a **Requests** l
 response: request number, time, and the filter the mock received. The mock keeps that log itself and
 the page reads it with `useSyncExternalStore`, so it needs no effect.
 
+The customer pickers load their options from a mock `GET /api/customers` (`customersQueryOptions`).
+The filter bar's `CustomersField` queries it itself; it mounts with the Filters popover, so the first
+open fetches once (trigger and list show "Loading…" meanwhile) and `staleTime: Infinity` serves every
+later open, and the order form, from the cache.
+
 Checked in headless Chromium:
 
 | Action                                                        | Calls | URL / controls afterwards                                                       |
@@ -204,10 +209,10 @@ src/
 ├─ features/
 │  ├─ orders-filters/
 │  │  ├─ api/
-│  │  │  ├─ orders-api.ts   # mock orders store: list (logs, echoes the filter), detail, create/update (422), reference check
-│  │  │  └─ use-orders.ts   # ordersQueryOptions (loader + page), useOrders, orderQueryOptions (edit loader + page)
+│  │  │  ├─ orders-api.ts   # mock orders store: list (logs, echoes the filter), detail, create/update (422), reference check, customers
+│  │  │  └─ use-orders.ts   # ordersQueryOptions (loader + page), useOrders, orderQueryOptions (edit loader + page), customersQueryOptions
 │  │  ├─ filter.ts          # ordersSearchSchema (validateSearch), OrdersSearch + its raw input type, toGridifyFilter
-│  │  ├─ filter-bar.tsx     # dumb: maps the search onto the shared controls, labels them, sets widths
+│  │  ├─ filter-bar.tsx     # maps the search onto the shared controls, labels them, sets widths; CustomersField fetches its options
 │  │  └─ filters-page.tsx   # smart page: search from URL, patch = navigate, query, request log
 │  └─ order-form/
 │     ├─ order-form-options.ts  # form values, Zod schema (raw → payload), save validator, formOptions

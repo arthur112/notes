@@ -1,3 +1,4 @@
+import { useQuery } from "@tanstack/react-query";
 import { ListFilter } from "lucide-react";
 
 import { FilterField } from "@/shared/components/filter-field";
@@ -9,12 +10,8 @@ import { SearchInput } from "@/shared/components/ui/search-input";
 import { SearchMultiSelect, SearchSelect } from "@/shared/components/ui/search-select";
 import { useBufferedValue } from "@/shared/hooks/use-buffered-value";
 
-import {
-  CUSTOMER_OPTIONS,
-  STATUS_OPTIONS,
-  type OrdersSearch,
-  type OrdersSearchInput,
-} from "./filter";
+import { customersQueryOptions } from "./api/use-orders";
+import { STATUS_OPTIONS, type OrdersSearch, type OrdersSearchInput } from "./filter";
 
 export type FilterBarProps = {
   /** The settled filter, from the URL. */
@@ -66,13 +63,7 @@ export function FilterBar({ search, onPatch }: FilterBarProps) {
           </FilterField>
 
           <FilterField label="Customers">
-            <SearchMultiSelect
-              options={CUSTOMER_OPTIONS}
-              value={search.customers ?? []}
-              onChange={(customers) => onPatch({ customers })}
-              placeholder="Any customer"
-              aria-label="Customers"
-            />
+            <CustomersField value={search.customers ?? []} onPatch={onPatch} />
           </FilterField>
 
           <FilterField label="Order total (€)">
@@ -143,6 +134,27 @@ function TotalField({
       {...total}
       minAriaLabel="Minimum order total"
       maxAriaLabel="Maximum order total"
+    />
+  );
+}
+
+/** Loads its options from the API; mounted with the popover, so the first open fetches them. */
+function CustomersField({
+  value,
+  onPatch,
+}: {
+  value: string[];
+  onPatch: FilterBarProps["onPatch"];
+}) {
+  const { data = [], isPending, isError } = useQuery(customersQueryOptions());
+  return (
+    <SearchMultiSelect
+      options={data}
+      value={value}
+      onChange={(customers) => onPatch({ customers })}
+      placeholder={isPending ? "Loading…" : "Any customer"}
+      emptyMessage={isPending ? "Loading…" : isError ? "Could not load customers." : undefined}
+      aria-label="Customers"
     />
   );
 }

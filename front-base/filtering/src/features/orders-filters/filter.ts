@@ -18,14 +18,6 @@ export const STATUS_OPTIONS: SearchSelectOption<OrderStatus>[] = STATUSES.map((v
   label: value[0].toUpperCase() + value.slice(1),
 }));
 
-export const CUSTOMER_OPTIONS: SearchSelectOption[] = [
-  "Acme Corp",
-  "Globex",
-  "Hooli",
-  "Initech",
-  "Umbrella",
-].map((name) => ({ value: name, label: name }));
-
 /**
  * A lenient search key: an invalid value (`status=bogus`, `min=abc`,
  * `created={"from":"nope"}`) means "no constraint", never a route error.

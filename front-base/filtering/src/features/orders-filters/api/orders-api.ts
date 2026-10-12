@@ -144,6 +144,13 @@ export async function fetchOrders(filter: string): Promise<OrdersResponse> {
   };
 }
 
+/** `GET /api/customers`: the names the customer pickers offer. */
+export async function fetchCustomers(): Promise<string[]> {
+  console.info("[mock] GET /api/customers");
+  await sleep(300);
+  return ["Acme Corp", "Globex", "Hooli", "Initech", "Umbrella"];
+}
+
 /** A 422: the server's own rules, keyed by form field name. */
 export class OrderValidationError extends Error {
   readonly fields: Record<string, string>;

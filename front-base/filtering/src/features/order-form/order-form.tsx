@@ -1,8 +1,9 @@
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useBlocker, useNavigate } from "@tanstack/react-router";
 
 import { isReferenceTaken, type OrderDetail } from "@/features/orders-filters/api/orders-api";
-import { CUSTOMER_OPTIONS, STATUS_OPTIONS } from "@/features/orders-filters/filter";
+import { customersQueryOptions } from "@/features/orders-filters/api/use-orders";
+import { STATUS_OPTIONS } from "@/features/orders-filters/filter";
 import { useAppForm } from "@/shared/components/form/use-app-form";
 import { buttonVariants } from "@/shared/components/ui/button";
 
@@ -16,6 +17,7 @@ import { OrderLines } from "./order-lines";
 export function OrderForm({ order }: { order?: OrderDetail }) {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const { data: customers = [] } = useQuery(customersQueryOptions());
 
   const form = useAppForm({
     ...orderFormOptions,
@@ -49,11 +51,7 @@ export function OrderForm({ order }: { order?: OrderDetail }) {
       <div className="grid gap-4 rounded-lg border bg-card p-4 sm:grid-cols-2">
         <form.AppField name="customer">
           {(field) => (
-            <field.SelectField
-              label="Customer"
-              options={CUSTOMER_OPTIONS}
-              placeholder="Pick a customer"
-            />
+            <field.SelectField label="Customer" options={customers} placeholder="Pick a customer" />
           )}
         </form.AppField>
         <form.AppField name="status">
