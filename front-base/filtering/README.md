@@ -16,8 +16,8 @@ route loader can fetch it:
   edited and patch once typing pauses for 350 ms or the field loses focus (`useBufferedValue`);
 - the route validates the search with a plain function, and its **loader** fetches through the shared `QueryClient`;
 - the page's `useOrders(search)` reads the same query. The validated search is the query key;
-  `toGridifyFilter(search)` (through `buildFilter`, the only code that touches `gridify-client`) turns
-  it into the Gridify string only inside the `queryFn`.
+  `toGridifyFilter(search)` (the only code that touches `gridify-client`'s `GridifyQueryBuilder`)
+  turns it into the Gridify string only inside the `queryFn`.
 
 ```text
 picks ──────────────────────────────┐
@@ -225,7 +225,7 @@ src/
 │  │  ├─ form/             # form-context, fields (FormField + field components, SubmitButton), use-app-form
 │  │  └─ ui/               # button, input, popover + the shared controls above (control.ts = size + ControlProps)
 │  ├─ hooks/use-buffered-value.ts  # draft while editing, commit on pause/blur
-│  └─ lib/               # gridify.ts (ConditionSpec → filter string), date, format, utils
+│  └─ lib/               # date, format, utils
 ├─ router.tsx            # QueryClient + router (queryClient in context)
 └─ routes/               # __root (router context), index (validateSearch, loaderDeps, loader),
                          # orders.new, orders.$orderNo.edit (awaited loader)

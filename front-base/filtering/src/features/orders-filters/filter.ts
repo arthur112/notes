@@ -1,8 +1,8 @@
+import { ConditionalOperator as Op, GridifyQueryBuilder } from "gridify-client";
 import { z } from "zod";
 
 import type { SearchSelectOption } from "@/shared/components/ui/search-select";
 import { addDaysYmd } from "@/shared/lib/date";
-import { buildFilter, type ConditionSpec } from "@/shared/lib/gridify";
 
 /**
  * The filter is the URL search: its type, its validation and the pure mapping
@@ -70,23 +70,27 @@ export type OrdersSearchInput = z.input<typeof ordersSearchSchema>;
  * sends. The search is already normalized by `ordersSearchSchema`.
  */
 export function toGridifyFilter({ q, status, customers, min, max, created }: OrdersSearch): string {
-  const groups: ConditionSpec[][] = [];
+  // An optional `and(true)` / `or(true)` is dropped where it would lead the
+  // expression or a group, so each key just prepends one.
+  const b = new GridifyQueryBuilder();
   if (q) {
-    groups.push([
-      { field: "orderNo", op: "contains", value: q },
-      { field: "customer.name", op: "contains", value: q },
-    ]);
+    b.and(true)
+      .startGroup()
+      .addCondition("orderNo", Op.Contains, q)
+      .or()
+      .addCondition("customer.name", Op.Contains, q)
+      .endGroup();
   }
-  if (status) groups.push([{ field: "status", op: "eq", value: status }]);
+  if (status) b.and(true).addCondition("status", Op.Equal, status);
   if (customers) {
-    groups.push(customers.map((name) => ({ field: "customer.name", op: "eq", value: name })));
+    b.and(true).startGroup();
+    for (const name of customers) b.or(true).addCondition("customer.name", Op.Equal, name);
+    b.endGroup();
   }
-  if (min !== undefined) groups.push([{ field: "total", op: "gte", value: min }]);
-  if (max !== undefined) groups.push([{ field: "total", op: "lte", value: max }]);
-  if (created?.from) groups.push([{ field: "createdAt", op: "gte", value: created.from }]);
+  if (min !== undefined) b.and(true).addCondition("total", Op.GreaterThanOrEqual, min);
+  if (max !== undefined) b.and(true).addCondition("total", Op.LessThanOrEqual, max);
+  if (created?.from) b.and(true).addCondition("createdAt", Op.GreaterThanOrEqual, created.from);
   // inclusive `to` → exclusive next-day upper bound
-  if (created?.to) {
-    groups.push([{ field: "createdAt", op: "lt", value: addDaysYmd(created.to, 1) }]);
-  }
-  return buildFilter(groups);
+  if (created?.to) b.and(true).addCondition("createdAt", Op.LessThan, addDaysYmd(created.to, 1));
+  return b.build().filter ?? "";
 }
