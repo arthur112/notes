@@ -1,14 +1,17 @@
 import { useSyncExternalStore } from "react";
+import type { SortingState } from "@tanstack/react-table";
 import { Link, getRouteApi, useLocation } from "@tanstack/react-router";
 
 import { buttonVariants } from "@/shared/components/ui/button";
-import { formatDate } from "@/shared/lib/format";
 import { cn } from "@/shared/lib/utils";
 
 import { getRequestLog, subscribeRequestLog } from "./api/orders-api";
 import { useOrders } from "./api/use-orders";
 import { FilterBar } from "./filter-bar";
-import { toGridifyFilter, type OrdersSearchInput } from "./filter";
+import { DEFAULT_PAGE_SIZE, toGridifyQuery, type OrdersSearchInput } from "./filter";
+import { OrdersTable } from "./orders-table";
+
+const NO_SORT: SortingState = [];
 
 const routeApi = getRouteApi("/");
 
@@ -26,12 +29,14 @@ export function FiltersPage() {
   // Each patch is a history entry, so Back undoes a filter. It applies to the
   // current search, not this render's, since a debounced patch can land later.
   // The router runs `validateSearch` on the result, which parses the raw values.
+  // A new filter or order starts again at page 1; page 1 and the default page
+  // size stay out of the URL, so `/` and `?page=1` are one cache entry.
   const patch = (changes: OrdersSearchInput) =>
-    void navigate({ search: (prev) => ({ ...prev, ...changes }) });
+    void navigate({ search: (prev) => ({ ...prev, ...changes, page: undefined }) });
 
-  // Same search, same query as the loader. The Gridify string is only shown here.
+  // Same search, same query as the loader. The Gridify query is only shown here.
   const orders = useOrders(search);
-  const gridifyFilter = toGridifyFilter(search);
+  const gridifyQuery = toGridifyQuery(search);
 
   const log = useSyncExternalStore(subscribeRequestLog, getRequestLog);
 
@@ -58,9 +63,9 @@ export function FiltersPage() {
       </section>
 
       <section className="space-y-2">
-        <h2 className="text-sm font-medium">Gridify filter</h2>
+        <h2 className="text-sm font-medium">Gridify query</h2>
         <pre className="overflow-x-auto rounded-lg border bg-muted p-4 text-sm">
-          {gridifyFilter || "(no filter)"}
+          {JSON.stringify(gridifyQuery, null, 2)}
         </pre>
       </section>
 
@@ -89,7 +94,7 @@ export function FiltersPage() {
                 <span className="w-20 shrink-0 text-muted-foreground tabular-nums">
                   {entry.receivedAt.slice(11, 19)}
                 </span>
-                <code className="min-w-0 break-all">{entry.filter || "(no filter)"}</code>
+                <code className="min-w-0 break-all">{entry.query}</code>
               </li>
             ))
           )}
@@ -100,61 +105,27 @@ export function FiltersPage() {
         <h2 className="text-sm font-medium">
           Orders{" "}
           <span className="text-muted-foreground">
-            (every stored order — the filter is not applied)
+            (sorted + paged by the mock — the filter is not applied)
           </span>
         </h2>
-        <div
-          aria-busy={orders.isFetching}
-          className={cn(
-            "overflow-x-auto rounded-lg border transition-opacity",
-            orders.isFetching && "opacity-60",
-          )}
-        >
-          <table className="w-full text-sm">
-            <thead className="bg-muted text-left text-xs text-muted-foreground">
-              <tr>
-                <th className="px-4 py-2 font-medium">Order</th>
-                <th className="px-4 py-2 font-medium">Customer</th>
-                <th className="px-4 py-2 font-medium">Status</th>
-                <th className="px-4 py-2 font-medium">Created</th>
-                <th className="px-4 py-2 text-right font-medium">Total</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {orders.isPending ? (
-                <tr>
-                  <td colSpan={5} className="px-4 py-3 text-muted-foreground">
-                    Loading…
-                  </td>
-                </tr>
-              ) : orders.isError ? (
-                <tr>
-                  <td colSpan={5} className="px-4 py-3 text-destructive">
-                    Could not load orders: {orders.error.message}
-                  </td>
-                </tr>
-              ) : (
-                orders.data?.data.map((order) => (
-                  <tr key={order.orderNo}>
-                    <td className="px-4 py-2 font-medium">
-                      <Link
-                        to="/orders/$orderNo/edit"
-                        params={{ orderNo: order.orderNo }}
-                        className="underline-offset-4 hover:underline"
-                      >
-                        {order.orderNo}
-                      </Link>
-                    </td>
-                    <td className="px-4 py-2">{order.customer}</td>
-                    <td className="px-4 py-2 capitalize">{order.status}</td>
-                    <td className="px-4 py-2 tabular-nums">{formatDate(order.createdAt)}</td>
-                    <td className="px-4 py-2 text-right tabular-nums">{order.total.toFixed(2)}</td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+        <OrdersTable
+          orders={orders}
+          sorting={search.sort ?? NO_SORT}
+          pagination={{
+            pageIndex: (search.page ?? 1) - 1,
+            pageSize: search.pageSize ?? DEFAULT_PAGE_SIZE,
+          }}
+          onSortingChange={(sort) => patch({ sort: sort.length > 0 ? sort : undefined })}
+          onPaginationChange={({ pageIndex, pageSize }) =>
+            void navigate({
+              search: (prev) => ({
+                ...prev,
+                page: pageIndex > 0 ? pageIndex + 1 : undefined,
+                pageSize: pageSize === DEFAULT_PAGE_SIZE ? undefined : pageSize,
+              }),
+            })
+          }
+        />
       </section>
 
       <section className="space-y-2">

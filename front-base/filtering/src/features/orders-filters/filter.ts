@@ -1,13 +1,13 @@
-import { ConditionalOperator as Op, GridifyQueryBuilder } from "gridify-client";
+import { ConditionalOperator as Op, GridifyQueryBuilder, type IGridifyQuery } from "gridify-client";
 import { z } from "zod";
 
 import type { SearchSelectOption } from "@/shared/components/ui/search-select";
 import { addDaysYmd } from "@/shared/lib/date";
 
 /**
- * The filter is the URL search: its type, its validation and the pure mapping
- * to Gridify live here, so the components stay declarative: change a field
- * here, and the bar + query follow.
+ * The filter, page and order are the URL search: its type, its validation and
+ * the pure mapping to Gridify live here, so the components stay declarative:
+ * change a field here, and the bar, table + query follow.
  */
 
 export const STATUSES = ["pending", "paid", "shipped", "delivered", "cancelled"] as const;
@@ -17,6 +17,19 @@ export const STATUS_OPTIONS: SearchSelectOption<OrderStatus>[] = STATUSES.map((v
   value,
   label: value[0].toUpperCase() + value.slice(1),
 }));
+
+/** The table's sortable columns (its column ids) → the Gridify field each orders by. */
+export const SORT_FIELDS = {
+  orderNo: "orderNo",
+  customer: "customer.name",
+  status: "status",
+  createdAt: "createdAt",
+  total: "total",
+} as const;
+const SORT_COLUMNS = Object.keys(SORT_FIELDS) as (keyof typeof SORT_FIELDS)[];
+
+export const PAGE_SIZES = [5, 10, 20] as const;
+export const DEFAULT_PAGE_SIZE = PAGE_SIZES[0];
 
 /**
  * A lenient search key: an invalid value (`status=bogus`, `min=abc`,
@@ -58,6 +71,17 @@ export const ordersSearchSchema = z.object({
       .object({ from: z.iso.date().optional(), to: z.iso.date().optional() })
       .refine(({ from, to }) => from ?? to),
   ),
+  /** 1-based, as Gridify counts; absent = page 1. */
+  page: lenient(z.int().min(1)),
+  /** One of `PAGE_SIZES` (the table reports a plain number); absent = `DEFAULT_PAGE_SIZE`. */
+  pageSize: lenient(z.number().pipe(z.literal(PAGE_SIZES))),
+  /**
+   * The table's `SortingState` as is (`[{"id":"total","desc":true}, …]`), so
+   * its ids come in as plain strings; absent = server order.
+   */
+  sort: lenient(
+    z.array(z.object({ id: z.string().pipe(z.enum(SORT_COLUMNS)), desc: z.boolean() })).min(1),
+  ),
 });
 
 /** The settled filter as URL keys; `undefined` = no constraint. */
@@ -66,13 +90,18 @@ export type OrdersSearch = z.output<typeof ordersSearchSchema>;
 export type OrdersSearchInput = z.input<typeof ordersSearchSchema>;
 
 /**
- * The Gridify `filter` string for a settled search — what the orders query
- * sends. The search is already normalized by `ordersSearchSchema`.
+ * The Gridify query (`page`, `pageSize`, `orderBy`, `filter`) for a settled
+ * search — what the orders query sends. The search is already normalized by
+ * `ordersSearchSchema`.
  */
-export function toGridifyFilter({ q, status, customers, min, max, created }: OrdersSearch): string {
+export function toGridifyQuery(search: OrdersSearch): IGridifyQuery {
+  const { q, status, customers, min, max, created } = search;
   // An optional `and(true)` / `or(true)` is dropped where it would lead the
   // expression or a group, so each key just prepends one.
-  const b = new GridifyQueryBuilder();
+  const b = new GridifyQueryBuilder()
+    .setPage(search.page ?? 1)
+    .setPageSize(search.pageSize ?? DEFAULT_PAGE_SIZE);
+  for (const { id, desc } of search.sort ?? []) b.addOrderBy(SORT_FIELDS[id], desc);
   if (q) {
     b.and(true)
       .startGroup()
@@ -92,5 +121,5 @@ export function toGridifyFilter({ q, status, customers, min, max, created }: Ord
   if (created?.from) b.and(true).addCondition("createdAt", Op.GreaterThanOrEqual, created.from);
   // inclusive `to` → exclusive next-day upper bound
   if (created?.to) b.and(true).addCondition("createdAt", Op.LessThan, addDaysYmd(created.to, 1));
-  return b.build().filter ?? "";
+  return b.build();
 }

@@ -1,8 +1,10 @@
 # Front Base — filtering
 
 The most minimal version of [`client-side`](../client-side): one page, a few filter controls, and
-the Gridify filter string they produce, sent through React Query to a tiny mock API. It is a sandbox to
-iterate on filtering. There is no shell and no data table. A **create / edit order form** built
+the Gridify query they produce, sent through React Query to a tiny mock API. It is a sandbox to
+iterate on filtering. There is no shell. The orders show in a **TanStack Table v9** table with
+server-side sorting and paging through Gridify's `orderBy` / `page` / `pageSize` (see
+[Table](#table-tanstack-table-v9)). A **create / edit order form** built
 with TanStack Form shares the same controls (see [Order form](#order-form-tanstack-form)).
 
 It reuses the filter controls from `client-side` and makes the **URL the only filter state**, so the
@@ -16,8 +18,8 @@ route loader can fetch it:
   edited and patch once typing pauses for 350 ms or the field loses focus (`useBufferedValue`);
 - the route validates the search with a plain function, and its **loader** fetches through the shared `QueryClient`;
 - the page's `useOrders(search)` reads the same query. The validated search is the query key;
-  `toGridifyFilter(search)` (the only code that touches `gridify-client`'s `GridifyQueryBuilder`)
-  turns it into the Gridify string only inside the `queryFn`.
+  `toGridifyQuery(search)` (the only code that touches `gridify-client`'s `GridifyQueryBuilder`)
+  turns it into the Gridify query (`page`, `pageSize`, `orderBy`, `filter`) only inside the `queryFn`.
 
 ```text
 picks ──────────────────────────────┐
@@ -25,7 +27,7 @@ typed fields ─▶ draft ─▶ 350 ms/blur ─┴─▶ navigate({ search }) �
                                                                   ├─▶ controls: search
                                                                   ├─▶ loader:   queryClient.prefetchQuery (not awaited)
                                                                   └─▶ page:     useOrders(search)
-                                                                                  └─▶ queryFn: mock GET /api/orders?filter=toGridifyFilter(search)
+                                                                                  └─▶ queryFn: mock GET /api/orders?…toGridifyQuery(search)
 ```
 
 ## Route ↔ React Query
@@ -84,15 +86,16 @@ keys, so arrays and objects would need their own encoding.
 ## Data fetching (mock)
 
 `api/orders-api.ts` fakes `GET /api/orders?filter=…`. It logs each call to the console
-(`[mock] #3 GET /api/orders?filter=…`), waits 300 ms, and returns every order in its in-memory store (six seeded) plus an echo
-of the filter it received and a request number. **It does not evaluate the filter**, so the rows only
-change when the order form saves. The goal is only to check that each filter change triggers a request. `useOrders` adds
+(`[mock] #3 GET /api/orders?page=1&pageSize=5&orderBy=total desc&filter=…`), waits 300 ms, sorts its
+in-memory store (six seeded) by `orderBy`, and returns one page as Gridify's `Paging<T>` (`{ count, data }`)
+plus an echo of the query it received and a request number. **It does not evaluate the filter**, so a filter never
+changes the rows (only sorting, paging and the order form do). The goal is only to check that each filter change triggers a request. `useOrders` adds
 `placeholderData: keepPreviousData`, so the previous rows stay visible (dimmed) while the next request
 runs. `refetchOnWindowFocus: false` on the `QueryClient` means the only requests come from filter
 changes.
 
-The page shows the current **URL**, the **Gridify filter**, and a **Requests** log, with one line per
-response: request number, time, and the filter the mock received. The mock keeps that log itself and
+The page shows the current **URL**, the **Gridify query**, and a **Requests** log, with one line per
+response: request number, time, and the query string the mock received. The mock keeps that log itself and
 the page reads it with `useSyncExternalStore`, so it needs no effect.
 
 The customer pickers load their options from a mock `GET /api/customers` (`customersQueryOptions`).
@@ -127,6 +130,47 @@ The 0-call rows are cache hits within the 30 s `staleTime`. Past it, the same ac
 | Calendar (range) | `DateRangePicker`   | `created`    | `createdAt>=2026-01-01,createdAt<2026-02-01`      |
 
 The calendar's `to` is inclusive in the UI and becomes an exclusive next-day bound in the query.
+
+## Table (TanStack Table v9)
+
+`orders-table.tsx` renders the orders with `useTable` from `@tanstack/react-table` 9. The server
+owns sorting and paging, so the table only holds their state and APIs:
+
+| Piece                                                                    | Why                                                                                                                                                                    |
+| ------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `tableFeatures({ rowSortingFeature, rowPaginationFeature, columnMeta })` | v9 registers features explicitly. No `sortedRowModel` / `paginatedRowModel`: nothing is sorted or sliced in the browser. `columnMeta` types each column's `className`. |
+| `manualSorting` + `manualPagination`                                     | `data` is already the sorted page; `rowCount: count` from the response gives the page count.                                                                           |
+| `state: { sorting, pagination }` + `on…Change`                           | Controlled from the URL. The table resolves each updater (`functionalUpdate`) and reports the next value; the page navigates.                                          |
+| Module-scope `features`, `columns`, `NO_ORDERS`                          | v9 invalidates its models when these references change.                                                                                                                |
+
+The URL holds the state, so Back/Forward and deep links cover sorting and paging too:
+
+| Key        | URL (decoded)                                                      | Gridify                             | Absent means       |
+| ---------- | ------------------------------------------------------------------ | ----------------------------------- | ------------------ |
+| `page`     | `page=2`                                                           | `page=2` (1-based)                  | page 1             |
+| `pageSize` | `pageSize=10` (one of `PAGE_SIZES`: 5, 10, 20)                     | `pageSize=10`                       | 5                  |
+| `sort`     | `sort=[{"id":"total","desc":true},{"id":"customer","desc":false}]` | `orderBy=total desc, customer.name` | the server's order |
+
+`sort` is the table's `SortingState` as is; `SORT_FIELDS` (`filter.ts`) maps each column id to its
+Gridify field (`customer` → `customer.name`, the same field the filter uses). Click a header to
+sort (numbers start descending, text ascending), Shift+click to add a column. A filter or sort change
+goes back to page 1, and page 1 and the default page size stay out of the URL, so `/` and
+`?page=1` share one cache entry. Invalid values (`page=abc`, `pageSize=7`, an unknown column) are
+dropped like the filter's.
+
+Checked in headless Chromium:
+
+| Action                                                | Calls | URL / table afterwards                                                      |
+| ----------------------------------------------------- | ----- | --------------------------------------------------------------------------- |
+| Load `/`                                              | 1     | `page=1&pageSize=5` sent; Page 1 of 2 · 6 orders                            |
+| Next page                                             | 1     | `/?page=2`; ORD-100106 only                                                 |
+| Click Total                                           | 1     | `/?sort=[{"id":"total","desc":true}]`, back on page 1; `orderBy=total desc` |
+| Shift+click Customer                                  | 1     | two-column sort; `orderBy=total desc, customer.name`                        |
+| Rows per page 10                                      | 1     | `…&pageSize=10`; Page 1 of 1                                                |
+| Back                                                  | 0     | page size 5 again (cached)                                                  |
+| Deep link `?page=2&sort=[{"id":"createdAt",…}]`       | 1     | page 2 sorted by `createdAt`                                                |
+| Invalid `?page=abc&pageSize=7&sort=[{"id":"bogus"…}]` | 1     | `/`, defaults                                                               |
+| Type `acme` on page 2                                 | 1     | `/?q=acme`: page reset to 1                                                 |
 
 ## Shared controls
 
@@ -211,9 +255,10 @@ src/
 │  │  ├─ api/
 │  │  │  ├─ orders-api.ts   # mock orders store: list (logs, echoes the filter), detail, create/update (422), reference check, customers
 │  │  │  └─ use-orders.ts   # ordersQueryOptions (loader + page), useOrders, orderQueryOptions (edit loader + page), customersQueryOptions
-│  │  ├─ filter.ts          # ordersSearchSchema (validateSearch), OrdersSearch + its raw input type, toGridifyFilter
+│  │  ├─ filter.ts          # ordersSearchSchema (validateSearch: filter, page, pageSize, sort), OrdersSearch + its raw input type, toGridifyQuery
 │  │  ├─ filter-bar.tsx     # maps the search onto the shared controls, labels them, sets widths; CustomersField fetches its options
-│  │  └─ filters-page.tsx   # smart page: search from URL, patch = navigate, query, request log
+│  │  ├─ orders-table.tsx   # TanStack Table v9: manual sorting + paging, controlled by the page
+│  │  └─ filters-page.tsx   # smart page: search from URL, patch = navigate, query, URL ↔ table state, request log
 │  └─ order-form/
 │     ├─ order-form-options.ts  # form values, Zod schema (raw → payload), save validator, formOptions
 │     ├─ order-form.tsx         # useAppForm: fields, async reference check, blocker, submit
@@ -235,7 +280,7 @@ src/
 
 Same as `client-side`, minus what filtering does not need: React 19 · TypeScript 7 · Vite 8 ·
 Tailwind v4 · shadcn-style components on Base UI (_base-nova_) · TanStack Router (file-based) ·
-TanStack Query 5 · TanStack Form 1 · Zod 4 · `gridify-client` 2 · oxlint · oxfmt.
+TanStack Query 5 · TanStack Table 9 · TanStack Form 1 · Zod 4 · `gridify-client` 2 · oxlint · oxfmt.
 
 ## Running
 

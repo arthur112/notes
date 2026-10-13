@@ -1,12 +1,12 @@
 import { keepPreviousData, queryOptions, useQuery } from "@tanstack/react-query";
 
-import { toGridifyFilter, type OrdersSearch } from "../filter";
+import { toGridifyQuery, type OrdersSearch } from "../filter";
 import { fetchCustomers, fetchOrder, fetchOrders } from "./orders-api";
 
 /**
  * One definition shared by the route loader (`queryClient.query`) and the page
  * (`useQuery`), so both hit the same cache entry. The key is the validated
- * search: the same filter means the same entry. The Gridify string is an API
+ * search: the same filter, page and order mean the same entry. The Gridify query is an API
  * detail, built only when fetching.
  *
  * `staleTime` must be > 0: with 0, data the loader just fetched would already
@@ -16,7 +16,7 @@ import { fetchCustomers, fetchOrder, fetchOrders } from "./orders-api";
 export function ordersQueryOptions(search: OrdersSearch) {
   return queryOptions({
     queryKey: ["orders", search],
-    queryFn: () => fetchOrders(toGridifyFilter(search)),
+    queryFn: () => fetchOrders(toGridifyQuery(search)),
     staleTime: 30_000,
   });
 }

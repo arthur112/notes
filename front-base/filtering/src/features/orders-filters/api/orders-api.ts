@@ -1,11 +1,14 @@
+import type { IGridifyQuery, Paging } from "gridify-client";
+
 import type { OrderStatus } from "../filter";
 
 /**
- * Mock orders API over an in-memory store. `GET /api/orders?filter=…` receives
- * the Gridify filter string the way a real API would, logs it, simulates
- * latency, and returns every stored order plus an echo of what it received. It
- * does **not** evaluate the filter: the point is to see each filter change
- * produce exactly one request. The detail and save endpoints feed the order form.
+ * Mock orders API over an in-memory store. `GET /api/orders?page=…&pageSize=…&orderBy=…&filter=…`
+ * receives the Gridify query the way a real API would, logs it, simulates
+ * latency, and returns one sorted page plus the total count (Gridify's
+ * `Paging<T>`) and an echo of what it received. It applies `orderBy` and the
+ * paging but does **not** evaluate the filter: the point is to see each filter
+ * change produce exactly one request. The detail and save endpoints feed the order form.
  */
 
 export type Order = {
@@ -16,13 +19,12 @@ export type Order = {
   createdAt: string; // YYYY-MM-DD
 };
 
-export type OrdersResponse = {
+export type OrdersResponse = Paging<Order> & {
   /** Increments on every call that reaches the "server". */
   requestNo: number;
-  /** The Gridify filter string the server received. */
-  filter: string;
+  /** The Gridify query the server received, as its query string. */
+  query: string;
   receivedAt: string;
-  data: Order[];
 };
 
 export type OrderLine = { product: string; quantity: number; unitPrice: number };
@@ -99,7 +101,7 @@ function orderTotal(lines: OrderLine[]): number {
 
 let requestCount = 0;
 
-export type RequestLogEntry = Pick<OrdersResponse, "requestNo" | "filter" | "receivedAt">;
+export type RequestLogEntry = Pick<OrdersResponse, "requestNo" | "query" | "receivedAt">;
 
 const MAX_LOG_ENTRIES = 10;
 let requestLog: RequestLogEntry[] = [];
@@ -119,28 +121,70 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-export async function fetchOrders(filter: string): Promise<OrdersResponse> {
+/** Unencoded, for reading: `page=1&pageSize=5&orderBy=total desc&filter=status=paid`. */
+function toQueryString(query: IGridifyQuery): string {
+  return Object.entries(query)
+    .filter(([, value]) => value !== undefined && value !== "")
+    .map(([key, value]) => `${key}=${value}`)
+    .join("&");
+}
+
+/** The server's Gridify mapper: the fields `orderBy` may name → the row value. */
+const ORDER_BY_FIELDS: Record<string, keyof Order> = {
+  orderNo: "orderNo",
+  "customer.name": "customer",
+  status: "status",
+  createdAt: "createdAt",
+  total: "total",
+};
+
+/** `"total desc, customer.name"` → a comparator; unknown fields are ignored. */
+function compareBy(orderBy: string | undefined): (a: Order, b: Order) => number {
+  const keys = (orderBy ?? "")
+    .split(",")
+    .map((part) => part.trim().split(/\s+/))
+    .filter(([field]) => field in ORDER_BY_FIELDS)
+    .map(([field, dir]) => ({ key: ORDER_BY_FIELDS[field], sign: dir === "desc" ? -1 : 1 }));
+  return (a, b) => {
+    for (const { key, sign } of keys) {
+      if (a[key] < b[key]) return -sign;
+      if (a[key] > b[key]) return sign;
+    }
+    return 0;
+  };
+}
+
+export async function fetchOrders(query: IGridifyQuery): Promise<OrdersResponse> {
   const requestNo = ++requestCount;
-  const search = filter ? `?filter=${encodeURIComponent(filter)}` : "";
-  console.info(`[mock] #${requestNo} GET /api/orders${search}`, { filter });
+  const queryString = toQueryString(query);
+  console.info(`[mock] #${requestNo} GET /api/orders?${queryString}`, query);
 
   await sleep(300);
 
   const receivedAt = new Date().toISOString();
-  requestLog = [{ requestNo, filter, receivedAt }, ...requestLog].slice(0, MAX_LOG_ENTRIES);
+  requestLog = [{ requestNo, query: queryString, receivedAt }, ...requestLog].slice(
+    0,
+    MAX_LOG_ENTRIES,
+  );
   logListeners.forEach((listener) => listener());
 
-  return {
-    requestNo,
-    filter,
-    receivedAt,
-    data: orders.map(({ orderNo, customer, status, createdAt, lines }) => ({
+  const rows = orders
+    .map(({ orderNo, customer, status, createdAt, lines }) => ({
       orderNo,
       customer,
       status,
       createdAt,
       total: orderTotal(lines),
-    })),
+    }))
+    .sort(compareBy(query.orderBy));
+  const start = (query.page - 1) * query.pageSize;
+
+  return {
+    requestNo,
+    query: queryString,
+    receivedAt,
+    count: rows.length,
+    data: rows.slice(start, start + query.pageSize),
   };
 }
 
