@@ -1,29 +1,66 @@
+import { useState } from "react";
+import { ChevronDown } from "lucide-react";
+
 import type { Contract } from "@/shared/domain/contracts";
 import { Button } from "@/shared/components/ui/button";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/shared/components/ui/collapsible";
 import { Separator } from "@/shared/components/ui/separator";
 import { formatCurrency } from "@/shared/lib/format";
+import { cn } from "@/shared/lib/utils";
 
 import { formatDmy, formatPct } from "../lib/format";
 import { StatStrip, type Stat } from "./stat-strip";
 
+/** Modifications shown before "View more" — the rest expand in place. */
+const VISIBLE_MODIFICATIONS = 3;
+
+type Modification = Contract["current"]["modifications"][number];
+
+function ModificationList({ modifications }: { modifications: Modification[] }) {
+  return (
+    <ul>
+      {modifications.map((mod) => (
+        <li
+          key={`${mod.date}-${mod.kind}`}
+          className="flex flex-wrap items-baseline gap-x-3 py-2 text-sm"
+        >
+          <time className="font-mono text-xs text-muted-foreground tabular-nums">
+            {formatDmy(mod.date)}
+          </time>
+          <span>
+            <span className="font-semibold">{mod.kind}</span>
+            <span className="text-muted-foreground">
+              {" "}
+              — {mod.description} · {mod.agent}
+            </span>
+          </span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 export type ContractCurrentStateProps = {
   contract: Contract;
   onOpenClaimFile: (claimNo: string) => void;
-  onViewFullHistory: () => void;
 };
 
 /**
  * The "Current state" section: the live snapshot (remaining term, outstanding
  * principal, next installment, schedule health), the active-claim banner and
- * the modification log, most recent first. Dumb — interactions are callbacks
- * the page wires to the shell.
+ * the modification log, most recent first — the latest few shown, the rest
+ * expanding in place. Dumb — interactions are callbacks the page wires to the
+ * shell; only the log's open/closed state is local.
  */
-export function ContractCurrentState({
-  contract,
-  onOpenClaimFile,
-  onViewFullHistory,
-}: ContractCurrentStateProps) {
+export function ContractCurrentState({ contract, onOpenClaimFile }: ContractCurrentStateProps) {
   const { current } = contract;
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const recent = current.modifications.slice(0, VISIBLE_MODIFICATIONS);
+  const older = current.modifications.slice(VISIBLE_MODIFICATIONS);
   const elapsedPct = (current.installmentNo / current.installmentCount) * 100;
 
   const stats: Stat[] = [
@@ -87,31 +124,21 @@ export function ContractCurrentState({
 
       <div className="space-y-1">
         <p className="text-sm text-muted-foreground">
-          Modifications · {current.modifications.length} entries — most recent first ·{" "}
-          <Button variant="link" className="h-auto p-0 text-sm" onClick={onViewFullHistory}>
-            View full history
-          </Button>
+          Modifications · {current.modifications.length} entries — most recent first
         </p>
         <Separator />
-        <ul>
-          {current.modifications.map((mod) => (
-            <li
-              key={`${mod.date}-${mod.kind}`}
-              className="flex flex-wrap items-baseline gap-x-3 py-2 text-sm"
-            >
-              <time className="font-mono text-xs text-muted-foreground tabular-nums">
-                {formatDmy(mod.date)}
-              </time>
-              <span>
-                <span className="font-semibold">{mod.kind}</span>
-                <span className="text-muted-foreground">
-                  {" "}
-                  — {mod.description} · {mod.agent}
-                </span>
-              </span>
-            </li>
-          ))}
-        </ul>
+        <Collapsible open={historyOpen} onOpenChange={setHistoryOpen}>
+          <ModificationList modifications={recent} />
+          <CollapsibleContent className="h-(--collapsible-panel-height) overflow-hidden transition-[height] duration-200 ease-out data-ending-style:h-0 data-starting-style:h-0">
+            <ModificationList modifications={older} />
+          </CollapsibleContent>
+          {older.length > 0 && (
+            <CollapsibleTrigger render={<Button variant="link" className="h-auto p-0 text-sm" />}>
+              {historyOpen ? "View less" : `View ${older.length} more`}
+              <ChevronDown className={cn("transition-transform", historyOpen && "rotate-180")} />
+            </CollapsibleTrigger>
+          )}
+        </Collapsible>
       </div>
     </section>
   );

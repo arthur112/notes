@@ -356,6 +356,18 @@ function seedContracts(): Contract[] {
             description: "October 2023 installment deferred one month, no penalty",
             agent: "L. Marchand",
           },
+          {
+            date: "2023-06-12",
+            kind: "Payment method",
+            description: "Direct-debit mandate moved to a new account, effective July 2023",
+            agent: "K. Aubert",
+          },
+          {
+            date: "2023-03-22",
+            kind: "Collateral registration",
+            description: "1st-rank mortgage registered at the Lyon land registry",
+            agent: "L. Marchand",
+          },
         ],
       },
     },

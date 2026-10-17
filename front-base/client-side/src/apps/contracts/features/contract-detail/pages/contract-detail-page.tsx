@@ -35,7 +35,7 @@ function ContractSkeleton() {
  * Contracts detail — the mortgage contract as a deep-linkable record page at
  * `/apps/contracts/$contractNo`. Composition only: data comes from the shared
  * contracts domain, sections are the dumb `ContractHero` /
- * `ContractInitialState` / `ContractCurrentState` panels, and claim/history
+ * `ContractInitialState` / `ContractCurrentState` panels, and claim
  * interactions are published onto the shell event bus (watch them from the
  * Finance app's activity rail).
  */
@@ -68,9 +68,6 @@ export function ContractDetailPage() {
       <ContractCurrentState
         contract={contract.data}
         onOpenClaimFile={(claimNo) => publish("contracts", `Opened claim file ${claimNo}`)}
-        onViewFullHistory={() =>
-          publish("contracts", `Viewed full modification history of ${contractNo}`)
-        }
       />
     </div>
   );
