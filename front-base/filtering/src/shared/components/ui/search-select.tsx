@@ -100,33 +100,33 @@ function OptionsPopover<T extends string>({
         if (!next) setQuery("");
       }}
     >
-      <PopoverTrigger
-        {...triggerProps}
-        className={cn(
-          buttonVariants({ variant: "outline" }),
-          CONTROL_CLASS,
-          "justify-between font-normal",
-          !label && "text-muted-foreground",
-          className,
-        )}
-      >
-        <span className="truncate">{label || placeholder}</span>
-        {onClear ? (
+      {/* The clear affordance is a sibling of the trigger, not inside it: a
+          button cannot nest in the trigger's button. */}
+      <div className={cn("relative", className)}>
+        <PopoverTrigger
+          {...triggerProps}
+          className={cn(
+            buttonVariants({ variant: "outline" }),
+            CONTROL_CLASS,
+            "justify-between font-normal",
+            !label && "text-muted-foreground",
+            onClear && "pr-9",
+          )}
+        >
+          <span className="truncate">{label || placeholder}</span>
+          {!onClear && <ChevronsUpDown className="text-muted-foreground" />}
+        </PopoverTrigger>
+        {onClear && (
           <button
             type="button"
             aria-label="Clear selection"
-            onClick={(event) => {
-              event.stopPropagation();
-              onClear();
-            }}
-            className="rounded-full p-0.5 hover:bg-muted"
+            onClick={onClear}
+            className="absolute top-1/2 right-2 -translate-y-1/2 rounded-full p-0.5 hover:bg-muted"
           >
             <X className="size-3.5 text-muted-foreground" />
           </button>
-        ) : (
-          <ChevronsUpDown className="text-muted-foreground" />
         )}
-      </PopoverTrigger>
+      </div>
       <PopoverContent className="w-(--anchor-width) min-w-56 p-0">
         <div className="border-b border-border">
           <SearchInput
