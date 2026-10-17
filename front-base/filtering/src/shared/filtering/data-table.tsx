@@ -1,17 +1,16 @@
 import type { ReactNode } from "react";
-import type { UseQueryResult } from "@tanstack/react-query";
 import {
-  createColumnHelper,
   functionalUpdate,
   metaHelper,
   rowPaginationFeature,
   rowSortingFeature,
   tableFeatures,
   useTable,
+  type ColumnDef,
   type PaginationState,
+  type RowData,
   type SortingState,
 } from "@tanstack/react-table";
-import { Link } from "@tanstack/react-router";
 import {
   ArrowDown,
   ArrowUp,
@@ -23,88 +22,103 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/shared/components/ui/button";
-import { formatDate } from "@/shared/lib/format";
 import { cn } from "@/shared/lib/utils";
 
-import type { Order, OrdersResponse } from "./api/orders-api";
-import { PAGE_SIZES } from "./filter";
+import type { CommonSearch } from "./definition";
 
 /**
- * TanStack Table v9, server-side: the features are registered for their state
- * and APIs only (no sorted / paginated row model), and `manualSorting` +
- * `manualPagination` tell the table that `data` is already the sorted page.
- * Features, columns and the empty fallback live at module scope so their
- * references stay stable.
+ * The server-side table shared by every filtered list. `manualSorting` +
+ * `manualPagination` tell TanStack Table that `data` is already the sorted
+ * page; the table only holds the state and reports its next value. The
+ * entity supplies its columns (built with `filterTableFeatures`) and labels.
+ *
+ * v9 registers features explicitly; no sorted / paginated row models, since
+ * nothing is sorted or sliced in the browser.
  */
-const features = tableFeatures({
+export const filterTableFeatures = tableFeatures({
   rowSortingFeature,
   rowPaginationFeature,
   columnMeta: metaHelper<{ className?: string }>(),
 });
 
-const helper = createColumnHelper<typeof features, Order>();
+export type FilterColumn<TData extends RowData> = ColumnDef<typeof filterTableFeatures, TData, any>;
 
-/** The column ids are the sort keys of the URL (`SORT_FIELDS` in `filter.ts`). */
-const columns = helper.columns([
-  helper.accessor("orderNo", {
-    header: "Order",
-    cell: ({ getValue }) => (
-      <Link
-        to="/orders/$orderNo/edit"
-        params={{ orderNo: getValue() }}
-        className="font-medium underline-offset-4 hover:underline"
-      >
-        {getValue()}
-      </Link>
-    ),
-  }),
-  helper.accessor("customer", { header: "Customer" }),
-  helper.accessor("status", { header: "Status", meta: { className: "capitalize" } }),
-  helper.accessor("createdAt", {
-    header: "Created",
-    cell: ({ getValue }) => formatDate(getValue()),
-    meta: { className: "tabular-nums" },
-  }),
-  helper.accessor("total", {
-    header: "Total",
-    cell: ({ getValue }) => getValue().toFixed(2),
-    meta: { className: "text-right tabular-nums" },
-  }),
-]);
-
-const NO_ORDERS: Order[] = [];
-
-export type OrdersTableProps = {
-  orders: UseQueryResult<OrdersResponse>;
-  /** Controlled from the URL; each change is reported as the next value. */
-  sorting: SortingState;
-  pagination: PaginationState;
-  onSortingChange: (sorting: SortingState) => void;
-  onPaginationChange: (pagination: PaginationState) => void;
+export type PagedResult<TData> = {
+  count: number;
+  data: TData[];
 };
 
-/**
- * Header click sorts (Shift+click adds a column to the sort), the footer pages.
- * The table owns no state: it reads `sorting` / `pagination` and reports the
- * next value, which the page writes to the URL.
- */
-export function OrdersTable({
-  orders,
-  sorting,
-  pagination,
-  onSortingChange,
-  onPaginationChange,
-}: OrdersTableProps) {
-  const table = useTable({
-    features,
+/** The subset of a React Query result the table and diagnostics need. */
+export type PagedQueryResult<TData> = {
+  data: PagedResult<TData> | undefined;
+  isPending: boolean;
+  isError: boolean;
+  isFetching: boolean;
+  error: Error | null;
+};
+
+export type DataTableProps<TData extends RowData> = {
+  /** Module-scope columns (`filterTableFeatures` must be their feature set). */
+  columns: FilterColumn<TData>[];
+  result: PagedQueryResult<TData>;
+  /** The settled search: sorting and pagination are read from it. */
+  search: CommonSearch;
+  /**
+   * The next sort or page, as search keys. A sort patch has no `page`, so the
+   * page's patch sends it back to page 1; a pagination patch always sets it.
+   */
+  onPatch: (changes: CommonSearch) => void;
+  /** The first one is the default, kept out of the URL. */
+  pageSizes: readonly number[];
+  /** Plural noun for the footer, e.g. "orders". */
+  itemsLabel: string;
+  emptyMessage: string;
+  /** Prefix for the error row, e.g. "Could not load orders". */
+  errorLabel: string;
+};
+
+const NO_ROWS: never[] = [];
+const NO_SORT: SortingState = [];
+
+/** Header click sorts (Shift+click adds a column), the footer pages. */
+export function DataTable<TData extends RowData>({
+  columns,
+  result,
+  search,
+  onPatch,
+  pageSizes,
+  itemsLabel,
+  emptyMessage,
+  errorLabel,
+}: DataTableProps<TData>) {
+  const defaultPageSize = pageSizes[0];
+  const sorting = search.sort ?? NO_SORT;
+  const pagination: PaginationState = {
+    pageIndex: (search.page ?? 1) - 1,
+    pageSize: search.pageSize ?? defaultPageSize,
+  };
+
+  const table = useTable<typeof filterTableFeatures, TData>({
+    features: filterTableFeatures,
     columns,
-    data: orders.data?.data ?? NO_ORDERS,
-    rowCount: orders.data?.count,
+    data: result.data?.data ?? NO_ROWS,
+    rowCount: result.data?.count,
     manualSorting: true,
     manualPagination: true,
     state: { sorting, pagination },
-    onSortingChange: (updater) => onSortingChange(functionalUpdate(updater, sorting)),
-    onPaginationChange: (updater) => onPaginationChange(functionalUpdate(updater, pagination)),
+    onSortingChange: (updater) => {
+      const sort = functionalUpdate(updater, sorting);
+      onPatch({ sort: sort.length > 0 ? sort : undefined });
+    },
+    // Page 1 and the default page size stay out of the URL, so `/orders` and
+    // `/orders?page=1` are one cache entry.
+    onPaginationChange: (updater) => {
+      const { pageIndex, pageSize } = functionalUpdate(updater, pagination);
+      onPatch({
+        page: pageIndex > 0 ? pageIndex + 1 : undefined,
+        pageSize: pageSize === defaultPageSize ? undefined : pageSize,
+      });
+    },
   });
 
   const rows = table.getRowModel().rows;
@@ -112,10 +126,10 @@ export function OrdersTable({
   return (
     <div className="space-y-2">
       <div
-        aria-busy={orders.isFetching}
+        aria-busy={result.isFetching}
         className={cn(
           "overflow-x-auto rounded-lg border transition-opacity",
-          orders.isFetching && "opacity-60",
+          result.isFetching && "opacity-60",
         )}
       >
         <table className="w-full text-sm">
@@ -158,14 +172,14 @@ export function OrdersTable({
             ))}
           </thead>
           <tbody className="divide-y">
-            {orders.isPending ? (
-              <MessageRow>Loading…</MessageRow>
-            ) : orders.isError ? (
-              <MessageRow className="text-destructive">
-                Could not load orders: {orders.error.message}
+            {result.isPending ? (
+              <MessageRow columns={columns.length}>Loading…</MessageRow>
+            ) : result.isError ? (
+              <MessageRow columns={columns.length} className="text-destructive">
+                {errorLabel}: {result.error?.message ?? "Unknown error"}
               </MessageRow>
             ) : rows.length === 0 ? (
-              <MessageRow>No orders on this page.</MessageRow>
+              <MessageRow columns={columns.length}>{emptyMessage}</MessageRow>
             ) : (
               rows.map((row) => (
                 <tr key={row.id}>
@@ -187,7 +201,7 @@ export function OrdersTable({
       <footer className="flex flex-wrap items-center justify-between gap-2 text-sm">
         <div className="flex items-center gap-1 text-muted-foreground">
           Rows per page
-          {PAGE_SIZES.map((size) => (
+          {pageSizes.map((size) => (
             <Button
               key={size}
               size="sm"
@@ -202,7 +216,7 @@ export function OrdersTable({
         <div className="flex items-center gap-1">
           <span className="mr-2 text-muted-foreground tabular-nums">
             Page {pagination.pageIndex + 1} of {Math.max(table.getPageCount(), 1)} ·{" "}
-            {table.getRowCount()} orders
+            {table.getRowCount()} {itemsLabel}
           </span>
           <Button
             size="icon-sm"
@@ -246,10 +260,18 @@ export function OrdersTable({
   );
 }
 
-function MessageRow({ className, children }: { className?: string; children: ReactNode }) {
+function MessageRow({
+  columns,
+  className,
+  children,
+}: {
+  columns: number;
+  className?: string;
+  children: ReactNode;
+}) {
   return (
     <tr>
-      <td colSpan={columns.length} className={cn("px-4 py-3 text-muted-foreground", className)}>
+      <td colSpan={columns} className={cn("px-4 py-3 text-muted-foreground", className)}>
         {children}
       </td>
     </tr>

@@ -1,7 +1,7 @@
 import { keepPreviousData, queryOptions, useQuery } from "@tanstack/react-query";
 
 import { toGridifyQuery, type OrdersSearch } from "../filter";
-import { fetchCustomers, fetchOrder, fetchOrders } from "./orders-api";
+import { fetchOrder, fetchOrders } from "./orders-api";
 
 /**
  * One definition shared by the route loader (`queryClient.query`) and the page
@@ -32,14 +32,5 @@ export function orderQueryOptions(orderNo: string) {
     queryKey: ["order", orderNo],
     queryFn: () => fetchOrder(orderNo),
     staleTime: 30_000,
-  });
-}
-
-/** The customer pickers' options. They rarely change, so one fetch serves the session. */
-export function customersQueryOptions() {
-  return queryOptions({
-    queryKey: ["customers"],
-    queryFn: async () => (await fetchCustomers()).map((name) => ({ value: name, label: name })),
-    staleTime: Infinity,
   });
 }

@@ -1,8 +1,8 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useBlocker, useNavigate } from "@tanstack/react-router";
 
+import { customerOptionsQueryOptions } from "@/features/customers-filters/api/use-customers";
 import { isReferenceTaken, type OrderDetail } from "@/features/orders-filters/api/orders-api";
-import { customersQueryOptions } from "@/features/orders-filters/api/use-orders";
 import { STATUS_OPTIONS } from "@/features/orders-filters/filter";
 import { useAppForm } from "@/shared/components/form/use-app-form";
 import { buttonVariants } from "@/shared/components/ui/button";
@@ -17,7 +17,7 @@ import { OrderLines } from "./order-lines";
 export function OrderForm({ order }: { order?: OrderDetail }) {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
-  const { data: customers = [] } = useQuery(customersQueryOptions());
+  const { data: customers = [] } = useQuery(customerOptionsQueryOptions());
 
   const form = useAppForm({
     ...orderFormOptions,
@@ -29,7 +29,7 @@ export function OrderForm({ order }: { order?: OrderDetail }) {
       void queryClient.invalidateQueries({ queryKey: ["order"] });
       // Saved values become the new defaults, so the blocker below lets us leave.
       formApi.reset(value);
-      await navigate({ to: "/" });
+      await navigate({ to: "/orders" });
     },
   });
 
@@ -93,7 +93,7 @@ export function OrderForm({ order }: { order?: OrderDetail }) {
         <form.AppForm>
           <form.SubmitButton>{order ? "Save changes" : "Create order"}</form.SubmitButton>
         </form.AppForm>
-        <Link to="/" className={buttonVariants({ variant: "ghost", size: "lg" })}>
+        <Link to="/orders" className={buttonVariants({ variant: "ghost", size: "lg" })}>
           Cancel
         </Link>
       </div>

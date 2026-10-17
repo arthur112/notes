@@ -1,5 +1,12 @@
 import type { IGridifyQuery, Paging } from "gridify-client";
 
+import {
+  compareBy,
+  createRequestLog,
+  toQueryString,
+  type RequestLogEntry,
+} from "@/shared/filtering/request-log";
+
 import type { OrderStatus } from "../filter";
 
 /**
@@ -19,13 +26,7 @@ export type Order = {
   createdAt: string; // YYYY-MM-DD
 };
 
-export type OrdersResponse = Paging<Order> & {
-  /** Increments on every call that reaches the "server". */
-  requestNo: number;
-  /** The Gridify query the server received, as its query string. */
-  query: string;
-  receivedAt: string;
-};
+export type OrdersResponse = Paging<Order> & RequestLogEntry;
 
 export type OrderLine = { product: string; quantity: number; unitPrice: number };
 
@@ -100,59 +101,24 @@ function orderTotal(lines: OrderLine[]): number {
 }
 
 let requestCount = 0;
-
-export type RequestLogEntry = Pick<OrdersResponse, "requestNo" | "query" | "receivedAt">;
-
-const MAX_LOG_ENTRIES = 10;
-let requestLog: RequestLogEntry[] = [];
-const logListeners = new Set<() => void>();
+const requestLog = createRequestLog();
 
 /** Debug aid: the last calls that reached the mock "server", newest first (`useSyncExternalStore`). */
-export function subscribeRequestLog(listener: () => void): () => void {
-  logListeners.add(listener);
-  return () => logListeners.delete(listener);
-}
-
-export function getRequestLog(): RequestLogEntry[] {
-  return requestLog;
-}
+export const subscribeRequestLog = requestLog.subscribe;
+export const getRequestLog = requestLog.getSnapshot;
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-/** Unencoded, for reading: `page=1&pageSize=5&orderBy=total desc&filter=status=paid`. */
-function toQueryString(query: IGridifyQuery): string {
-  return Object.entries(query)
-    .filter(([, value]) => value !== undefined && value !== "")
-    .map(([key, value]) => `${key}=${value}`)
-    .join("&");
-}
-
 /** The server's Gridify mapper: the fields `orderBy` may name → the row value. */
-const ORDER_BY_FIELDS: Record<string, keyof Order> = {
-  orderNo: "orderNo",
-  "customer.name": "customer",
-  status: "status",
-  createdAt: "createdAt",
-  total: "total",
+const SORT_ACCESSORS: Record<string, (order: Order) => string | number> = {
+  orderNo: (order) => order.orderNo,
+  "customer.name": (order) => order.customer,
+  status: (order) => order.status,
+  createdAt: (order) => order.createdAt,
+  total: (order) => order.total,
 };
-
-/** `"total desc, customer.name"` → a comparator; unknown fields are ignored. */
-function compareBy(orderBy: string | undefined): (a: Order, b: Order) => number {
-  const keys = (orderBy ?? "")
-    .split(",")
-    .map((part) => part.trim().split(/\s+/))
-    .filter(([field]) => field in ORDER_BY_FIELDS)
-    .map(([field, dir]) => ({ key: ORDER_BY_FIELDS[field], sign: dir === "desc" ? -1 : 1 }));
-  return (a, b) => {
-    for (const { key, sign } of keys) {
-      if (a[key] < b[key]) return -sign;
-      if (a[key] > b[key]) return sign;
-    }
-    return 0;
-  };
-}
 
 export async function fetchOrders(query: IGridifyQuery): Promise<OrdersResponse> {
   const requestNo = ++requestCount;
@@ -162,11 +128,7 @@ export async function fetchOrders(query: IGridifyQuery): Promise<OrdersResponse>
   await sleep(300);
 
   const receivedAt = new Date().toISOString();
-  requestLog = [{ requestNo, query: queryString, receivedAt }, ...requestLog].slice(
-    0,
-    MAX_LOG_ENTRIES,
-  );
-  logListeners.forEach((listener) => listener());
+  requestLog.record({ requestNo, query: queryString, receivedAt });
 
   const rows = orders
     .map(({ orderNo, customer, status, createdAt, lines }) => ({
@@ -176,7 +138,7 @@ export async function fetchOrders(query: IGridifyQuery): Promise<OrdersResponse>
       createdAt,
       total: orderTotal(lines),
     }))
-    .sort(compareBy(query.orderBy));
+    .sort(compareBy(query.orderBy, SORT_ACCESSORS));
   const start = (query.page - 1) * query.pageSize;
 
   return {
@@ -186,13 +148,6 @@ export async function fetchOrders(query: IGridifyQuery): Promise<OrdersResponse>
     count: rows.length,
     data: rows.slice(start, start + query.pageSize),
   };
-}
-
-/** `GET /api/customers`: the names the customer pickers offer. */
-export async function fetchCustomers(): Promise<string[]> {
-  console.info("[mock] GET /api/customers");
-  await sleep(300);
-  return ["Acme Corp", "Globex", "Hooli", "Initech", "Umbrella"];
 }
 
 /** A 422: the server's own rules, keyed by form field name. */
