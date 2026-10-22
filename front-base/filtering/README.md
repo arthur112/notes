@@ -389,4 +389,5 @@ bun install
 bun run dev      # http://localhost:5173
 bun run build    # tsr generate && tsc --noEmit && vite build
 bun run lint
+bun run test     # vitest: the Gridify query each field and the whole filter produce
 ```
