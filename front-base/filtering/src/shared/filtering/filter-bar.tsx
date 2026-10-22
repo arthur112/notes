@@ -79,7 +79,7 @@ export function FilterBar<M extends FilterFieldMap, S extends SortFieldMap>({
               variant="ghost"
               size="lg"
               className="w-full"
-              disabled={activeCount === 0}
+              disabled={!definition.hasFilters(search)}
               onClick={onClear}
             >
               Clear filters

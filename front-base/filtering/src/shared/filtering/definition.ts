@@ -106,6 +106,8 @@ export type FilterDefinition<M extends FilterFieldMap, S extends SortFieldMap> =
   readonly toGridifyQuery: (search: FilterSearch<M>) => IGridifyQuery;
   /** The patch that clears the popover fields; the inline search stays. */
   readonly cleared: FilterSearchInput<M>;
+  /** Whether any field `cleared` resets is set, i.e. the search is off its default. */
+  readonly hasFilters: (search: FilterSearch<M>) => boolean;
 };
 
 /**
@@ -122,6 +124,9 @@ export function defineFilter<const M extends FilterFieldMap, const S extends Sor
 }): FilterDefinition<M, S> {
   const pageSizes = config.pageSizes ?? PAGE_SIZES;
   const entries = Object.entries(config.fields) as (readonly [string, AnyFilterField])[];
+  const popoverKeys = entries
+    .filter(([, field]) => field.placement === "popover")
+    .map(([key]) => key);
   const sortColumns = Object.keys(config.sortFields);
   const fieldShape = Object.fromEntries(
     entries.map(([key, field]) => [key, field.schema]),
@@ -166,8 +171,8 @@ export function defineFilter<const M extends FilterFieldMap, const S extends Sor
     pageSizes,
     schema: schema as unknown as z.ZodType<FilterSearch<M>, FilterSearchInput<M>>,
     toGridifyQuery,
-    cleared: Object.fromEntries(
-      entries.filter(([, field]) => field.placement === "popover").map(([key]) => [key, undefined]),
-    ) as FilterSearchInput<M>,
+    cleared: Object.fromEntries(popoverKeys.map((key) => [key, undefined])) as FilterSearchInput<M>,
+    hasFilters: (search) =>
+      popoverKeys.some((key) => (search as Record<string, unknown>)[key] !== undefined),
   };
 }
