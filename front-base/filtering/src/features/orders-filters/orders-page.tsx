@@ -43,7 +43,12 @@ export function OrdersPage() {
         </Link>
       }
     >
-      <FilterBar definition={ordersFilter} search={search} onPatch={patch} />
+      <FilterBar
+        definition={ordersFilter}
+        search={search}
+        onPatch={patch}
+        onClear={() => patch(ordersFilter.cleared)}
+      />
 
       <FilterDiagnostics
         definition={ordersFilter}

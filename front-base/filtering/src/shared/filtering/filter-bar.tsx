@@ -19,6 +19,8 @@ export type FilterBarProps<M extends FilterFieldMap, S extends SortFieldMap> = {
   search: FilterSearch<M>;
   /** Raw control values; the route's `validateSearch` parses them. */
   onPatch: (changes: FilterSearchInput<M>) => void;
+  /** Backs the popover's "Clear filters" button; no button when absent. */
+  onClear?: () => void;
 };
 
 /**
@@ -32,6 +34,7 @@ export function FilterBar<M extends FilterFieldMap, S extends SortFieldMap>({
   definition,
   search,
   onPatch,
+  onClear,
 }: FilterBarProps<M, S>) {
   const values = search as Record<string, unknown>;
   const inline = definition.entries.filter(([, field]) => field.placement === "inline");
@@ -39,9 +42,6 @@ export function FilterBar<M extends FilterFieldMap, S extends SortFieldMap>({
   const activeCount = popover.filter(([key]) => values[key] !== undefined).length;
 
   const patch = (key: string, value: unknown) => onPatch({ [key]: value } as FilterSearchInput<M>);
-
-  const clear = () =>
-    onPatch(Object.fromEntries(popover.map(([key]) => [key, undefined])) as FilterSearchInput<M>);
 
   return (
     <div className="flex gap-2">
@@ -74,15 +74,17 @@ export function FilterBar<M extends FilterFieldMap, S extends SortFieldMap>({
             </FilterField>
           ))}
 
-          <Button
-            variant="ghost"
-            size="lg"
-            className="w-full"
-            disabled={activeCount === 0}
-            onClick={clear}
-          >
-            Clear filters
-          </Button>
+          {onClear && (
+            <Button
+              variant="ghost"
+              size="lg"
+              className="w-full"
+              disabled={activeCount === 0}
+              onClick={onClear}
+            >
+              Clear filters
+            </Button>
+          )}
         </PopoverContent>
       </Popover>
     </div>

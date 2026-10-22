@@ -104,6 +104,8 @@ export type FilterDefinition<M extends FilterFieldMap, S extends SortFieldMap> =
   readonly pageSizes: readonly number[];
   readonly schema: z.ZodType<FilterSearch<M>, FilterSearchInput<M>>;
   readonly toGridifyQuery: (search: FilterSearch<M>) => IGridifyQuery;
+  /** The patch that clears the popover fields; the inline search stays. */
+  readonly cleared: FilterSearchInput<M>;
 };
 
 /**
@@ -164,5 +166,8 @@ export function defineFilter<const M extends FilterFieldMap, const S extends Sor
     pageSizes,
     schema: schema as unknown as z.ZodType<FilterSearch<M>, FilterSearchInput<M>>,
     toGridifyQuery,
+    cleared: Object.fromEntries(
+      entries.filter(([, field]) => field.placement === "popover").map(([key]) => [key, undefined]),
+    ) as FilterSearchInput<M>,
   };
 }

@@ -32,7 +32,12 @@ export function CustomersPage() {
       title="Customers"
       description="The same URL-as-filter pattern and controls, driven by the customers filter definition."
     >
-      <FilterBar definition={customersFilter} search={search} onPatch={patch} />
+      <FilterBar
+        definition={customersFilter}
+        search={search}
+        onPatch={patch}
+        onClear={() => patch(customersFilter.cleared)}
+      />
 
       <FilterDiagnostics
         definition={customersFilter}
