@@ -35,6 +35,7 @@ Conventions for every note folder:
 | [`UxGuide/`](UxGuide/) | UX best practices for dense CRUD pages (30–50 fields) + a smart/dumb component-architecture contract, with the extraction realized: a Storybook 10 prototype of a company component library (`@company/ui`) built from the demo's unedited dumb components | React 19, Vite, Tailwind v4, shadcn/ui, TanStack Router/Table, react-hook-form + zod, Storybook 10 |
 | [`DataMasking/`](DataMasking/) | Data masking at two levels: SQL Server dynamic data masking via per-request connection-string switching on an HttpContext identity property (engine-enforced) vs. an EF Core materialization interceptor + value converter masking `[Masked]` properties in .NET (app-enforced), with a trade-off table | Two .NET 10 minimal APIs, EF Core, SQL Server (Docker) |
 | [`CentralLogging/`](CentralLogging/) | NuGet SDK package that configures Serilog + a batched HTTP sink to ship logs to a central service, with automatic W3C trace-ID correlation (Serilog 4 `Activity.Current`) and API-key auth via a custom sink `IHttpClient` | .NET 10 class library (NuGet), Serilog.AspNetCore, Serilog.Sinks.Http, minimal APIs |
+| [`GridifyHttpQuery/`](GridifyHttpQuery/) | Gridify filtering/sorting/paging served over both GET (query string) and the new HTTP `QUERY` method (body), with a document transformer that adds the QUERY operation to the OpenAPI document so Scalar shows it | .NET 10 minimal API, Gridify.EntityFramework, EF Core (SQLite), Scalar |
 
 ## Working in this repo
 

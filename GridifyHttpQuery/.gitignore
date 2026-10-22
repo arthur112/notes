@@ -1,0 +1,13 @@
+# Build output
+bin/
+obj/
+
+# SQLite database (recreated on every start)
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+
+# IDE
+.vs/
+.idea/
+*.user
