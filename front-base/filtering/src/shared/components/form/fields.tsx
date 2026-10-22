@@ -1,11 +1,11 @@
 import { useId, type ReactNode } from "react";
 
 import { Button } from "@/shared/components/ui/button";
+import { ComboboxSelect } from "@/shared/components/ui/combobox-select";
 import { CONTROL_CLASS, type ControlProps } from "@/shared/components/ui/control";
 import { DatePicker } from "@/shared/components/ui/date-picker";
 import { Input } from "@/shared/components/ui/input";
 import { NumberInput } from "@/shared/components/ui/number-input";
-import { SearchSelect, type SearchSelectOption } from "@/shared/components/ui/search-select";
 import type { Ymd } from "@/shared/lib/date";
 import { cn } from "@/shared/lib/utils";
 
@@ -107,17 +107,23 @@ export function SelectField({
   className,
   options,
   placeholder,
-}: FieldProps & { options: readonly SearchSelectOption[]; placeholder?: string }) {
+  itemToStringLabel = String,
+}: FieldProps & {
+  options: readonly string[];
+  placeholder?: string;
+  itemToStringLabel?: (item: string) => string;
+}) {
   const field = useFieldContext<string | null>();
   return (
     <FormField label={label} className={className}>
       {(control) => (
-        <SearchSelect
+        <ComboboxSelect
           {...control}
-          options={options}
+          items={options}
           value={field.state.value}
-          onChange={field.handleChange}
+          onValueChange={field.handleChange}
           placeholder={placeholder}
+          comboboxProps={{ itemToStringLabel }}
         />
       )}
     </FormField>

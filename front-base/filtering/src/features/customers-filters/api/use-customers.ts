@@ -25,13 +25,12 @@ export function useCustomers(search: CustomersSearch) {
 export function customerOptionsQueryOptions() {
   return queryOptions({
     queryKey: ["customer-options"],
-    queryFn: async () =>
-      (await fetchCustomerOptions()).map((name) => ({ value: name, label: name })),
+    queryFn: fetchCustomerOptions,
     staleTime: Infinity,
   });
 }
 
-/** The hook form of the options query, for `multiSelectField({ useOptions })`. */
+/** The hook form of the options query, for a select field's `source: { useOptions }`. */
 export function useCustomerOptions() {
   const { data = [], isPending, isError } = useQuery(customerOptionsQueryOptions());
   return { options: data, isPending, isError };

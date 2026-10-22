@@ -1,4 +1,5 @@
-import type { SearchSelectOption } from "@/shared/components/ui/search-select";
+import { z } from "zod";
+
 import {
   defineFilter,
   type FilterSearch,
@@ -6,7 +7,6 @@ import {
 } from "@/shared/filtering/definition";
 import {
   dateRangeField,
-  multiSelectField,
   numberRangeField,
   searchField,
   selectField,
@@ -23,10 +23,9 @@ import { useCustomerOptions } from "@/features/customers-filters/api/use-custome
 export const STATUSES = ["pending", "paid", "shipped", "delivered", "cancelled"] as const;
 export type OrderStatus = (typeof STATUSES)[number];
 
-export const STATUS_OPTIONS: SearchSelectOption<OrderStatus>[] = STATUSES.map((value) => ({
-  value,
-  label: value[0].toUpperCase() + value.slice(1),
-}));
+export const LINE_COUNTS = [1, 2, 3, 4, 5];
+
+export const statusLabel = (status: string) => status[0].toUpperCase() + status.slice(1);
 
 /** The table's sortable columns (its column ids) → the Gridify field each orders by. */
 export const SORT_FIELDS = {
@@ -47,16 +46,34 @@ export const ordersFilter = defineFilter({
     status: selectField({
       label: "Status",
       field: "status",
-      options: STATUS_OPTIONS,
+      source: { options: STATUSES },
+      schema: z.enum(STATUSES),
+      comboboxProps: { itemToStringLabel: statusLabel },
       placeholder: "Any status",
       ariaLabel: "Status",
     }),
-    customers: multiSelectField({
-      label: "Customers",
-      field: "customer.name",
+    // Object items from a query: the name is shown, only the customer number is stored.
+    customer: selectField({
+      label: "Customer",
+      field: "customer.customerNo",
       source: { useOptions: useCustomerOptions },
+      schema: z.string(),
+      comboboxProps: {
+        itemToStringLabel: (customer) => customer.name,
+        itemToStringValue: (customer) => customer.customerNo,
+      },
       placeholder: "Any customer",
-      ariaLabel: "Customers",
+      ariaLabel: "Customer",
+    }),
+    // Number items, stored as numbers (`lineCount=2`).
+    lineCount: selectField({
+      label: "Lines",
+      field: "lineCount",
+      source: { options: LINE_COUNTS },
+      schema: z.number(),
+      comboboxProps: { itemToStringLabel: (count) => `${count} line${count === 1 ? "" : "s"}` },
+      placeholder: "Any number of lines",
+      ariaLabel: "Lines",
     }),
     total: numberRangeField({
       label: "Order total (€)",

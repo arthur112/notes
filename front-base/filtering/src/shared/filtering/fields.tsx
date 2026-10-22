@@ -1,14 +1,14 @@
 import { ConditionalOperator as Op } from "gridify-client";
 import { z } from "zod";
 
+import {
+  ComboboxMultiSelect,
+  ComboboxSelect,
+  type ComboboxPassthroughProps,
+} from "@/shared/components/ui/combobox-select";
 import { DateRangePicker, type DateRange } from "@/shared/components/ui/date-picker";
 import { NumberRangeInput, type NumberRange } from "@/shared/components/ui/number-range-input";
 import { SearchInput } from "@/shared/components/ui/search-input";
-import {
-  SearchMultiSelect,
-  SearchSelect,
-  type SearchSelectOption,
-} from "@/shared/components/ui/search-select";
 import { useBufferedValue } from "@/shared/hooks/use-buffered-value";
 import { addDaysYmd, type Ymd } from "@/shared/lib/date";
 
@@ -71,47 +71,10 @@ function BufferedSearch({
   return <SearchInput {...buffered} placeholder={placeholder} aria-label={ariaLabel} />;
 }
 
-// ── Single select ─────────────────────────────────────────────────────────
+// ── Select options ────────────────────────────────────────────────────────
 
-export function selectField<T extends string>({
-  label,
-  field,
-  options,
-  placeholder,
-  ariaLabel,
-}: {
-  label: string;
-  /** The Gridify field the value is compared with `=`. */
-  field: string;
-  options: readonly SearchSelectOption<T>[];
-  placeholder?: string;
-  ariaLabel?: string;
-}): FilterFieldSpec<T, T | null> {
-  const values = options.map((option) => option.value) as [T, ...T[]];
-  return {
-    label,
-    placement: "popover",
-    schema: lenient(z.enum(values)),
-    apply: (builder, value) => {
-      builder.and(true).addCondition(field, Op.Equal, value);
-    },
-    toControlValue: (value) => value ?? null,
-    control: ({ value, onChange }) => (
-      <SearchSelect
-        options={options}
-        value={value}
-        onChange={onChange}
-        placeholder={placeholder}
-        aria-label={ariaLabel}
-      />
-    ),
-  };
-}
-
-// ── Multi select ──────────────────────────────────────────────────────────
-
-export type MultiSelectOptions<T extends string> = {
-  options: readonly SearchSelectOption<T>[];
+export type SelectOptions<T> = {
+  options: readonly T[];
   isPending?: boolean;
   isError?: boolean;
 };
@@ -121,31 +84,123 @@ export type MultiSelectOptions<T extends string> = {
  * them). The hook is called inside the control, so its options query mounts
  * with the popover — the first open fetches them, `staleTime` serves the rest.
  */
-export type MultiSelectSource<T extends string> =
-  | { options: readonly SearchSelectOption<T>[] }
-  | { useOptions: () => MultiSelectOptions<T> };
+export type SelectSource<T> = { options: readonly T[] } | { useOptions: () => SelectOptions<T> };
 
-/** Any number of values, OR-ed together (`country=Germany|country=Sweden`). */
-export function multiSelectField<T extends string>({
+/** A static source as a hook too, so one control serves both. */
+const toOptionsHook = <T,>(source: SelectSource<T>): (() => SelectOptions<T>) =>
+  "useOptions" in source ? source.useOptions : () => source;
+
+const LOADING = "Loading…";
+
+function emptyText({ isPending, isError }: SelectOptions<unknown>, emptyMessage = "No results.") {
+  return isPending ? LOADING : isError ? "Could not load options." : emptyMessage;
+}
+
+/** What a select keeps in the URL and compares in Gridify. */
+type Stored = string | number | boolean;
+
+/**
+ * An item is stored as is, unless `itemToStringValue` is given: then only that
+ * key is stored (`"CUS-1002"`, not the whole customer) and the control finds
+ * the loaded item it belongs to.
+ */
+function storage<T, V extends Stored>(itemToStringValue?: (item: T) => string) {
+  return {
+    toStored: (item: T) => (itemToStringValue ? itemToStringValue(item) : item) as V,
+    toItem: (value: V, options: readonly T[]) =>
+      itemToStringValue
+        ? options.find((option) => itemToStringValue(option) === value)
+        : (value as unknown as T),
+  };
+}
+
+// ── Single select ─────────────────────────────────────────────────────────
+
+/**
+ * One value compared with `=`. `T` is any item (a string, a number, a
+ * boolean, an object); Base UI's props in `comboboxProps` label it
+ * (`itemToStringLabel`) and, for an object, key it (`itemToStringValue`), so
+ * the URL and Gridify get the key. `schema` parses that stored value.
+ */
+export function selectField<T, V extends Stored>({
   label,
   field,
   source,
+  schema,
   placeholder,
   ariaLabel,
   emptyMessage,
+  comboboxProps,
+}: {
+  label: string;
+  /** The Gridify field the value is compared with `=`. */
+  field: string;
+  source: SelectSource<T>;
+  schema: z.ZodType<V, V>;
+  placeholder?: string;
+  ariaLabel?: string;
+  emptyMessage?: string;
+  comboboxProps?: ComboboxPassthroughProps<T>;
+}): FilterFieldSpec<V, V | null> {
+  const { toStored, toItem } = storage<T, V>(comboboxProps?.itemToStringValue);
+  const useOptions = toOptionsHook(source);
+  return {
+    label,
+    placement: "popover",
+    schema: lenient(schema),
+    apply: (builder, value) => {
+      builder.and(true).addCondition(field, Op.Equal, value);
+    },
+    toControlValue: (value) => value ?? null,
+    control: function SelectControl({ value, onChange }) {
+      const state = useOptions();
+      return (
+        <ComboboxSelect
+          items={state.options}
+          value={value === null ? null : (toItem(value, state.options) ?? null)}
+          onValueChange={(item) => onChange(item === null ? null : toStored(item))}
+          placeholder={state.isPending ? LOADING : placeholder}
+          emptyMessage={emptyText(state, emptyMessage)}
+          aria-label={ariaLabel}
+          comboboxProps={comboboxProps}
+        />
+      );
+    },
+  };
+}
+
+// ── Multi select ──────────────────────────────────────────────────────────
+
+/**
+ * Any number of values, OR-ed together (`country=Germany|country=Sweden`).
+ * Items, `schema` (for one value) and `comboboxProps` work as in `selectField`.
+ */
+export function multiSelectField<T, V extends Stored>({
+  label,
+  field,
+  source,
+  schema,
+  placeholder,
+  ariaLabel,
+  emptyMessage,
+  comboboxProps,
 }: {
   label: string;
   /** The Gridify field each value is compared with `=`. */
   field: string;
-  source: MultiSelectSource<T>;
+  source: SelectSource<T>;
+  schema: z.ZodType<V, V>;
   placeholder?: string;
   ariaLabel?: string;
   emptyMessage?: string;
-}): FilterFieldSpec<T[], T[]> {
+  comboboxProps?: ComboboxPassthroughProps<T, true>;
+}): FilterFieldSpec<V[], V[]> {
+  const { toStored, toItem } = storage<T, V>(comboboxProps?.itemToStringValue);
+  const useOptions = toOptionsHook(source);
   return {
     label,
     placement: "popover",
-    schema: lenient(z.array(z.string()).min(1)) as z.ZodType<T[] | undefined, T[] | undefined>,
+    schema: lenient(z.array(schema).min(1)) as z.ZodType<V[] | undefined, V[] | undefined>,
     apply: (builder, values) => {
       builder.and(true).startGroup();
       values.forEach((value, index) => {
@@ -155,57 +210,21 @@ export function multiSelectField<T extends string>({
       builder.endGroup();
     },
     toControlValue: (value) => value ?? [],
-    control:
-      "useOptions" in source
-        ? ({ value, onChange }) => (
-            <LoadedMultiSelect
-              value={value}
-              onChange={onChange}
-              useOptions={source.useOptions}
-              placeholder={placeholder}
-              ariaLabel={ariaLabel}
-              emptyMessage={emptyMessage}
-            />
-          )
-        : ({ value, onChange }) => (
-            <SearchMultiSelect
-              options={source.options}
-              value={value}
-              onChange={onChange}
-              placeholder={placeholder}
-              aria-label={ariaLabel}
-              emptyMessage={emptyMessage}
-            />
-          ),
+    control: function MultiSelectControl({ value, onChange }) {
+      const state = useOptions();
+      return (
+        <ComboboxMultiSelect
+          items={state.options}
+          value={value.flatMap((stored) => toItem(stored, state.options) ?? [])}
+          onValueChange={(items) => onChange(items.map(toStored))}
+          placeholder={state.isPending ? LOADING : placeholder}
+          emptyMessage={emptyText(state, emptyMessage)}
+          aria-label={ariaLabel}
+          comboboxProps={comboboxProps}
+        />
+      );
+    },
   };
-}
-
-function LoadedMultiSelect<T extends string>({
-  value,
-  onChange,
-  useOptions,
-  placeholder,
-  ariaLabel,
-  emptyMessage,
-}: {
-  value: T[];
-  onChange: (next: T[]) => void;
-  useOptions: () => MultiSelectOptions<T>;
-  placeholder?: string;
-  ariaLabel?: string;
-  emptyMessage?: string;
-}) {
-  const { options, isPending, isError } = useOptions();
-  return (
-    <SearchMultiSelect
-      options={options}
-      value={value}
-      onChange={onChange}
-      placeholder={isPending ? "Loading…" : placeholder}
-      emptyMessage={isPending ? "Loading…" : isError ? "Could not load options." : emptyMessage}
-      aria-label={ariaLabel}
-    />
-  );
 }
 
 // ── Number range ──────────────────────────────────────────────────────────
@@ -345,26 +364,13 @@ export function booleanSelectField({
   placeholder?: string;
   ariaLabel?: string;
 }): FilterFieldSpec<boolean, boolean | null> {
-  const options: SearchSelectOption<"true" | "false">[] = [
-    { value: "true", label: trueLabel },
-    { value: "false", label: falseLabel },
-  ];
-  return {
+  return selectField({
     label,
-    placement: "popover",
-    schema: lenient(z.boolean()) as z.ZodType<boolean | undefined, boolean | null | undefined>,
-    apply: (builder, value) => {
-      builder.and(true).addCondition(field, Op.Equal, value);
-    },
-    toControlValue: (value) => value ?? null,
-    control: ({ value, onChange }) => (
-      <SearchSelect
-        options={options}
-        value={value === null ? null : value ? "true" : "false"}
-        onChange={(next) => onChange(next === null ? null : next === "true")}
-        placeholder={placeholder}
-        aria-label={ariaLabel}
-      />
-    ),
-  };
+    field,
+    source: { options: [true, false] },
+    schema: z.boolean(),
+    placeholder,
+    ariaLabel,
+    comboboxProps: { itemToStringLabel: (value) => (value ? trueLabel : falseLabel) },
+  });
 }

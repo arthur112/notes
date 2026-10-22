@@ -28,6 +28,9 @@ export type Customer = {
   createdAt: string; // YYYY-MM-DD
 };
 
+/** What a customer picker needs: the key to filter on and the name to show. */
+export type CustomerRef = Pick<Customer, "customerNo" | "name">;
+
 export type CustomersResponse = Paging<Customer> & RequestLogEntry;
 
 const customers: Customer[] = [
@@ -197,8 +200,8 @@ export async function fetchCustomers(query: IGridifyQuery): Promise<CustomersRes
 }
 
 /** `GET /api/customers/options`: the names the order form's customer picker offers. */
-export async function fetchCustomerOptions(): Promise<string[]> {
+export async function fetchCustomerOptions(): Promise<CustomerRef[]> {
   console.info("[mock] GET /api/customers/options");
   await sleep(300);
-  return customers.map((customer) => customer.name);
+  return customers.map(({ customerNo, name }) => ({ customerNo, name }));
 }

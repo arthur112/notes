@@ -1,4 +1,5 @@
-import type { SearchSelectOption } from "@/shared/components/ui/search-select";
+import { z } from "zod";
+
 import {
   defineFilter,
   type FilterSearch,
@@ -13,6 +14,8 @@ import {
   selectField,
 } from "@/shared/filtering/fields";
 
+import { useCustomerOptions } from "./api/use-customers";
+
 /**
  * The customers filter definition. The schema, the Gridify query and the
  * filter bar all come from this one list of fields; the page and the mock API
@@ -21,11 +24,6 @@ import {
 
 export const SEGMENTS = ["Enterprise", "SMB", "Startup"] as const;
 export type Segment = (typeof SEGMENTS)[number];
-
-export const SEGMENT_OPTIONS: SearchSelectOption<Segment>[] = SEGMENTS.map((value) => ({
-  value,
-  label: value,
-}));
 
 export const COUNTRIES = [
   "United States",
@@ -36,10 +34,7 @@ export const COUNTRIES = [
 ] as const;
 export type Country = (typeof COUNTRIES)[number];
 
-export const COUNTRY_OPTIONS: SearchSelectOption<Country>[] = COUNTRIES.map((value) => ({
-  value,
-  label: value,
-}));
+export const PAYMENT_TERMS = [15, 30, 60, 90];
 
 /** The table's sortable columns (its column ids) → the Gridify field each orders by. */
 export const SORT_FIELDS = {
@@ -61,16 +56,41 @@ export const customersFilter = defineFilter({
     segment: selectField({
       label: "Segment",
       field: "segment",
-      options: SEGMENT_OPTIONS,
+      source: { options: SEGMENTS },
+      schema: z.enum(SEGMENTS),
       placeholder: "Any segment",
       ariaLabel: "Segment",
     }),
     countries: multiSelectField({
       label: "Countries",
       field: "country",
-      source: { options: COUNTRY_OPTIONS },
+      source: { options: COUNTRIES },
+      schema: z.enum(COUNTRIES),
       placeholder: "Any country",
       ariaLabel: "Countries",
+    }),
+    // Object items from a query, many at once: only the customer numbers are stored.
+    customers: multiSelectField({
+      label: "Customers",
+      field: "customerNo",
+      source: { useOptions: useCustomerOptions },
+      schema: z.string(),
+      comboboxProps: {
+        itemToStringLabel: (customer) => customer.name,
+        itemToStringValue: (customer) => customer.customerNo,
+      },
+      placeholder: "Any customer",
+      ariaLabel: "Customers",
+    }),
+    // Number items, many at once (`paymentTerms=[30,60]`).
+    paymentTerms: multiSelectField({
+      label: "Payment terms",
+      field: "paymentTermsDays",
+      source: { options: PAYMENT_TERMS },
+      schema: z.number(),
+      comboboxProps: { itemToStringLabel: (days) => `${days} days` },
+      placeholder: "Any terms",
+      ariaLabel: "Payment terms",
     }),
     active: booleanSelectField({
       label: "Status",

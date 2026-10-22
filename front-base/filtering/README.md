@@ -50,11 +50,17 @@ declaration of their domain's filtering:
 export const customersFilter = defineFilter({
   fields: {
     q: searchField({ fields: ["name", "email"], placeholder: "Name or email…", ariaLabel: "…" }),
-    segment: selectField({ label: "Segment", field: "segment", options: SEGMENT_OPTIONS }),
+    segment: selectField({
+      label: "Segment",
+      field: "segment",
+      source: { options: SEGMENTS },
+      schema: z.enum(SEGMENTS),
+    }),
     countries: multiSelectField({
       label: "Countries",
       field: "country",
-      source: { options: COUNTRY_OPTIONS },
+      source: { options: COUNTRIES },
+      schema: z.enum(COUNTRIES),
     }),
     active: booleanSelectField({ label: "Status", field: "active" }),
     creditLimit: numberRangeField({ label: "Credit limit (€)", field: "creditLimit" }),
@@ -77,20 +83,55 @@ export const customersFilter = defineFilter({
 
 The field builders live in `shared/filtering/fields.tsx`:
 
-| Builder               | Settled value / control input                        | Gridify condition                                      |
-| --------------------- | ---------------------------------------------------- | ------------------------------------------------------ |
-| `searchField`         | `string` / `string`                                  | `(a=*q\|b=*q)` over the listed fields                  |
-| `selectField<T>`      | `T` / `T \| null`                                    | `field=T`                                              |
-| `multiSelectField<T>` | `T[]` / `T[]`                                        | `(field=a\|field=b)`                                   |
-| `numberRangeField`    | `{min?:number,max?:number}` / `{min,max}` strings    | `field>=min,field<=max`                                |
-| `dateRangeField`      | `{from?:Ymd,to?:Ymd}` / `{from,to}` (`null` = unset) | `field>=from,field<to+1d`                              |
-| `booleanSelectField`  | `boolean` / `boolean \| null`                        | `field=true\|false` (a tri-state Active/Inactive pick) |
+| Builder                  | Settled value / control input                        | Gridify condition                                      |
+| ------------------------ | ---------------------------------------------------- | ------------------------------------------------------ |
+| `searchField`            | `string` / `string`                                  | `(a=*q\|b=*q)` over the listed fields                  |
+| `selectField<T, V>`      | `V` / `V \| null` (`V`: the item, or its key)        | `field=V`                                              |
+| `multiSelectField<T, V>` | `V[]` / `V[]`                                        | `(field=a\|field=b)`                                   |
+| `numberRangeField`       | `{min?:number,max?:number}` / `{min,max}` strings    | `field>=min,field<=max`                                |
+| `dateRangeField`         | `{from?:Ymd,to?:Ymd}` / `{from,to}` (`null` = unset) | `field>=from,field<to+1d`                              |
+| `booleanSelectField`     | `boolean` / `boolean \| null`                        | `field=true\|false` (a tri-state Active/Inactive pick) |
 
 Each builder owns its schema, its Gridify condition, its settled→control mapping and its control.
 The typed ones wrap `SearchInput` / `NumberRangeInput` in `useBufferedValue`, so only that field
-re-renders per keystroke. `multiSelectField` takes either static `options` or a `useOptions` hook —
-the orders filter uses `useCustomerOptions`, so the customers picker fetches its options and
-`staleTime: Infinity` serves every later open (and the order form) from cache.
+re-renders per keystroke. Both select builders take a `source` of static `options` or a
+`useOptions` hook — the orders filter uses `useCustomerOptions`, so the customer picker fetches its
+options and `staleTime: Infinity` serves every later open (and the order form) from cache.
+
+Both select builders take items of any type `T` and store a `V` — a string, a number or a boolean —
+which their `schema` parses (one value, for the multi-select). Base UI's own props go through
+`comboboxProps`: `itemToStringLabel` labels an item, and `itemToStringValue` (default `String`) keys
+it. A primitive item is stored as is; with `itemToStringValue`, only the item's key is stored, and the
+control finds the loaded item that key belongs to. So an object item keeps the URL short and Gridify
+gets the key:
+
+```ts
+customer: selectField({
+  label: "Customer",
+  field: "customer.customerNo",
+  source: { useOptions: useCustomerOptions }, // { options: CustomerRef[], isPending, isError }
+  schema: z.string(), // the key
+  comboboxProps: {
+    itemToStringLabel: (customer) => customer.name,
+    itemToStringValue: (customer) => customer.customerNo,
+  },
+}),
+// URL: customer=CUS-1002 · Gridify: customer.customerNo=CUS-1002
+```
+
+The cost: on a deep link, the picker shows its name once the options have loaded, and an unknown
+key (`customer=CUS-9999`) passes the schema, still filters, and shows no item. Every kind of item
+has an example in the two filters, to try by hand:
+
+| Item                  | Single select                             | Multi select             |
+| --------------------- | ----------------------------------------- | ------------------------ |
+| string                | orders `status`, customers `segment`      | customers `countries`    |
+| number                | orders `lineCount`                        | customers `paymentTerms` |
+| object (query, keyed) | orders `customer`                         | customers `customers`    |
+| boolean               | customers `active` (`booleanSelectField`) | —                        |
+
+`lineCount` and `paymentTerms` filter fields the mock data does not have; they are there to show the
+number items (the mock never evaluates the filter anyway).
 
 **One parser, leniently.** `lenient(schema)` makes a key `.optional().nullable()`, normalizes `null`
 to `undefined`, and `.catch`es invalid input to `undefined`. So `?segment=bogus&active=yes&creditLimit={"min":"abc"}&pageSize=7`
@@ -134,12 +175,12 @@ gap: Back/Forward while a typed field still has focus keeps its draft until the 
 The router keeps its default `parseSearch` / `stringifySearch`, which JSON-encodes each value, so the
 search holds the shapes filters need:
 
-| Shape  | Examples (decoded)                                                                | Parsed back as                            |
-| ------ | --------------------------------------------------------------------------------- | ----------------------------------------- |
-| Flat   | `q=acme`, `status=paid`, `active=true`, `page=2`                                  | `"acme"`, `"paid"`, `true`, `2`           |
-| Array  | `customers=["Acme Corp","Globex"]`, `countries=["Germany"]`                       | `["Acme Corp","Globex"]`, `["Germany"]`   |
-| Object | `total={"min":10.5,"max":200}`, `created={"from":"2026-01-01","to":"2026-01-31"}` | `{ min: 10.5, max: 200 }`, `{ from, to }` |
-| Sort   | `sort=[{"id":"total","desc":true},{"id":"customer","desc":false}]`                | `SortingState`                            |
+| Shape  | Examples (decoded)                                                                | Parsed back as                                |
+| ------ | --------------------------------------------------------------------------------- | --------------------------------------------- |
+| Flat   | `q=acme`, `status=paid`, `customer=CUS-1002`, `active=true`, `lineCount=2`        | `"acme"`, `"paid"`, `"CUS-1002"`, `true`, `2` |
+| Array  | `countries=["Germany","Sweden"]`, `paymentTerms=[30,60]`                          | `["Germany","Sweden"]`, `[30, 60]`            |
+| Object | `total={"min":10.5,"max":200}`, `created={"from":"2026-01-01","to":"2026-01-31"}` | `{ min: 10.5, max: 200 }`, `{ from, to }`     |
+| Sort   | `sort=[{"id":"total","desc":true},{"id":"customer","desc":false}]`                | `SortingState`                                |
 
 The cost is readability: values are percent-encoded JSON, and a number-like string is quoted so it
 stays a string (`q: "123"` → `q=%22123%22`). A hand-typed `?q=123` arrives as the number `123`, so
@@ -162,30 +203,34 @@ goal is to check that each filter change triggers a request and produces the exp
 `useSyncExternalStore(subscribeRequestLog, getRequestLog)`; the mock records into it, so the page
 needs no effect.
 
-`customers-api.ts` also serves `GET /api/customers/options` — the names the order form's customer
-picker offers (`customerOptionsQueryOptions`, `staleTime: Infinity`). The filter's customers
-multi-select shares that cache through `useCustomerOptions`.
+`customers-api.ts` also serves `GET /api/customers/options` — `{ customerNo, name }` refs for the
+customer pickers (`customerOptionsQueryOptions`, `staleTime: Infinity`). The order form `select`s
+their names (orders reference customers by name); the orders filter's customer select and the
+customers filter's customers multi-select share the cache through `useCustomerOptions`.
 
 ## Filters
 
-Both definitions use the same six control types; only the fields differ.
+Both definitions use the same control types; only the fields differ.
 
-| Orders control  | Key         | Gridify output                                    |
-| --------------- | ----------- | ------------------------------------------------- |
-| Search          | `q`         | `(orderNo=*q\|customer.name=*q)`                  |
-| Status          | `status`    | `status=paid`                                     |
-| Customers       | `customers` | `(customer.name=Acme Corp\|customer.name=Globex)` |
-| Order total (€) | `total`     | `total>=10.5,total<=200`                          |
-| Created between | `created`   | `createdAt>=2026-01-01,createdAt<2026-02-01`      |
+| Orders control  | Key         | Gridify output                               |
+| --------------- | ----------- | -------------------------------------------- |
+| Search          | `q`         | `(orderNo=*q\|customer.name=*q)`             |
+| Status          | `status`    | `status=paid`                                |
+| Customer        | `customer`  | `customer.customerNo=CUS-1002`               |
+| Lines           | `lineCount` | `lineCount=2`                                |
+| Order total (€) | `total`     | `total>=10.5,total<=200`                     |
+| Created between | `created`   | `createdAt>=2026-01-01,createdAt<2026-02-01` |
 
-| Customers control | Key           | Gridify output                               |
-| ----------------- | ------------- | -------------------------------------------- |
-| Search            | `q`           | `(name=*q\|email=*q)`                        |
-| Segment           | `segment`     | `segment=Enterprise`                         |
-| Countries         | `countries`   | `(country=Germany\|country=Sweden)`          |
-| Status            | `active`      | `active=true` / `active=false`               |
-| Credit limit (€)  | `creditLimit` | `creditLimit>=10000,creditLimit<=500000`     |
-| Customer since    | `created`     | `createdAt>=2025-01-01,createdAt<2026-01-01` |
+| Customers control | Key            | Gridify output                               |
+| ----------------- | -------------- | -------------------------------------------- |
+| Search            | `q`            | `(name=*q\|email=*q)`                        |
+| Segment           | `segment`      | `segment=Enterprise`                         |
+| Countries         | `countries`    | `(country=Germany\|country=Sweden)`          |
+| Customers         | `customers`    | `(customerNo=CUS-1001\|customerNo=CUS-1002)` |
+| Payment terms     | `paymentTerms` | `(paymentTermsDays=30\|paymentTermsDays=60)` |
+| Status            | `active`       | `active=true` / `active=false`               |
+| Credit limit (€)  | `creditLimit`  | `creditLimit>=10000,creditLimit<=500000`     |
+| Customer since    | `created`      | `createdAt>=2025-01-01,createdAt<2026-01-01` |
 
 The calendar's `to` is inclusive in the UI and becomes an exclusive next-day bound in the query.
 
@@ -230,7 +275,7 @@ The URL holds the state, so Back/Forward and deep links cover sorting and paging
 | `sort`     | `sort=[{"id":"total","desc":true},{"id":"customer","desc":false}]` | `orderBy=total desc, customer.name` | the server's order |
 
 `sort` is the table's `SortingState` as is; a definition's `sortFields` maps each column id to its
-Gridify field (`customer` → `customer.name`, the same field the filter uses). Click a header to sort
+Gridify field (`customer` → `customer.name`, the same field the search uses). Click a header to sort
 (Shift+click adds a column). A filter or sort change goes back to page 1, and page 1 and the default
 page size stay out of the URL, so `/orders` and `/orders?page=1` share one cache entry. Invalid
 values (`page=abc`, `pageSize=7`, an unknown column) are dropped like the filter's. The footer's
@@ -250,11 +295,12 @@ shared/filtering/
 ```
 
 The UI controls themselves stay in `shared/components/ui/` and are shared with the order form:
-`SearchInput`, `NumberInput` / `NumberRangeInput`, `SearchSelect` / `SearchMultiSelect`,
-`DatePicker` / `DateRangePicker`. They share one contract: controlled (`value` + `onChange(next)`),
-one size (`CONTROL_CLASS`: `h-9 w-full`), label-ready (`ControlProps`), and raw string numbers so a
-half-typed value survives a re-render. `SearchSelect`'s clear X is a sibling of the popover trigger
-(not inside it), since a button cannot nest in the trigger's button.
+`SearchInput`, `NumberInput` / `NumberRangeInput`, `DatePicker` / `DateRangePicker`,
+`ComboboxSelect` / `ComboboxMultiSelect`. They share one contract: controlled (`value` +
+`onChange(next)`), one size (`CONTROL_CLASS`: `h-9 w-full`), label-ready (`ControlProps`), and raw
+string numbers so a half-typed value survives a re-render. The selects (`combobox-select.tsx`) wrap
+shadcn's stock `Combobox` (Base UI, `npx shadcn@latest add combobox`) over items of any type — an
+input with a clear button for one value, chips for many — and pass `comboboxProps` through to it.
 
 ## Order form (TanStack Form)
 

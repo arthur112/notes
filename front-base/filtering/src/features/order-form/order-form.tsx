@@ -3,7 +3,7 @@ import { Link, useBlocker, useNavigate } from "@tanstack/react-router";
 
 import { customerOptionsQueryOptions } from "@/features/customers-filters/api/use-customers";
 import { isReferenceTaken, type OrderDetail } from "@/features/orders-filters/api/orders-api";
-import { STATUS_OPTIONS } from "@/features/orders-filters/filter";
+import { STATUSES, statusLabel } from "@/features/orders-filters/filter";
 import { useAppForm } from "@/shared/components/form/use-app-form";
 import { buttonVariants } from "@/shared/components/ui/button";
 
@@ -17,7 +17,11 @@ import { OrderLines } from "./order-lines";
 export function OrderForm({ order }: { order?: OrderDetail }) {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
-  const { data: customers = [] } = useQuery(customerOptionsQueryOptions());
+  // orders reference customers by name
+  const { data: customers = [] } = useQuery({
+    ...customerOptionsQueryOptions(),
+    select: (refs) => refs.map((customer) => customer.name),
+  });
 
   const form = useAppForm({
     ...orderFormOptions,
@@ -55,7 +59,9 @@ export function OrderForm({ order }: { order?: OrderDetail }) {
           )}
         </form.AppField>
         <form.AppField name="status">
-          {(field) => <field.SelectField label="Status" options={STATUS_OPTIONS} />}
+          {(field) => (
+            <field.SelectField label="Status" options={STATUSES} itemToStringLabel={statusLabel} />
+          )}
         </form.AppField>
         <form.AppField name="dueDate">
           {(field) => <field.DateField label="Due date" />}
