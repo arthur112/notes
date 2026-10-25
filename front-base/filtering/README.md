@@ -99,27 +99,25 @@ re-renders per keystroke. Both select builders take a `source` of static `option
 options and `staleTime: Infinity` serves every later open (and the order form) from cache.
 
 Both select builders take items of any type `T` and store a `V` — a string, a number or a boolean —
-which their `schema` parses (one value, for the multi-select). Like a native `<select>`,
-`ComboboxSelect` holds that value, not the item: a primitive item is its own value, and
-`itemToValue` takes the key from an object item (`customer.customerNo`, or a numeric `product.id`).
-The control finds the loaded item that key belongs to, so an object item keeps the URL short and
-Gridify gets the key. `V` is inferred from `itemToValue` and must match `schema`, so a number key
-with `z.string()` is a compile error. Base UI's own props go through `comboboxProps`;
-`itemToStringLabel` labels an item, and Base UI's `itemToStringValue` is derived from `itemToValue`.
+which their `schema` parses (one value, for the multi-select). Base UI's own props go through
+`comboboxProps`: `itemToStringLabel` labels an item, and `itemToStringValue` (default `String`) keys
+it. A primitive item is stored as is; with `itemToStringValue`, only the item's key is stored, and the
+control finds the loaded item that key belongs to. So an object item keeps the URL short and Gridify
+gets the key:
 
 ```ts
 customer: selectField({
   label: "Customer",
   field: "customer.customerNo",
   source: { useOptions: useCustomerOptions }, // { options: CustomerRef[], isPending, isError }
-  itemToValue: (customer) => customer.customerNo, // the key: V = string
-  schema: z.string(),
-  comboboxProps: { itemToStringLabel: (customer) => customer.name },
+  schema: z.string(), // the key
+  comboboxProps: {
+    itemToStringLabel: (customer) => customer.name,
+    itemToStringValue: (customer) => customer.customerNo,
+  },
 }),
 // URL: customer=CUS-1002 · Gridify: customer.customerNo=CUS-1002
 ```
-
-The order form's `SelectField` takes the same `itemToValue`, so a form field can hold a key too.
 
 The cost: on a deep link, the picker shows its name once the options have loaded, and an unknown
 key (`customer=CUS-9999`) passes the schema, still filters, and shows no item. Every kind of item
