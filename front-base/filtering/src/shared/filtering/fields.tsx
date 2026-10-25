@@ -30,7 +30,12 @@ export type SearchFieldConfig = {
   fields: readonly string[];
 };
 
-/** Free text matched with `Contains` against one or more fields (OR). */
+const NUMBER = /^-?\d+(\.\d+)?$/;
+
+/**
+ * Free text matched with `Contains` against one or more fields (OR); a number
+ * (`123`, `-4.5`) is matched with `=` instead.
+ */
 export function searchField({
   label = "Search",
   placeholder,
@@ -42,10 +47,11 @@ export function searchField({
     placement: "inline",
     schema: lenient(text) as z.ZodType<string | undefined, string | undefined>,
     apply: (builder, query) => {
+      const op = NUMBER.test(query) ? Op.Equal : Op.Contains;
       builder.and(true).startGroup();
       fields.forEach((field, index) => {
         if (index > 0) builder.or();
-        builder.addCondition(field, Op.Contains, query);
+        builder.addCondition(field, op, query);
       });
       builder.endGroup();
     },

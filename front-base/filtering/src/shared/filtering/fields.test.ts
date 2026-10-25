@@ -26,8 +26,10 @@ describe("searchField", () => {
 
   it.each([
     [" ada ", "(name=*ada|email=*ada)"],
-    // the router JSON-parses `?q=123` into a number
-    [123, "(name=*123|email=*123)"],
+    // a number is matched strictly; the router JSON-parses `?q=123` into one
+    [123, "(name=123|email=123)"],
+    [" 4.5 ", "(name=4.5|email=4.5)"],
+    ["a1", "(name=*a1|email=*a1)"],
     // Gridify's special characters are escaped
     ["a,b|c", "(name=*a\\,b\\|c|email=*a\\,b\\|c)"],
     ["   ", undefined],

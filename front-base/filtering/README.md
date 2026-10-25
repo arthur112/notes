@@ -83,14 +83,14 @@ export const customersFilter = defineFilter({
 
 The field builders live in `shared/filtering/fields.tsx`:
 
-| Builder                  | Settled value / control input                        | Gridify condition                                      |
-| ------------------------ | ---------------------------------------------------- | ------------------------------------------------------ |
-| `searchField`            | `string` / `string`                                  | `(a=*q\|b=*q)` over the listed fields                  |
-| `selectField<T, V>`      | `V` / `V \| null` (`V`: the item, or its key)        | `field=V`                                              |
-| `multiSelectField<T, V>` | `V[]` / `V[]`                                        | `(field=a\|field=b)`                                   |
-| `numberRangeField`       | `{min?:number,max?:number}` / `{min,max}` strings    | `field>=min,field<=max`                                |
-| `dateRangeField`         | `{from?:Ymd,to?:Ymd}` / `{from,to}` (`null` = unset) | `field>=from,field<to+1d` (local midnights, as UTC)    |
-| `booleanSelectField`     | `boolean` / `boolean \| null`                        | `field=true\|false` (a tri-state Active/Inactive pick) |
+| Builder                  | Settled value / control input                        | Gridify condition                                         |
+| ------------------------ | ---------------------------------------------------- | --------------------------------------------------------- |
+| `searchField`            | `string` / `string`                                  | `(a=*q\|b=*q)` over the listed fields; `a=q` for a number |
+| `selectField<T, V>`      | `V` / `V \| null` (`V`: the item, or its key)        | `field=V`                                                 |
+| `multiSelectField<T, V>` | `V[]` / `V[]`                                        | `(field=a\|field=b)`                                      |
+| `numberRangeField`       | `{min?:number,max?:number}` / `{min,max}` strings    | `field>=min,field<=max`                                   |
+| `dateRangeField`         | `{from?:Ymd,to?:Ymd}` / `{from,to}` (`null` = unset) | `field>=from,field<to+1d` (local midnights, as UTC)       |
+| `booleanSelectField`     | `boolean` / `boolean \| null`                        | `field=true\|false` (a tri-state Active/Inactive pick)    |
 
 Each builder owns its schema, its Gridify condition, its settled→control mapping and its control.
 The typed ones wrap `SearchInput` / `NumberRangeInput` in `useBufferedValue`, so only that field
