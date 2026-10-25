@@ -57,11 +57,9 @@ export const ordersFilter = defineFilter({
       label: "Customer",
       field: "customer.customerNo",
       source: { useOptions: useCustomerOptions },
+      itemToValue: (customer) => customer.customerNo,
       schema: z.string(),
-      comboboxProps: {
-        itemToStringLabel: (customer) => customer.name,
-        itemToStringValue: (customer) => customer.customerNo,
-      },
+      comboboxProps: { itemToStringLabel: (customer) => customer.name },
       placeholder: "Any customer",
       ariaLabel: "Customer",
     }),

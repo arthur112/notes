@@ -1,7 +1,7 @@
 import { useId, type ReactNode } from "react";
 
 import { Button } from "@/shared/components/ui/button";
-import { ComboboxSelect } from "@/shared/components/ui/combobox-select";
+import { ComboboxSelect, type SelectValue } from "@/shared/components/ui/combobox-select";
 import { CONTROL_CLASS, type ControlProps } from "@/shared/components/ui/control";
 import { DatePicker } from "@/shared/components/ui/date-picker";
 import { Input } from "@/shared/components/ui/input";
@@ -102,24 +102,28 @@ export function NumberField({ label, className }: FieldProps) {
   );
 }
 
-export function SelectField({
+/** Options of any type; the field holds the option itself, or the key `itemToValue` takes from it. */
+export function SelectField<T, V extends SelectValue>({
   label,
   className,
   options,
+  itemToValue,
   placeholder,
   itemToStringLabel = String,
 }: FieldProps & {
-  options: readonly string[];
+  options: readonly T[];
+  itemToValue?: (item: T) => V;
   placeholder?: string;
-  itemToStringLabel?: (item: string) => string;
+  itemToStringLabel?: (item: T) => string;
 }) {
-  const field = useFieldContext<string | null>();
+  const field = useFieldContext<V | null>();
   return (
     <FormField label={label} className={className}>
       {(control) => (
         <ComboboxSelect
           {...control}
           items={options}
+          itemToValue={itemToValue}
           value={field.state.value}
           onValueChange={field.handleChange}
           placeholder={placeholder}

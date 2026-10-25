@@ -52,6 +52,28 @@ describe("selectField", () => {
   ])("%j → %s", (input, expected) => {
     expect(filterOf(field, input)).toBe(expected);
   });
+
+  it("keys object items by `itemToValue`, typed like the schema", () => {
+    const products = [{ id: 42, name: "Widget" }];
+    const product = selectField({
+      label: "",
+      field: "productId",
+      source: { options: products },
+      itemToValue: (p) => p.id,
+      schema: z.number(),
+    });
+    expect(filterOf(product, 42)).toBe("productId=42");
+    expect(filterOf(product, "42")).toBeUndefined();
+
+    selectField({
+      label: "",
+      field: "productId",
+      source: { options: products },
+      // @ts-expect-error a number key doesn't match a string schema
+      itemToValue: (p) => p.id,
+      schema: z.string(),
+    });
+  });
 });
 
 describe("booleanSelectField", () => {
