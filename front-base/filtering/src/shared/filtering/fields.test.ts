@@ -52,6 +52,18 @@ describe("selectField", () => {
   ])("%j → %s", (input, expected) => {
     expect(filterOf(field, input)).toBe(expected);
   });
+
+  it("stores an object item's key with its own type", () => {
+    const product = selectField({
+      label: "",
+      field: "productId",
+      source: { options: [{ label: "Widget", value: 42 }] },
+      itemToValue: (option) => option.value,
+      schema: z.number(),
+    });
+    expect(filterOf(product, 42)).toBe("productId=42");
+    expect(filterOf(product, "42")).toBeUndefined();
+  });
 });
 
 describe("booleanSelectField", () => {

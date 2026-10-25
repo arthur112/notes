@@ -100,17 +100,19 @@ function emptyText({ isPending, isError }: SelectOptions<unknown>, emptyMessage 
 type Stored = string | number | boolean;
 
 /**
- * An item is stored as is, unless `itemToStringValue` is given: then only that
- * key is stored (`"CUS-1002"`, not the whole customer) and the control finds
- * the loaded item it belongs to.
+ * An item is stored as is, unless `itemToValue` is given: then only that key
+ * is stored, with its own type (`"CUS-1002"` or `42`, not the whole item), and
+ * the control finds the loaded item it belongs to. Base UI keys the options
+ * by that key as text.
  */
-function storage<T, V extends Stored>(itemToStringValue?: (item: T) => string) {
+function storage<T, V extends Stored>(itemToValue?: (item: T) => V) {
   return {
-    toStored: (item: T) => (itemToStringValue ? itemToStringValue(item) : item) as V,
+    toStored: (item: T) => (itemToValue ? itemToValue(item) : (item as unknown as V)),
     toItem: (value: V, options: readonly T[]) =>
-      itemToStringValue
-        ? options.find((option) => itemToStringValue(option) === value)
+      itemToValue
+        ? options.find((option) => itemToValue(option) === value)
         : (value as unknown as T),
+    itemToStringValue: itemToValue && ((item: T) => String(itemToValue(item))),
   };
 }
 
@@ -118,14 +120,15 @@ function storage<T, V extends Stored>(itemToStringValue?: (item: T) => string) {
 
 /**
  * One value compared with `=`. `T` is any item (a string, a number, a
- * boolean, an object); Base UI's props in `comboboxProps` label it
- * (`itemToStringLabel`) and, for an object, key it (`itemToStringValue`), so
- * the URL and Gridify get the key. `schema` parses that stored value.
+ * boolean, an object), labelled by `comboboxProps.itemToStringLabel`. For an
+ * object, `itemToValue` picks its key, so the URL and Gridify get the key.
+ * `schema` parses that stored value, so its type must match the key's.
  */
 export function selectField<T, V extends Stored>({
   label,
   field,
   source,
+  itemToValue,
   schema,
   placeholder,
   ariaLabel,
@@ -136,13 +139,15 @@ export function selectField<T, V extends Stored>({
   /** The Gridify field the value is compared with `=`. */
   field: string;
   source: SelectSource<T>;
+  /** The key an object item is stored as (`customer.customerNo`, `option.value`). */
+  itemToValue?: (item: T) => V;
   schema: z.ZodType<V, V>;
   placeholder?: string;
   ariaLabel?: string;
   emptyMessage?: string;
   comboboxProps?: ComboboxPassthroughProps<T>;
 }): FilterFieldSpec<V, V | null> {
-  const { toStored, toItem } = storage<T, V>(comboboxProps?.itemToStringValue);
+  const { toStored, toItem, itemToStringValue } = storage(itemToValue);
   const useOptions = toOptionsHook(source);
   return {
     label,
@@ -162,7 +167,7 @@ export function selectField<T, V extends Stored>({
           placeholder={state.isPending ? LOADING : placeholder}
           emptyMessage={emptyText(state, emptyMessage)}
           aria-label={ariaLabel}
-          comboboxProps={comboboxProps}
+          comboboxProps={{ itemToStringValue, ...comboboxProps }}
         />
       );
     },
@@ -173,12 +178,14 @@ export function selectField<T, V extends Stored>({
 
 /**
  * Any number of values, OR-ed together (`country=Germany|country=Sweden`).
- * Items, `schema` (for one value) and `comboboxProps` work as in `selectField`.
+ * Items, `itemToValue`, `schema` (for one value) and `comboboxProps` work as
+ * in `selectField`.
  */
 export function multiSelectField<T, V extends Stored>({
   label,
   field,
   source,
+  itemToValue,
   schema,
   placeholder,
   ariaLabel,
@@ -189,13 +196,14 @@ export function multiSelectField<T, V extends Stored>({
   /** The Gridify field each value is compared with `=`. */
   field: string;
   source: SelectSource<T>;
+  itemToValue?: (item: T) => V;
   schema: z.ZodType<V, V>;
   placeholder?: string;
   ariaLabel?: string;
   emptyMessage?: string;
   comboboxProps?: ComboboxPassthroughProps<T, true>;
 }): FilterFieldSpec<V[], V[]> {
-  const { toStored, toItem } = storage<T, V>(comboboxProps?.itemToStringValue);
+  const { toStored, toItem, itemToStringValue } = storage(itemToValue);
   const useOptions = toOptionsHook(source);
   return {
     label,
@@ -220,7 +228,7 @@ export function multiSelectField<T, V extends Stored>({
           placeholder={state.isPending ? LOADING : placeholder}
           emptyMessage={emptyText(state, emptyMessage)}
           aria-label={ariaLabel}
-          comboboxProps={comboboxProps}
+          comboboxProps={{ itemToStringValue, ...comboboxProps }}
         />
       );
     },

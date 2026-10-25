@@ -99,22 +99,20 @@ re-renders per keystroke. Both select builders take a `source` of static `option
 options and `staleTime: Infinity` serves every later open (and the order form) from cache.
 
 Both select builders take items of any type `T` and store a `V` — a string, a number or a boolean —
-which their `schema` parses (one value, for the multi-select). Base UI's own props go through
-`comboboxProps`: `itemToStringLabel` labels an item, and `itemToStringValue` (default `String`) keys
-it. A primitive item is stored as is; with `itemToStringValue`, only the item's key is stored, and the
-control finds the loaded item that key belongs to. So an object item keeps the URL short and Gridify
-gets the key:
+which their `schema` parses (one value, for the multi-select). A primitive item is stored as is; for
+an object item, `itemToValue` picks the key to store (`customer.customerNo`, or a number like
+`option.value`), with its own type, and the control finds the loaded item that key belongs to. So an
+object item keeps the URL short and Gridify gets the key. Base UI's own props go through
+`comboboxProps`: `itemToStringLabel` labels an item.
 
 ```ts
 customer: selectField({
   label: "Customer",
   field: "customer.customerNo",
   source: { useOptions: useCustomerOptions }, // { options: CustomerRef[], isPending, isError }
-  schema: z.string(), // the key
-  comboboxProps: {
-    itemToStringLabel: (customer) => customer.name,
-    itemToStringValue: (customer) => customer.customerNo,
-  },
+  itemToValue: (customer) => customer.customerNo, // the key
+  schema: z.string(), // parses the key: z.number() for a number key
+  comboboxProps: { itemToStringLabel: (customer) => customer.name },
 }),
 // URL: customer=CUS-1002 · Gridify: customer.customerNo=CUS-1002
 ```
