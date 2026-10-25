@@ -117,9 +117,18 @@ describe("dateRangeField", () => {
 
   it.each([
     // inclusive `to` → exclusive next day
-    [{ from: "2024-01-01", to: "2024-01-31" }, "createdAt>=2024-01-01,createdAt<2024-02-01"],
-    [{ from: null, to: "2024-12-31" }, "createdAt<2025-01-01"],
-    [{ from: null, to: "2024-02-28" }, "createdAt<2024-02-29"],
+    [
+      { from: "2024-01-01", to: "2024-01-31" },
+      "createdAt>=2023-12-31T23:00:00Z,createdAt<2024-01-31T23:00:00Z",
+    ],
+    [{ from: null, to: "2024-12-31" }, "createdAt<2024-12-31T23:00:00Z"],
+    [{ from: null, to: "2024-02-28" }, "createdAt<2024-02-28T23:00:00Z"],
+    // Brussels midnights (`TZ` in vite.config.ts): UTC+1 in winter, UTC+2 in summer (clocks change 31 Mar / 27 Oct 2024)
+    [
+      { from: "2024-03-31", to: "2024-10-26" },
+      "createdAt>=2024-03-30T23:00:00Z,createdAt<2024-10-26T22:00:00Z",
+    ],
+    [{ from: "2024-07-01", to: null }, "createdAt>=2024-06-30T22:00:00Z"],
     [{ from: "nope", to: null }, undefined],
     [{ from: null, to: null }, undefined],
   ])("%j → %s", (input, expected) => {

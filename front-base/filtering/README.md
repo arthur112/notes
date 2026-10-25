@@ -89,7 +89,7 @@ The field builders live in `shared/filtering/fields.tsx`:
 | `selectField<T, V>`      | `V` / `V \| null` (`V`: the item, or its key)        | `field=V`                                              |
 | `multiSelectField<T, V>` | `V[]` / `V[]`                                        | `(field=a\|field=b)`                                   |
 | `numberRangeField`       | `{min?:number,max?:number}` / `{min,max}` strings    | `field>=min,field<=max`                                |
-| `dateRangeField`         | `{from?:Ymd,to?:Ymd}` / `{from,to}` (`null` = unset) | `field>=from,field<to+1d`                              |
+| `dateRangeField`         | `{from?:Ymd,to?:Ymd}` / `{from,to}` (`null` = unset) | `field>=from,field<to+1d` (local midnights, as UTC)    |
 | `booleanSelectField`     | `boolean` / `boolean \| null`                        | `field=true\|false` (a tri-state Active/Inactive pick) |
 
 Each builder owns its schema, its Gridify condition, its settled→control mapping and its control.
@@ -212,27 +212,37 @@ customers filter's customers multi-select share the cache through `useCustomerOp
 
 Both definitions use the same control types; only the fields differ.
 
-| Orders control  | Key         | Gridify output                               |
-| --------------- | ----------- | -------------------------------------------- |
-| Search          | `q`         | `(orderNo=*q\|customer.name=*q)`             |
-| Status          | `status`    | `status=paid`                                |
-| Customer        | `customer`  | `customer.customerNo=CUS-1002`               |
-| Lines           | `lineCount` | `lineCount=2`                                |
-| Order total (€) | `total`     | `total>=10.5,total<=200`                     |
-| Created between | `created`   | `createdAt>=2026-01-01,createdAt<2026-02-01` |
+| Orders control  | Key         | Gridify output                                                   |
+| --------------- | ----------- | ---------------------------------------------------------------- |
+| Search          | `q`         | `(orderNo=*q\|customer.name=*q)`                                 |
+| Status          | `status`    | `status=paid`                                                    |
+| Customer        | `customer`  | `customer.customerNo=CUS-1002`                                   |
+| Lines           | `lineCount` | `lineCount=2`                                                    |
+| Order total (€) | `total`     | `total>=10.5,total<=200`                                         |
+| Created between | `created`   | `createdAt>=2025-12-31T23:00:00Z,createdAt<2026-01-31T23:00:00Z` |
 
-| Customers control | Key            | Gridify output                               |
-| ----------------- | -------------- | -------------------------------------------- |
-| Search            | `q`            | `(name=*q\|email=*q)`                        |
-| Segment           | `segment`      | `segment=Enterprise`                         |
-| Countries         | `countries`    | `(country=Germany\|country=Sweden)`          |
-| Customers         | `customers`    | `(customerNo=CUS-1001\|customerNo=CUS-1002)` |
-| Payment terms     | `paymentTerms` | `(paymentTermsDays=30\|paymentTermsDays=60)` |
-| Status            | `active`       | `active=true` / `active=false`               |
-| Credit limit (€)  | `creditLimit`  | `creditLimit>=10000,creditLimit<=500000`     |
-| Customer since    | `created`      | `createdAt>=2025-01-01,createdAt<2026-01-01` |
+| Customers control | Key            | Gridify output                                                   |
+| ----------------- | -------------- | ---------------------------------------------------------------- |
+| Search            | `q`            | `(name=*q\|email=*q)`                                            |
+| Segment           | `segment`      | `segment=Enterprise`                                             |
+| Countries         | `countries`    | `(country=Germany\|country=Sweden)`                              |
+| Customers         | `customers`    | `(customerNo=CUS-1001\|customerNo=CUS-1002)`                     |
+| Payment terms     | `paymentTerms` | `(paymentTermsDays=30\|paymentTermsDays=60)`                     |
+| Status            | `active`       | `active=true` / `active=false`                                   |
+| Credit limit (€)  | `creditLimit`  | `creditLimit>=10000,creditLimit<=500000`                         |
+| Customer since    | `created`      | `createdAt>=2024-12-31T23:00:00Z,createdAt<2025-12-31T23:00:00Z` |
 
 The calendar's `to` is inclusive in the UI and becomes an exclusive next-day bound in the query.
+The URL keeps the short `YYYY-MM-DD` bounds. A day is a day in the browser's time zone, and the
+query sends the UTC instant it starts at, in ISO 8601 (`shared/lib/date.ts`). In Brussels,
+`2026-01-01` starts at `2025-12-31T23:00:00Z` (the examples above) and `2026-07-01` at
+`2026-06-30T22:00:00Z`; in New York, `2026-01-01` starts at `2026-01-01T05:00:00Z`. The same URL
+therefore means each viewer's own days, which suits timestamps with no place attached (created at,
+last login). The backend stores and compares UTC only: a .NET 10 API binds the bound to a UTC
+`DateTime` (or a `DateTimeOffset`) with no setup. "Today" (`todayYmd`) and `formatDate` use the
+browser's zone too, so the calendar, the filter and the displayed dates agree. Tests pin
+`TZ=Europe/Brussels` in `vite.config.ts`. A date that belongs to a place (a shop's sales day) would
+instead be a `DateOnly` column, filtered with the bare `YYYY-MM-DD` form.
 
 Checked in headless Chromium. Each settled change produces exactly one request (the loader and the
 page share the cache entry); Back/Forward and revisits within the 30 s `staleTime` are served from

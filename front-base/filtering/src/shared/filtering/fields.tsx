@@ -10,7 +10,7 @@ import { DateRangePicker, type DateRange } from "@/shared/components/ui/date-pic
 import { NumberRangeInput, type NumberRange } from "@/shared/components/ui/number-range-input";
 import { SearchInput } from "@/shared/components/ui/search-input";
 import { useBufferedValue } from "@/shared/hooks/use-buffered-value";
-import { addDaysYmd, type Ymd } from "@/shared/lib/date";
+import { addDaysYmd, ymdToUtcIso, type Ymd } from "@/shared/lib/date";
 
 import { amount, lenient, text, type FilterFieldSpec } from "./definition";
 
@@ -309,7 +309,11 @@ const dateRangeSchema = z
   .object({ from: dateOrNull, to: dateOrNull })
   .refine(({ from, to }) => from ?? to);
 
-/** Inclusive `from`–`to`; the query turns `to` into an exclusive next day. */
+/**
+ * Inclusive `from`–`to`, as days in the browser's time zone. The query sends the
+ * UTC instant each day starts at (what .NET binds to a UTC `DateTime`) and turns
+ * `to` into an exclusive next day.
+ */
 export function dateRangeField({
   label,
   field,
@@ -330,9 +334,12 @@ export function dateRangeField({
       DateRange | undefined
     >,
     apply: (builder, value) => {
-      if (value.from) builder.and(true).addCondition(field, Op.GreaterThanOrEqual, value.from);
+      if (value.from)
+        builder.and(true).addCondition(field, Op.GreaterThanOrEqual, ymdToUtcIso(value.from));
       // inclusive `to` → exclusive next-day upper bound
-      if (value.to) builder.and(true).addCondition(field, Op.LessThan, addDaysYmd(value.to, 1));
+      if (value.to) {
+        builder.and(true).addCondition(field, Op.LessThan, ymdToUtcIso(addDaysYmd(value.to, 1)));
+      }
     },
     toControlValue: (value) => ({ from: value?.from ?? null, to: value?.to ?? null }),
     control: ({ value, onChange }) => (

@@ -37,7 +37,7 @@ describe("customers Gridify query", () => {
       filter:
         "(name=*ada|email=*ada),segment=SMB,(country=Germany|country=Sweden)," +
         "(customerNo=CUS-1002),(paymentTermsDays=30),active=false,creditLimit>=10.5," +
-        "createdAt>=2024-01-01,createdAt<2024-02-01",
+        "createdAt>=2023-12-31T23:00:00Z,createdAt<2024-01-31T23:00:00Z",
     });
   });
 
