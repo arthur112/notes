@@ -81,7 +81,8 @@ export const customersFilter = defineFilter({
 | `FilterSearch<M>`               | The settled search (parsed numbers, booleans, `Ymd` bounds).                                                               |
 | `FilterSearchInput<M>`          | What a patch may hold: a control's **raw** value (`{ min: "10,5" }`) **or** a settled one (`{ min: 10.5 }`).               |
 
-The field builders live in `shared/filtering/fields.tsx`:
+The field builders live in `shared/filtering/fields.tsx`; their schema and Gridify condition come
+from `field-queries.ts`, which imports no UI, so its tests load without the components:
 
 | Builder                  | Settled value / control input                        | Gridify condition                                         |
 | ------------------------ | ---------------------------------------------------- | --------------------------------------------------------- |

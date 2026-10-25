@@ -1,4 +1,3 @@
-import { ConditionalOperator as Op } from "gridify-client";
 import { z } from "zod";
 
 import {
@@ -10,14 +9,24 @@ import { DateRangePicker, type DateRange } from "@/shared/components/ui/date-pic
 import { NumberRangeInput, type NumberRange } from "@/shared/components/ui/number-range-input";
 import { SearchInput } from "@/shared/components/ui/search-input";
 import { useBufferedValue } from "@/shared/hooks/use-buffered-value";
-import { addDaysYmd, ymdToUtcIso, type Ymd } from "@/shared/lib/date";
 
-import { amount, lenient, text, type FilterFieldSpec } from "./definition";
+import type { FilterFieldSpec } from "./definition";
+import {
+  dateRangeQuery,
+  multiSelectQuery,
+  numberRangeQuery,
+  searchQuery,
+  selectQuery,
+  type DateRangeValue,
+  type NumberRangeValue,
+  type Stored,
+} from "./field-queries";
 
 /**
  * The field builders. Each returns a complete `FilterFieldSpec`: schema,
  * Gridify condition, control value mapping and control — so an entity's filter
- * is a list of calls, not a schema + a query + a bar wired by hand.
+ * is a list of calls, not a schema + a query + a bar wired by hand. The schema
+ * and condition come from `field-queries.ts`; this file adds the controls.
  */
 
 // ── Search ────────────────────────────────────────────────────────────────
@@ -30,12 +39,7 @@ export type SearchFieldConfig = {
   fields: readonly string[];
 };
 
-const NUMBER = /^-?\d+(\.\d+)?$/;
-
-/**
- * Free text matched with `Contains` against one or more fields (OR); a number
- * (`123`, `-4.5`) is matched with `=` instead.
- */
+/** See `searchQuery`. */
 export function searchField({
   label = "Search",
   placeholder,
@@ -45,16 +49,7 @@ export function searchField({
   return {
     label,
     placement: "inline",
-    schema: lenient(text) as z.ZodType<string | undefined, string | undefined>,
-    apply: (builder, query) => {
-      const op = NUMBER.test(query) ? Op.Equal : Op.Contains;
-      builder.and(true).startGroup();
-      fields.forEach((field, index) => {
-        if (index > 0) builder.or();
-        builder.addCondition(field, op, query);
-      });
-      builder.endGroup();
-    },
+    ...searchQuery(fields),
     toControlValue: (value) => value ?? "",
     control: (props) => (
       <BufferedSearch {...props} placeholder={placeholder} ariaLabel={ariaLabel} />
@@ -101,9 +96,6 @@ const LOADING = "Loading…";
 function emptyText({ isPending, isError }: SelectOptions<unknown>, emptyMessage = "No results.") {
   return isPending ? LOADING : isError ? "Could not load options." : emptyMessage;
 }
-
-/** What a select keeps in the URL and compares in Gridify. */
-type Stored = string | number | boolean;
 
 /**
  * An item is stored as is, unless `itemToValue` is given: then only that key
@@ -158,10 +150,7 @@ export function selectField<T, V extends Stored>({
   return {
     label,
     placement: "popover",
-    schema: lenient(schema),
-    apply: (builder, value) => {
-      builder.and(true).addCondition(field, Op.Equal, value);
-    },
+    ...selectQuery(field, schema),
     toControlValue: (value) => value ?? null,
     control: function SelectControl({ value, onChange }) {
       const state = useOptions();
@@ -214,15 +203,7 @@ export function multiSelectField<T, V extends Stored>({
   return {
     label,
     placement: "popover",
-    schema: lenient(z.array(schema).min(1)) as z.ZodType<V[] | undefined, V[] | undefined>,
-    apply: (builder, values) => {
-      builder.and(true).startGroup();
-      values.forEach((value, index) => {
-        if (index > 0) builder.or();
-        builder.addCondition(field, Op.Equal, value);
-      });
-      builder.endGroup();
-    },
+    ...multiSelectQuery(field, schema),
     toControlValue: (value) => value ?? [],
     control: function MultiSelectControl({ value, onChange }) {
       const state = useOptions();
@@ -243,22 +224,7 @@ export function multiSelectField<T, V extends Stored>({
 
 // ── Number range ──────────────────────────────────────────────────────────
 
-export type NumberRangeValue = { min?: number; max?: number };
-
-/** A blank bound ("" or spaces) means "no bound"; a bad one drops just that bound. */
-const optionalAmount = lenient(
-  z.preprocess(
-    (value) =>
-      value === null || (typeof value === "string" && value.trim() === "") ? undefined : value,
-    amount.optional(),
-  ),
-);
-
-const numberRangeSchema = z
-  .object({ min: optionalAmount, max: optionalAmount })
-  .refine((value) => value.min !== undefined || value.max !== undefined);
-
-/** `min` / `max` bounds, both optional but at least one required. */
+/** See `numberRangeQuery`. */
 export function numberRangeField({
   label,
   field,
@@ -274,18 +240,7 @@ export function numberRangeField({
   return {
     label,
     placement: "popover",
-    schema: lenient(numberRangeSchema) as z.ZodType<
-      NumberRangeValue | undefined,
-      NumberRange | undefined
-    >,
-    apply: (builder, value) => {
-      if (value.min !== undefined) {
-        builder.and(true).addCondition(field, Op.GreaterThanOrEqual, value.min);
-      }
-      if (value.max !== undefined) {
-        builder.and(true).addCondition(field, Op.LessThanOrEqual, value.max);
-      }
-    },
+    ...numberRangeQuery(field),
     toControlValue: (value) => ({
       min: value?.min === undefined ? "" : String(value.min),
       max: value?.max === undefined ? "" : String(value.max),
@@ -313,21 +268,7 @@ function BufferedNumberRange({
 
 // ── Date range ────────────────────────────────────────────────────────────
 
-export type DateRangeValue = { from?: Ymd; to?: Ymd };
-
-const dateOrNull = lenient(
-  z.preprocess((value) => (value === "" || value === null ? undefined : value), z.iso.date()),
-);
-
-const dateRangeSchema = z
-  .object({ from: dateOrNull, to: dateOrNull })
-  .refine(({ from, to }) => from ?? to);
-
-/**
- * Inclusive `from`–`to`, as days in the browser's time zone. The query sends the
- * UTC instant each day starts at (what .NET binds to a UTC `DateTime`) and turns
- * `to` into an exclusive next day.
- */
+/** See `dateRangeQuery`. */
 export function dateRangeField({
   label,
   field,
@@ -343,18 +284,7 @@ export function dateRangeField({
   return {
     label,
     placement: "popover",
-    schema: lenient(dateRangeSchema) as z.ZodType<
-      DateRangeValue | undefined,
-      DateRange | undefined
-    >,
-    apply: (builder, value) => {
-      if (value.from)
-        builder.and(true).addCondition(field, Op.GreaterThanOrEqual, ymdToUtcIso(value.from));
-      // inclusive `to` → exclusive next-day upper bound
-      if (value.to) {
-        builder.and(true).addCondition(field, Op.LessThan, ymdToUtcIso(addDaysYmd(value.to, 1)));
-      }
-    },
+    ...dateRangeQuery(field),
     toControlValue: (value) => ({ from: value?.from ?? null, to: value?.to ?? null }),
     control: ({ value, onChange }) => (
       <DateRangePicker
