@@ -81,6 +81,28 @@ export const customersFilter = defineFilter({
 | `FilterSearch<M>`               | The settled search (parsed numbers, booleans, `Ymd` bounds).                                                               |
 | `FilterSearchInput<M>`          | What a patch may hold: a control's **raw** value (`{ min: "10,5" }`) **or** a settled one (`{ min: 10.5 }`).               |
 
+**Anatomy of a field.** Every builder returns a `FilterFieldSpec<TValue, TInput>`. `TValue` is the
+settled value (`{ min: 10.5 }`), `TInput` what the control holds while editing (`{ min: "10,5", max: "" }`),
+which may be half-typed or invalid. Each member is one arrow of the loop:
+
+```text
+URL ──schema──▶ TValue ──toControlValue──▶ TInput ──▶ <control>
+ ▲                 │                                     │
+ │                 └──apply──▶ Gridify query             │ onChange(TInput)
+ └───────────────── patch into the search ◀──────────────┘
+```
+
+| Member           | What it does                                                                                                         |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `label`          | The control's caption.                                                                                               |
+| `placement`      | `inline` (the search, in the bar) or `popover` (behind Filters). Only popover keys feed `cleared` and `hasFilters`.  |
+| `schema`         | Raw input → `TValue \| undefined`, `lenient`: invalid or empty settles to `undefined` = no constraint.                |
+| `apply`          | Adds the Gridify conditions; `toGridifyQuery` calls it only with a set value, so it never handles `undefined`.       |
+| `toControlValue` | The reverse of `schema`: `TValue \| undefined` → what the control shows (`""`, `null`, `[]`, `{ min: "", max: "" }`). |
+| `control`        | The component; every control takes `{ value, onChange }` and reports **raw** input, which the route schema parses.   |
+
+All parsing sits in `schema`, so a control never validates and `apply` never sees a bad value.
+
 The field builders live in `shared/filtering/fields.tsx`; their schema and Gridify condition come
 from `field-queries.ts`, which imports no UI, so its tests load without the components:
 
