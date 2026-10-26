@@ -9,6 +9,7 @@ import { DateRangePicker, type DateRange } from "@/shared/components/ui/date-pic
 import { NumberRangeInput, type NumberRange } from "@/shared/components/ui/number-range-input";
 import { SearchInput } from "@/shared/components/ui/search-input";
 import { useBufferedValue } from "@/shared/hooks/use-buffered-value";
+import { fromUrlDay } from "@/shared/lib/date";
 
 import type { FilterFieldSpec } from "./definition";
 import {
@@ -285,7 +286,10 @@ export function dateRangeField({
     label,
     placement: "popover",
     ...dateRangeQuery(field),
-    toControlValue: (value) => ({ from: value?.from ?? null, to: value?.to ?? null }),
+    toControlValue: (value) => ({
+      from: value?.from ? fromUrlDay(value.from) : undefined,
+      to: value?.to ? fromUrlDay(value.to) : undefined,
+    }),
     control: ({ value, onChange }) => (
       <DateRangePicker
         value={value}

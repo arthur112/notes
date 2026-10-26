@@ -6,7 +6,7 @@ import { CONTROL_CLASS, type ControlProps } from "@/shared/components/ui/control
 import { DatePicker } from "@/shared/components/ui/date-picker";
 import { Input } from "@/shared/components/ui/input";
 import { NumberInput } from "@/shared/components/ui/number-input";
-import type { Ymd } from "@/shared/lib/date";
+import { parseISO, toIsoDay } from "@/shared/lib/date";
 import { cn } from "@/shared/lib/utils";
 
 import { useFieldContext, useFormContext } from "./form-context";
@@ -131,11 +131,16 @@ export function SelectField({
 }
 
 export function DateField({ label, className }: FieldProps) {
-  const field = useFieldContext<Ymd | null>();
+  // The form holds the API's `YYYY-MM-DD`; the picker, a `Date`.
+  const field = useFieldContext<string | null>();
   return (
     <FormField label={label} className={className}>
       {(control) => (
-        <DatePicker {...control} value={field.state.value} onChange={field.handleChange} />
+        <DatePicker
+          {...control}
+          value={field.state.value ? parseISO(field.state.value) : null}
+          onChange={(day) => field.handleChange(toIsoDay(day))}
+        />
       )}
     </FormField>
   );

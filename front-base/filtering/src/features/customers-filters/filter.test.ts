@@ -15,7 +15,7 @@ describe("customers Gridify query", () => {
     expect(
       query({
         // given first, emitted last
-        created: { from: "2024-01-01", to: "2024-01-31" },
+        created: { from: "01-01-2024", to: "31-01-2024" },
         q: " ada ",
         segment: "SMB",
         countries: ["Germany", "Sweden"],
@@ -37,7 +37,7 @@ describe("customers Gridify query", () => {
       filter:
         "(name=*ada|email=*ada),segment=SMB,(country=Germany|country=Sweden)," +
         "(customerNo=CUS-1002),(paymentTermsDays=30),active=false,creditLimit>=10.5," +
-        "createdAt>=2023-12-31T23:00:00Z,createdAt<2024-01-31T23:00:00Z",
+        "createdAt>=2024-01-01T00:00:00Z,createdAt<=2024-01-31T23:59:59.999Z",
     });
   });
 

@@ -1,8 +1,6 @@
 import { formOptions, revalidateLogic } from "@tanstack/react-form";
 import { z } from "zod";
 
-import type { Ymd } from "@/shared/lib/date";
-
 import {
   createOrder,
   OrderValidationError,
@@ -19,7 +17,7 @@ export type OrderFormValues = {
   orderNo: string | null;
   customer: string | null;
   status: OrderStatus;
-  dueDate: Ymd | null;
+  dueDate: string | null; // YYYY-MM-DD
   reference: string;
   lines: OrderFormLine[];
 };

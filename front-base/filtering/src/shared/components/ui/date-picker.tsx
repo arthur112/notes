@@ -1,43 +1,49 @@
 import { useState } from "react";
-import { CalendarDays } from "lucide-react";
+import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 
 import { buttonVariants } from "@/shared/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/shared/components/ui/popover";
 import { formatDate } from "@/shared/lib/format";
-import { todayYmd, toYmd, type Ymd } from "@/shared/lib/date";
+import {
+  addMonths,
+  differenceInCalendarDays,
+  eachDayOfInterval,
+  endOfMonth,
+  format,
+  getISODay,
+  isSameDay,
+  isSameMonth,
+  isThisMonth,
+  isToday,
+  setMonth,
+  startOfMonth,
+} from "@/shared/lib/date";
 import { cn } from "@/shared/lib/utils";
 
 import { CONTROL_CLASS, type ControlProps } from "./control";
 
 const WEEKDAYS = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"] as const;
 
-/**
- * The month on screen. `month` is 0-based and may overflow (-1, 12, …):
- * everything reads it through `Date.UTC`, which normalizes it.
- */
-type View = { year: number; month: number };
+const NAV_CLASS = buttonVariants({ variant: "ghost", size: "icon-sm" });
 
-function ymdToView(ymd: Ymd | null): View {
-  const [year, month] = (ymd ?? todayYmd()).split("-").map(Number);
-  return { year, month: month - 1 };
-}
+const SELECTED_CLASS =
+  "rounded-md bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground";
 
-/** A month of day cells on a UTC grid, highlighting the inclusive `from`–`to` range. */
+/** Local-midnight days, react-day-picker's shape. */
+export type DateRange = { from: Date | undefined; to?: Date };
+
+/** A month of day cells, highlighting the inclusive `from`–`to` range. */
 function MonthGrid({
-  view,
+  month,
   from,
   to,
   onSelectDay,
 }: {
-  view: View;
-  from: Ymd | null;
-  to: Ymd | null;
-  onSelectDay: (ymd: Ymd) => void;
+  month: Date;
+  from?: Date;
+  to?: Date;
+  onSelectDay: (day: Date) => void;
 }) {
-  const lead = (new Date(Date.UTC(view.year, view.month, 1)).getUTCDay() + 6) % 7; // Monday-first
-  const daysInMonth = new Date(Date.UTC(view.year, view.month + 1, 0)).getUTCDate();
-  const today = todayYmd();
-
   return (
     <div>
       <div className="grid grid-cols-7 gap-0.5 pb-1 text-center text-xs text-muted-foreground">
@@ -48,69 +54,139 @@ function MonthGrid({
         ))}
       </div>
       <div className="grid grid-cols-7 gap-0.5">
-        {Array.from({ length: lead }, (_, i) => (
+        {Array.from({ length: getISODay(month) - 1 }, (_, i) => (
           <span key={`empty-${i}`} />
         ))}
-        {Array.from({ length: daysInMonth }, (_, i) => {
-          const ymd = toYmd(new Date(Date.UTC(view.year, view.month, i + 1)));
-          return (
-            <button
-              key={ymd}
-              type="button"
-              onClick={() => onSelectDay(ymd)}
-              className={cn(
-                "relative rounded-md py-1.5 text-sm tabular-nums transition-colors hover:bg-accent hover:text-accent-foreground",
-                ymd === today && "font-semibold text-primary",
-                from &&
-                  to &&
-                  ymd >= from &&
-                  ymd <= to &&
-                  "rounded-none bg-primary/10 hover:bg-primary/15",
-                (ymd === from || ymd === to) &&
-                  "rounded-md bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground",
-              )}
-            >
-              {i + 1}
-            </button>
-          );
-        })}
+        {eachDayOfInterval({ start: month, end: endOfMonth(month) }).map((day) => (
+          <button
+            key={day.getTime()}
+            type="button"
+            onClick={() => onSelectDay(day)}
+            className={cn(
+              "relative rounded-md py-1.5 text-sm tabular-nums transition-colors hover:bg-accent hover:text-accent-foreground",
+              isToday(day) && "font-semibold text-primary",
+              from &&
+                to &&
+                day >= from &&
+                day <= to &&
+                "rounded-none bg-primary/10 hover:bg-primary/15",
+              ((from && isSameDay(day, from)) || (to && isSameDay(day, to))) && SELECTED_CLASS,
+            )}
+          >
+            {format(day, "d")}
+          </button>
+        ))}
       </div>
     </div>
   );
 }
 
-/** Previous / current / next month header above the grid. */
-function MonthNav({ view, onShift }: { view: View; onShift: (n: number) => void }) {
+/** The year's twelve months; picking one goes back to its days. */
+function MonthSelector({ view, onSelect }: { view: Date; onSelect: (month: Date) => void }) {
   return (
-    <div className="mb-2 flex items-center justify-between gap-1">
-      <button
-        type="button"
-        onClick={() => onShift(-1)}
-        aria-label="Previous month"
-        className={buttonVariants({ variant: "ghost", size: "icon-sm" })}
-      >
-        ←
-      </button>
-      <span className="text-sm font-medium tabular-nums">
-        {new Date(Date.UTC(view.year, view.month, 1)).toLocaleString("en-GB", {
-          month: "short",
-          year: "numeric",
-          timeZone: "UTC",
-        })}
-      </span>
-      <button
-        type="button"
-        onClick={() => onShift(1)}
-        aria-label="Next month"
-        className={buttonVariants({ variant: "ghost", size: "icon-sm" })}
-      >
-        →
-      </button>
+    <div className="grid grid-cols-4 gap-1">
+      {Array.from({ length: 12 }, (_, i) => {
+        const month = setMonth(view, i);
+        return (
+          <button
+            key={i}
+            type="button"
+            onClick={() => onSelect(month)}
+            className={cn(
+              "rounded-md py-3 text-sm transition-colors hover:bg-accent hover:text-accent-foreground",
+              isThisMonth(month) && "font-semibold text-primary",
+              isSameMonth(month, view) && SELECTED_CLASS,
+            )}
+          >
+            {format(month, "MMM")}
+          </button>
+        );
+      })}
     </div>
   );
 }
 
-/** Single-day picker over the same UTC calendar. */
+/**
+ * The calendar both pickers share: `months` day grids side by side (the second
+ * one from `sm` up), or, after a click on a month's caption, that year's months.
+ * It mounts with its popover, so each opening starts on `from` (or today).
+ */
+function Calendar({
+  months,
+  from,
+  to,
+  onSelectDay,
+}: {
+  months: 1 | 2;
+  from?: Date;
+  to?: Date;
+  onSelectDay: (day: Date) => void;
+}) {
+  const [view, setView] = useState(() => startOfMonth(from ?? new Date()));
+  const [choosingMonth, setChoosingMonth] = useState(false);
+  const [step, unit] = choosingMonth ? [12, "year"] : [1, "month"];
+
+  return (
+    <div className={cn("relative w-64", months === 2 && "sm:w-[33rem]")}>
+      <button
+        type="button"
+        onClick={() => setView((v) => addMonths(v, -step))}
+        aria-label={`Previous ${unit}`}
+        className={cn(NAV_CLASS, "absolute top-0 left-0")}
+      >
+        <ChevronLeft />
+      </button>
+      <button
+        type="button"
+        onClick={() => setView((v) => addMonths(v, step))}
+        aria-label={`Next ${unit}`}
+        className={cn(NAV_CLASS, "absolute top-0 right-0")}
+      >
+        <ChevronRight />
+      </button>
+      {choosingMonth ? (
+        <>
+          <div className="mb-2 flex h-7 items-center justify-center text-sm font-medium tabular-nums">
+            {format(view, "yyyy")}
+          </div>
+          <MonthSelector
+            view={view}
+            onSelect={(month) => {
+              setView(month);
+              setChoosingMonth(false);
+            }}
+          />
+        </>
+      ) : (
+        <div className="flex gap-4">
+          {Array.from({ length: months }, (_, i) => {
+            const shown = addMonths(view, i);
+            return (
+              <div key={i} className={cn("w-64", i > 0 && "hidden sm:block")}>
+                <div className="mb-2 flex justify-center">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setView(shown);
+                      setChoosingMonth(true);
+                    }}
+                    className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "tabular-nums")}
+                  >
+                    {format(shown, "MMM yyyy")}
+                    <ChevronDown className="opacity-50" />
+                  </button>
+                </div>
+                <MonthGrid month={shown} from={from} to={to} onSelectDay={onSelectDay} />
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Single-day picker over the same calendar. */
 export function DatePicker({
   value,
   onChange,
@@ -118,21 +194,14 @@ export function DatePicker({
   className,
   ...triggerProps
 }: ControlProps & {
-  value: Ymd | null;
-  onChange: (next: Ymd | null) => void;
+  value: Date | null;
+  onChange: (next: Date) => void;
   placeholder?: string;
 }) {
   const [open, setOpen] = useState(false);
-  const [view, setView] = useState(() => ymdToView(value));
 
   return (
-    <Popover
-      open={open}
-      onOpenChange={(next) => {
-        setOpen(next);
-        if (next) setView(ymdToView(value));
-      }}
-    >
+    <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger
         {...triggerProps}
         className={cn(
@@ -146,14 +215,13 @@ export function DatePicker({
         <CalendarDays />
         <span className="truncate">{value ? formatDate(value) : placeholder}</span>
       </PopoverTrigger>
-      <PopoverContent className="w-72 p-3" align="start">
-        <MonthNav view={view} onShift={(n) => setView((v) => ({ ...v, month: v.month + n }))} />
-        <MonthGrid
-          view={view}
-          from={value}
-          to={value}
-          onSelectDay={(ymd) => {
-            onChange(ymd);
+      <PopoverContent className="w-auto p-3" align="start">
+        <Calendar
+          months={1}
+          from={value ?? undefined}
+          to={value ?? undefined}
+          onSelectDay={(day) => {
+            onChange(day);
             setOpen(false);
           }}
         />
@@ -162,11 +230,9 @@ export function DatePicker({
   );
 }
 
-export type DateRange = { from: Ymd | null; to: Ymd | null };
+const EMPTY_RANGE: DateRange = { from: undefined };
 
-const EMPTY_RANGE: DateRange = { from: null, to: null };
-
-/** Two-click range picker over a UTC calendar. */
+/** Two-click range picker over two months. */
 export function DateRangePicker({
   value = EMPTY_RANGE,
   onChange,
@@ -179,7 +245,6 @@ export function DateRangePicker({
   placeholder?: string;
 }) {
   const [open, setOpen] = useState(false);
-  const [view, setView] = useState(() => ymdToView(value.from));
   const { from, to } = value;
 
   const label = from
@@ -190,26 +255,18 @@ export function DateRangePicker({
       ? `Until ${formatDate(to)}`
       : null;
 
-  const onSelectDay = (ymd: Ymd) => {
+  const onSelectDay = (day: Date) => {
     // First pick (or a pick before `from`) starts a new range; the second closes it.
-    if (!from || to || ymd < from) {
-      onChange({ from: ymd, to: null });
+    if (!from || to || day < from) {
+      onChange({ from: day });
     } else {
-      onChange({ from, to: ymd });
+      onChange({ from, to: day });
       setOpen(false);
     }
   };
 
-  const shiftMonth = (n: number) => setView((v) => ({ ...v, month: v.month + n }));
-
   return (
-    <Popover
-      open={open}
-      onOpenChange={(next) => {
-        setOpen(next);
-        if (next) setView(ymdToView(from));
-      }}
-    >
+    <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger
         {...triggerProps}
         className={cn(
@@ -223,9 +280,8 @@ export function DateRangePicker({
         <CalendarDays />
         <span className="truncate">{label ?? placeholder}</span>
       </PopoverTrigger>
-      <PopoverContent className="w-72 p-3" align="start">
-        <MonthNav view={view} onShift={shiftMonth} />
-        <MonthGrid view={view} from={from} to={to} onSelectDay={onSelectDay} />
+      <PopoverContent className="w-auto p-3" align="start">
+        <Calendar months={2} from={from} to={to} onSelectDay={onSelectDay} />
         <div className="mt-2 flex items-center justify-between border-t pt-2">
           <button
             type="button"
@@ -239,9 +295,7 @@ export function DateRangePicker({
             Clear
           </button>
           <span className="text-xs text-muted-foreground tabular-nums">
-            {from && to
-              ? `${Math.round((Date.parse(to) - Date.parse(from)) / 86_400_000) + 1} days`
-              : "Pick start then end"}
+            {from && to ? `${differenceInCalendarDays(to, from) + 1} days` : "Pick start then end"}
           </span>
         </div>
       </PopoverContent>

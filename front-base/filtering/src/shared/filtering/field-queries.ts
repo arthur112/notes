@@ -3,7 +3,14 @@ import { z } from "zod";
 
 import type { DateRange } from "@/shared/components/ui/date-picker";
 import type { NumberRange } from "@/shared/components/ui/number-range-input";
-import { addDaysYmd, ymdToUtcIso, type Ymd } from "@/shared/lib/date";
+import {
+  endOfDayIso,
+  fromUrlDay,
+  isValid,
+  startOfDayIso,
+  toUrlDay,
+  type UrlDay,
+} from "@/shared/lib/date";
 
 import { amount, lenient, text, type FilterFieldSpec } from "./definition";
 
@@ -105,10 +112,15 @@ export function numberRangeQuery(field: string): FieldQuery<NumberRangeValue, Nu
   };
 }
 
-export type DateRangeValue = { from?: Ymd; to?: Ymd };
+export type DateRangeValue = { from?: UrlDay; to?: UrlDay };
 
+/** A picked `Date` (its local day) or a `dd-MM-yyyy` from the URL. */
 const dateOrNull = lenient(
-  z.preprocess((value) => (value === "" || value === null ? undefined : value), z.iso.date()),
+  z.preprocess(
+    (value) =>
+      value instanceof Date ? toUrlDay(value) : value === "" || value === null ? undefined : value,
+    z.string().refine((day) => isValid(fromUrlDay(day))),
+  ),
 );
 
 const dateRangeSchema = z
@@ -116,9 +128,8 @@ const dateRangeSchema = z
   .refine(({ from, to }) => from ?? to);
 
 /**
- * Inclusive `from`–`to`, as days in the browser's time zone. The query sends the
- * UTC instant each day starts at (what .NET binds to a UTC `DateTime`) and turns
- * `to` into an exclusive next day.
+ * Inclusive `from`–`to` days, as UTC days: `from`'s first instant and `to`'s
+ * last one, so every viewer sends the same bounds whatever their time zone.
  */
 export function dateRangeQuery(field: string): FieldQuery<DateRangeValue, DateRange> {
   return {
@@ -127,11 +138,11 @@ export function dateRangeQuery(field: string): FieldQuery<DateRangeValue, DateRa
       DateRange | undefined
     >,
     apply: (builder, value) => {
-      if (value.from)
-        builder.and(true).addCondition(field, Op.GreaterThanOrEqual, ymdToUtcIso(value.from));
-      // inclusive `to` → exclusive next-day upper bound
+      if (value.from) {
+        builder.and(true).addCondition(field, Op.GreaterThanOrEqual, startOfDayIso(value.from));
+      }
       if (value.to) {
-        builder.and(true).addCondition(field, Op.LessThan, ymdToUtcIso(addDaysYmd(value.to, 1)));
+        builder.and(true).addCondition(field, Op.LessThanOrEqual, endOfDayIso(value.to));
       }
     },
   };

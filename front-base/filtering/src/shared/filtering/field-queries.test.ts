@@ -108,20 +108,22 @@ describe("dateRangeQuery", () => {
   const field = dateRangeQuery("createdAt");
 
   it.each([
-    // inclusive `to` → exclusive next day
+    // `from`'s first instant, `to`'s last, as UTC days
     [
-      { from: "2024-01-01", to: "2024-01-31" },
-      "createdAt>=2023-12-31T23:00:00Z,createdAt<2024-01-31T23:00:00Z",
+      { from: "01-01-2024", to: "31-01-2024" },
+      "createdAt>=2024-01-01T00:00:00Z,createdAt<=2024-01-31T23:59:59.999Z",
     ],
-    [{ from: null, to: "2024-12-31" }, "createdAt<2024-12-31T23:00:00Z"],
-    [{ from: null, to: "2024-02-28" }, "createdAt<2024-02-28T23:00:00Z"],
-    // Brussels midnights (`TZ` in vite.config.ts): UTC+1 in winter, UTC+2 in summer (clocks change 31 Mar / 27 Oct 2024)
+    [{ from: null, to: "31-12-2024" }, "createdAt<=2024-12-31T23:59:59.999Z"],
+    [{ from: "01-07-2024", to: null }, "createdAt>=2024-07-01T00:00:00Z"],
+    // the picker's local-midnight `Date`s: the day picked, whatever the time zone
     [
-      { from: "2024-03-31", to: "2024-10-26" },
-      "createdAt>=2024-03-30T23:00:00Z,createdAt<2024-10-26T22:00:00Z",
+      { from: new Date(2024, 0, 1), to: new Date(2024, 0, 31) },
+      "createdAt>=2024-01-01T00:00:00Z,createdAt<=2024-01-31T23:59:59.999Z",
     ],
-    [{ from: "2024-07-01", to: null }, "createdAt>=2024-06-30T22:00:00Z"],
     [{ from: "nope", to: null }, undefined],
+    // only `dd-MM-yyyy`, and a real day
+    [{ from: "2024-01-01", to: null }, undefined],
+    [{ from: "31-02-2024", to: null }, undefined],
     [{ from: null, to: null }, undefined],
   ])("%j → %s", (input, expected) => {
     expect(filterOf(field, input)).toBe(expected);

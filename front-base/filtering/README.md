@@ -7,7 +7,7 @@ route's Zod search schema, the Gridify query and the filter bar from that declar
 code.
 
 - the filter **is** the validated URL search
-  (`/customers?q=stark&segment=Enterprise&countries=["United States"]&active=true&creditLimit={"min":10000}&created={"from":"2025-01-01"}`),
+  (`/customers?q=stark&segment=Enterprise&countries=["United States"]&active=true&creditLimit={"min":10000}&created={"from":"01-01-2025"}`),
   typed `CustomersSearch`; there is no separate filter object, no `useState` copy, no effect;
 - a domain's `filter.ts` is one `defineFilter({ fields, sortFields })` call;
 - `FilterBar` renders the definition: the search field inline, the other fields behind a **Filters**
@@ -78,7 +78,7 @@ export const customersFilter = defineFilter({
 | `toGridifyQuery(search)`        | `page`, `pageSize`, `orderBy` from `sortFields`, then each active field's conditions, ANDed in declaration order.          |
 | `entries`                       | `[key, field]` in declaration order: what `FilterBar` renders (inline search, popover fields).                             |
 | `pageSizes` / `defaultPageSize` | The footer's sizes and the absent-value default (5).                                                                       |
-| `FilterSearch<M>`               | The settled search (parsed numbers, booleans, `Ymd` bounds).                                                               |
+| `FilterSearch<M>`               | The settled search (parsed numbers, booleans, `dd-MM-yyyy` bounds).                                                        |
 | `FilterSearchInput<M>`          | What a patch may hold: a control's **raw** value (`{ min: "10,5" }`) **or** a settled one (`{ min: 10.5 }`).               |
 
 **Anatomy of a field.** Every builder returns a `FilterFieldSpec<TValue, TInput>`. `TValue` is the
@@ -92,28 +92,28 @@ URL ──schema──▶ TValue ──toControlValue──▶ TInput ──▶ 
  └───────────────── patch into the search ◀──────────────┘
 ```
 
-| Member           | What it does                                                                                                         |
-| ---------------- | -------------------------------------------------------------------------------------------------------------------- |
-| `label`          | The control's caption.                                                                                               |
-| `placement`      | `inline` (the search, in the bar) or `popover` (behind Filters). Only popover keys feed `cleared` and `hasFilters`.  |
+| Member           | What it does                                                                                                          |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `label`          | The control's caption.                                                                                                |
+| `placement`      | `inline` (the search, in the bar) or `popover` (behind Filters). Only popover keys feed `cleared` and `hasFilters`.   |
 | `schema`         | Raw input → `TValue \| undefined`, `lenient`: invalid or empty settles to `undefined` = no constraint.                |
-| `apply`          | Adds the Gridify conditions; `toGridifyQuery` calls it only with a set value, so it never handles `undefined`.       |
+| `apply`          | Adds the Gridify conditions; `toGridifyQuery` calls it only with a set value, so it never handles `undefined`.        |
 | `toControlValue` | The reverse of `schema`: `TValue \| undefined` → what the control shows (`""`, `null`, `[]`, `{ min: "", max: "" }`). |
-| `control`        | The component; every control takes `{ value, onChange }` and reports **raw** input, which the route schema parses.   |
+| `control`        | The component; every control takes `{ value, onChange }` and reports **raw** input, which the route schema parses.    |
 
 All parsing sits in `schema`, so a control never validates and `apply` never sees a bad value.
 
 The field builders live in `shared/filtering/fields.tsx`; their schema and Gridify condition come
 from `field-queries.ts`, which imports no UI, so its tests load without the components:
 
-| Builder                  | Settled value / control input                        | Gridify condition                                         |
-| ------------------------ | ---------------------------------------------------- | --------------------------------------------------------- |
-| `searchField`            | `string` / `string`                                  | `(a=*q\|b=*q)` over the listed fields; `a=q` for a number |
-| `selectField<T, V>`      | `V` / `V \| null` (`V`: the item, or its key)        | `field=V`                                                 |
-| `multiSelectField<T, V>` | `V[]` / `V[]`                                        | `(field=a\|field=b)`                                      |
-| `numberRangeField`       | `{min?:number,max?:number}` / `{min,max}` strings    | `field>=min,field<=max`                                   |
-| `dateRangeField`         | `{from?:Ymd,to?:Ymd}` / `{from,to}` (`null` = unset) | `field>=from,field<to+1d` (local midnights, as UTC)       |
-| `booleanSelectField`     | `boolean` / `boolean \| null`                        | `field=true\|false` (a tri-state Active/Inactive pick)    |
+| Builder                  | Settled value / control input                       | Gridify condition                                         |
+| ------------------------ | --------------------------------------------------- | --------------------------------------------------------- |
+| `searchField`            | `string` / `string`                                 | `(a=*q\|b=*q)` over the listed fields; `a=q` for a number |
+| `selectField<T, V>`      | `V` / `V \| null` (`V`: the item, or its key)       | `field=V`                                                 |
+| `multiSelectField<T, V>` | `V[]` / `V[]`                                       | `(field=a\|field=b)`                                      |
+| `numberRangeField`       | `{min?:number,max?:number}` / `{min,max}` strings   | `field>=min,field<=max`                                   |
+| `dateRangeField`         | `{from?:UrlDay,to?:UrlDay}` / `DateRange` (`Date`s) | `field>=from…T00:00:00Z,field<=to…T23:59:59.999Z`         |
+| `booleanSelectField`     | `boolean` / `boolean \| null`                       | `field=true\|false` (a tri-state Active/Inactive pick)    |
 
 Each builder owns its schema, its Gridify condition, its settled→control mapping and its control.
 The typed ones wrap `SearchInput` / `NumberRangeInput` in `useBufferedValue`, so only that field
@@ -200,7 +200,7 @@ search holds the shapes filters need:
 | ------ | --------------------------------------------------------------------------------- | --------------------------------------------- |
 | Flat   | `q=acme`, `status=paid`, `customer=CUS-1002`, `active=true`, `lineCount=2`        | `"acme"`, `"paid"`, `"CUS-1002"`, `true`, `2` |
 | Array  | `countries=["Germany","Sweden"]`, `paymentTerms=[30,60]`                          | `["Germany","Sweden"]`, `[30, 60]`            |
-| Object | `total={"min":10.5,"max":200}`, `created={"from":"2026-01-01","to":"2026-01-31"}` | `{ min: 10.5, max: 200 }`, `{ from, to }`     |
+| Object | `total={"min":10.5,"max":200}`, `created={"from":"01-01-2026","to":"31-01-2026"}` | `{ min: 10.5, max: 200 }`, `{ from, to }`     |
 | Sort   | `sort=[{"id":"total","desc":true},{"id":"customer","desc":false}]`                | `SortingState`                                |
 
 The cost is readability: values are percent-encoded JSON, and a number-like string is quoted so it
@@ -233,37 +233,42 @@ customers filter's customers multi-select share the cache through `useCustomerOp
 
 Both definitions use the same control types; only the fields differ.
 
-| Orders control  | Key         | Gridify output                                                   |
-| --------------- | ----------- | ---------------------------------------------------------------- |
-| Search          | `q`         | `(orderNo=*q\|customer.name=*q)`                                 |
-| Status          | `status`    | `status=paid`                                                    |
-| Customer        | `customer`  | `customer.customerNo=CUS-1002`                                   |
-| Lines           | `lineCount` | `lineCount=2`                                                    |
-| Order total (€) | `total`     | `total>=10.5,total<=200`                                         |
-| Created between | `created`   | `createdAt>=2025-12-31T23:00:00Z,createdAt<2026-01-31T23:00:00Z` |
+| Orders control  | Key         | Gridify output                                                        |
+| --------------- | ----------- | --------------------------------------------------------------------- |
+| Search          | `q`         | `(orderNo=*q\|customer.name=*q)`                                      |
+| Status          | `status`    | `status=paid`                                                         |
+| Customer        | `customer`  | `customer.customerNo=CUS-1002`                                        |
+| Lines           | `lineCount` | `lineCount=2`                                                         |
+| Order total (€) | `total`     | `total>=10.5,total<=200`                                              |
+| Created between | `created`   | `createdAt>=2026-01-01T00:00:00Z,createdAt<=2026-01-31T23:59:59.999Z` |
 
-| Customers control | Key            | Gridify output                                                   |
-| ----------------- | -------------- | ---------------------------------------------------------------- |
-| Search            | `q`            | `(name=*q\|email=*q)`                                            |
-| Segment           | `segment`      | `segment=Enterprise`                                             |
-| Countries         | `countries`    | `(country=Germany\|country=Sweden)`                              |
-| Customers         | `customers`    | `(customerNo=CUS-1001\|customerNo=CUS-1002)`                     |
-| Payment terms     | `paymentTerms` | `(paymentTermsDays=30\|paymentTermsDays=60)`                     |
-| Status            | `active`       | `active=true` / `active=false`                                   |
-| Credit limit (€)  | `creditLimit`  | `creditLimit>=10000,creditLimit<=500000`                         |
-| Customer since    | `created`      | `createdAt>=2024-12-31T23:00:00Z,createdAt<2025-12-31T23:00:00Z` |
+| Customers control | Key            | Gridify output                                                        |
+| ----------------- | -------------- | --------------------------------------------------------------------- |
+| Search            | `q`            | `(name=*q\|email=*q)`                                                 |
+| Segment           | `segment`      | `segment=Enterprise`                                                  |
+| Countries         | `countries`    | `(country=Germany\|country=Sweden)`                                   |
+| Customers         | `customers`    | `(customerNo=CUS-1001\|customerNo=CUS-1002)`                          |
+| Payment terms     | `paymentTerms` | `(paymentTermsDays=30\|paymentTermsDays=60)`                          |
+| Status            | `active`       | `active=true` / `active=false`                                        |
+| Credit limit (€)  | `creditLimit`  | `creditLimit>=10000,creditLimit<=500000`                              |
+| Customer since    | `created`      | `createdAt>=2025-01-01T00:00:00Z,createdAt<=2025-12-31T23:59:59.999Z` |
 
-The calendar's `to` is inclusive in the UI and becomes an exclusive next-day bound in the query.
-The URL keeps the short `YYYY-MM-DD` bounds. A day is a day in the browser's time zone, and the
-query sends the UTC instant it starts at, in ISO 8601 (`shared/lib/date.ts`). In Brussels,
-`2026-01-01` starts at `2025-12-31T23:00:00Z` (the examples above) and `2026-07-01` at
-`2026-06-30T22:00:00Z`; in New York, `2026-01-01` starts at `2026-01-01T05:00:00Z`. The same URL
-therefore means each viewer's own days, which suits timestamps with no place attached (created at,
-last login). The backend stores and compares UTC only: a .NET 10 API binds the bound to a UTC
-`DateTime` (or a `DateTimeOffset`) with no setup. "Today" (`todayYmd`) and `formatDate` use the
-browser's zone too, so the calendar, the filter and the displayed dates agree. Tests pin
-`TZ=Europe/Brussels` in `vite.config.ts`. A date that belongs to a place (a shop's sales day) would
-instead be a `DateOnly` column, filtered with the bare `YYYY-MM-DD` form.
+The URL keeps short bounds in the European order, `dd-MM-yyyy` (`20-03-2025`); a bound in any other
+form is dropped. The picker hands the filter a `DateRange`
+(`{ from: Date | undefined; to?: Date }`, react-day-picker's shape, local-midnight `Date`s); the
+schema keeps the day picked. A day is a **UTC day**: the query sends `from`'s first instant
+(`T00:00:00Z`) and `to`'s last (`T23:59:59.999Z`), both inclusive (`shared/lib/date.ts`). The bounds
+carry no time-zone offset, so the same URL sends the same query from Brussels or New York, and the
+request reads as the days picked. The backend compares UTC: a .NET 10 API binds each bound to a UTC
+`DateTime` (or a `DateTimeOffset`) with no setup. A SQL Server `datetime` column (not `datetime2`)
+rounds `.999` up to the next day; there, compare with `<` the next day's start instead. An API's
+plain `YYYY-MM-DD` displays as that calendar day (`formatDate`), and "today" follows the browser's
+zone.
+
+Dates go through [date-fns](https://date-fns.org/), and only through `shared/lib/date.ts`: it imports
+each function from its own subpath (`date-fns/format`) and re-exports the ones the app uses, so
+nothing loads the `date-fns` root barrel, which would pull in every function and slow the tests'
+imports.
 
 Checked in headless Chromium. Each settled change produces exactly one request (the loader and the
 page share the cache entry); Back/Forward and revisits within the 30 s `staleTime` are served from
@@ -326,7 +331,8 @@ shared/filtering/
 ```
 
 The UI controls themselves stay in `shared/components/ui/` and are shared with the order form:
-`SearchInput`, `NumberInput` / `NumberRangeInput`, `DatePicker` / `DateRangePicker`,
+`SearchInput`, `NumberInput` / `NumberRangeInput`, `DatePicker` / `DateRangePicker` (one / two
+months; a click on a month's caption opens that year's months),
 `ComboboxSelect` / `ComboboxMultiSelect`. They share one contract: controlled (`value` +
 `onChange(next)`), one size (`CONTROL_CLASS`: `h-9 w-full`), label-ready (`ControlProps`), and raw
 string numbers so a half-typed value survives a re-render. The selects (`combobox-select.tsx`) wrap
