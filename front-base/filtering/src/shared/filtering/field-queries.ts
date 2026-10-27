@@ -79,6 +79,35 @@ export function multiSelectQuery<V extends Stored>(
   };
 }
 
+/** A boolean column and the value it must have (`true` by default). */
+export type Flag = { field: string; value?: boolean };
+
+/**
+ * Boolean columns picked by key, each matching `column=value`: any of them by
+ * default (`(isVip=true|isOnHold=false)`), every one with `match: "all"`.
+ */
+export function flagsQuery<K extends string>(
+  flags: Record<K, Flag>,
+  match: "any" | "all" = "any",
+): FieldQuery<K[], K[]> {
+  const keys = Object.keys(flags) as [K, ...K[]];
+  return {
+    schema: lenient(z.array(z.enum(keys)).min(1)) as z.ZodType<K[] | undefined, K[] | undefined>,
+    apply: (builder, picked) => {
+      builder.and(true).startGroup();
+      picked.forEach((key, index) => {
+        if (index > 0) {
+          if (match === "all") builder.and();
+          else builder.or();
+        }
+        const { field, value = true } = flags[key];
+        builder.addCondition(field, Op.Equal, value);
+      });
+      builder.endGroup();
+    },
+  };
+}
+
 export type NumberRangeValue = { min?: number; max?: number };
 
 /** A blank bound ("" or spaces) means "no bound"; a bad one drops just that bound. */

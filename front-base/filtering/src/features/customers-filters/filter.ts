@@ -8,6 +8,7 @@ import {
 import {
   booleanSelectField,
   dateRangeField,
+  flagsField,
   multiSelectField,
   numberRangeField,
   searchField,
@@ -97,6 +98,18 @@ export const customersFilter = defineFilter({
       falseLabel: "Inactive",
       placeholder: "Any status",
       ariaLabel: "Status",
+    }),
+    // One multi-select over several boolean columns, any of them matching.
+    flags: flagsField({
+      label: "Flags",
+      flags: {
+        vip: { label: "VIP", field: "isVip" },
+        verified: { label: "Verified", field: "isVerified" },
+        onHold: { label: "On hold", field: "isOnHold" },
+        released: { label: "Not on hold", field: "isOnHold", value: false },
+      },
+      placeholder: "Any flag",
+      ariaLabel: "Flags",
     }),
     creditLimit: numberRangeField({
       label: "Credit limit (€)",

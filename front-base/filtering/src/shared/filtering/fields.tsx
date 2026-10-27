@@ -14,11 +14,13 @@ import { fromUrlDay } from "@/shared/lib/date";
 import type { FilterFieldSpec } from "./definition";
 import {
   dateRangeQuery,
+  flagsQuery,
   multiSelectQuery,
   numberRangeQuery,
   searchQuery,
   selectQuery,
   type DateRangeValue,
+  type Flag,
   type NumberRangeValue,
   type Stored,
 } from "./field-queries";
@@ -220,6 +222,47 @@ export function multiSelectField<T, V extends Stored>({
         />
       );
     },
+  };
+}
+
+// ── Flags ─────────────────────────────────────────────────────────────────
+
+/**
+ * One multi-select over several boolean columns: each option is a column and
+ * a value (`vip` → `isVip=true`, `released` → `isOnHold=false`), the URL
+ * keeps the keys (`flags=["vip","released"]`). See
+ * `flagsQuery` for how the picks combine.
+ */
+export function flagsField<K extends string>({
+  label,
+  flags,
+  match,
+  placeholder,
+  ariaLabel,
+}: {
+  label: string;
+  /** Each option's key → its label, its Gridify boolean field and the value it must have. */
+  flags: Record<K, Flag & { label: string }>;
+  match?: "any" | "all";
+  placeholder?: string;
+  ariaLabel?: string;
+}): FilterFieldSpec<K[], K[]> {
+  const keys = Object.keys(flags) as K[];
+  return {
+    label,
+    placement: "popover",
+    ...flagsQuery(flags, match),
+    toControlValue: (value) => value ?? [],
+    control: ({ value, onChange }) => (
+      <ComboboxMultiSelect
+        items={keys}
+        value={value}
+        onValueChange={onChange}
+        placeholder={placeholder}
+        aria-label={ariaLabel}
+        comboboxProps={{ itemToStringLabel: (key) => flags[key].label }}
+      />
+    ),
   };
 }
 

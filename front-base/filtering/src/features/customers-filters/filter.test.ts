@@ -22,6 +22,7 @@ describe("customers Gridify query", () => {
         customers: ["CUS-1002"],
         paymentTerms: [30],
         active: false,
+        flags: ["vip", "onHold"],
         creditLimit: { min: "10,5", max: "" },
         sort: [
           { id: "name", desc: true },
@@ -36,7 +37,8 @@ describe("customers Gridify query", () => {
       orderBy: "name desc, createdAt",
       filter:
         "(name=*ada|email=*ada),segment=SMB,(country=Germany|country=Sweden)," +
-        "(customerNo=CUS-1002),(paymentTermsDays=30),active=false,creditLimit>=10.5," +
+        "(customerNo=CUS-1002),(paymentTermsDays=30),active=false," +
+        "(isVip=true|isOnHold=true),creditLimit>=10.5," +
         "createdAt>=2024-01-01T00:00:00Z,createdAt<=2024-01-31T23:59:59.999Z",
     });
   });

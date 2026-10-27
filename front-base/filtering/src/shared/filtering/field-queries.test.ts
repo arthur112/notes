@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import {
   dateRangeQuery,
+  flagsQuery,
   multiSelectQuery,
   numberRangeQuery,
   searchQuery,
@@ -86,6 +87,31 @@ describe("multiSelectQuery", () => {
   it("compares numbers as numbers", () => {
     const terms = multiSelectQuery("paymentTermsDays", z.number());
     expect(filterOf(terms, [30, 60])).toBe("(paymentTermsDays=30|paymentTermsDays=60)");
+  });
+});
+
+describe("flagsQuery", () => {
+  const flags = {
+    vip: { field: "isVip" },
+    onHold: { field: "isOnHold" },
+    released: { field: "isOnHold", value: false },
+  };
+
+  it.each([
+    [["vip", "onHold"], "(isVip=true|isOnHold=true)"],
+    [["onHold"], "(isOnHold=true)"],
+    // `false` is matched, not dropped
+    [["released"], "(isOnHold=false)"],
+    [[], undefined],
+    [["bogus"], undefined],
+  ])("%j → %s", (input, expected) => {
+    expect(filterOf(flagsQuery(flags), input)).toBe(expected);
+  });
+
+  it('ANDs the picks with match: "all"', () => {
+    expect(filterOf(flagsQuery(flags, "all"), ["vip", "released"])).toBe(
+      "(isVip=true,isOnHold=false)",
+    );
   });
 });
 

@@ -114,6 +114,7 @@ from `field-queries.ts`, which imports no UI, so its tests load without the comp
 | `numberRangeField`       | `{min?:number,max?:number}` / `{min,max}` strings   | `field>=min,field<=max`                                   |
 | `dateRangeField`         | `{from?:UrlDay,to?:UrlDay}` / `DateRange` (`Date`s) | `field>=from…T00:00:00Z,field<=to…T23:59:59.999Z`         |
 | `booleanSelectField`     | `boolean` / `boolean \| null`                       | `field=true\|false` (a tri-state Active/Inactive pick)    |
+| `flagsField<K>`          | `K[]` / `K[]` (`K`: an option key)                  | `(isVip=true\|isOnHold=true)`; `,` with `match: "all"`    |
 
 Each builder owns its schema, its Gridify condition, its settled→control mapping and its control.
 The typed ones wrap `SearchInput` / `NumberRangeInput` in `useBufferedValue`, so only that field
@@ -144,15 +145,49 @@ The cost: on a deep link, the picker shows its name once the options have loaded
 key (`customer=CUS-9999`) passes the schema, still filters, and shows no item. Every kind of item
 has an example in the two filters, to try by hand:
 
-| Item                  | Single select                             | Multi select             |
-| --------------------- | ----------------------------------------- | ------------------------ |
-| string                | orders `status`, customers `segment`      | customers `countries`    |
-| number                | orders `lineCount`                        | customers `paymentTerms` |
-| object (query, keyed) | orders `customer`                         | customers `customers`    |
-| boolean               | customers `active` (`booleanSelectField`) | —                        |
+| Item                  | Single select                             | Multi select                     |
+| --------------------- | ----------------------------------------- | -------------------------------- |
+| string                | orders `status`, customers `segment`      | customers `countries`            |
+| number                | orders `lineCount`                        | customers `paymentTerms`         |
+| object (query, keyed) | orders `customer`                         | customers `customers`            |
+| boolean               | customers `active` (`booleanSelectField`) | customers `flags` (`flagsField`) |
 
 `lineCount` and `paymentTerms` filter fields the mock data does not have; they are there to show the
 number items (the mock never evaluates the filter anyway).
+
+**Several boolean columns, one control.** `flagsField` is a multi-select whose options are columns,
+not values: each option key names a boolean field, and picking it adds `field=true`, or
+`field=false` with `value: false` (a "Not on hold" option). The URL keeps the keys
+(`flags=["vip","released"]`), so renaming a column changes no link. The picks are OR-ed, like any
+multi-select (`(isVip=true|isOnHold=false)`: any of them); `match: "all"` ANDs them instead
+(`(isVip=true,isOnHold=false)`: every one).
+
+```ts
+flags: flagsField({
+  label: "Flags",
+  flags: {
+    vip: { label: "VIP", field: "isVip" },
+    verified: { label: "Verified", field: "isVerified" },
+    onHold: { label: "On hold", field: "isOnHold" },
+    released: { label: "Not on hold", field: "isOnHold", value: false },
+  },
+}),
+```
+
+Picking both "On hold" and "Not on hold" ORs to every row and ANDs to none; the control does not
+prevent it.
+
+A .NET 10 API needs nothing specific: Gridify parses `true` / `false` into a `bool` (or `bool?`,
+where `null` matches neither) and matches field names case-insensitively, so `isVip` finds `IsVip`.
+Map only the columns the filter may use, so a client cannot filter on anything else:
+
+```csharp
+var mapper = new GridifyMapper<Customer>()
+    .AddMap("isVip", c => c.IsVip)
+    .AddMap("isVerified", c => c.IsVerified)
+    .AddMap("isOnHold", c => c.IsOnHold);
+var page = await db.Customers.GridifyAsync(query, ct, mapper);
+```
 
 **One parser, leniently.** `lenient(schema)` makes a key `.optional().nullable()`, normalizes `null`
 to `undefined`, and `.catch`es invalid input to `undefined`. So `?segment=bogus&active=yes&creditLimit={"min":"abc"}&pageSize=7`
@@ -250,6 +285,7 @@ Both definitions use the same control types; only the fields differ.
 | Customers         | `customers`    | `(customerNo=CUS-1001\|customerNo=CUS-1002)`                          |
 | Payment terms     | `paymentTerms` | `(paymentTermsDays=30\|paymentTermsDays=60)`                          |
 | Status            | `active`       | `active=true` / `active=false`                                        |
+| Flags             | `flags`        | `(isVip=true\|isOnHold=true)`                                         |
 | Credit limit (€)  | `creditLimit`  | `creditLimit>=10000,creditLimit<=500000`                              |
 | Customer since    | `created`      | `createdAt>=2025-01-01T00:00:00Z,createdAt<=2025-12-31T23:59:59.999Z` |
 
