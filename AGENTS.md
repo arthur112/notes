@@ -36,6 +36,7 @@ Conventions for every note folder:
 | [`DataMasking/`](DataMasking/) | Data masking at two levels: SQL Server dynamic data masking via per-request connection-string switching on an HttpContext identity property (engine-enforced) vs. an EF Core materialization interceptor + value converter masking `[Masked]` properties in .NET (app-enforced), with a trade-off table | Two .NET 10 minimal APIs, EF Core, SQL Server (Docker) |
 | [`CentralLogging/`](CentralLogging/) | NuGet SDK package that configures Serilog + a batched HTTP sink to ship logs to a central service, with automatic W3C trace-ID correlation (Serilog 4 `Activity.Current`) and API-key auth via a custom sink `IHttpClient` | .NET 10 class library (NuGet), Serilog.AspNetCore, Serilog.Sinks.Http, minimal APIs |
 | [`GridifyHttpQuery/`](GridifyHttpQuery/) | Gridify filtering/sorting/paging served over both GET (query string) and the new HTTP `QUERY` method (body), with a document transformer that adds the QUERY operation to the OpenAPI document so Scalar shows it | .NET 10 minimal API, Gridify.EntityFramework, EF Core (SQLite), Scalar |
+| [`VerticalSlice/`](VerticalSlice/) | Minimalist vertical slice architecture (one Fund CRUD slice): one file per use case, Result/`IHttpError` pipelines, .NET 10 built-in validation, Gridify paging behind our own contract, grate-owned schema, and TUnit unit + per-test-Postgres-schema integration tests | Aspire 13, .NET 10 minimal API, EF Core + Postgres, grate, TUnit |
 
 ## Working in this repo
 

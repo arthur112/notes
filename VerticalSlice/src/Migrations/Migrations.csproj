@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="grate.core" />
+    <PackageReference Include="grate.postgresql" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content
+      Include="..\..\db\**\*.sql"
+      Link="db\%(RecursiveDir)%(Filename)%(Extension)"
+      CopyToOutputDirectory="PreserveNewest"
+    />
+  </ItemGroup>
+</Project>

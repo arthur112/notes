@@ -1,0 +1,284 @@
+using System.Net;
+using System.Net.Http.Json;
+using System.Text;
+using System.Text.Json;
+using Api.Features.Fund;
+using Api.Tests.Builders;
+
+namespace Api.Tests;
+
+public class FundTests : DatabaseTestBase
+{
+    [Test]
+    public async Task Create_Returns_Created_Fund()
+    {
+        var client = Factory.CreateClient();
+
+        var created = await client.PostAsJsonAsync(
+            "/api/funds",
+            CreateFundRequestBuilder.Create().WithName("Alpha Fund").Build()
+        );
+        await Assert.That(created.StatusCode).IsEqualTo(HttpStatusCode.Created);
+
+        var body = await created.Content.ReadFromJsonAsync<CreateFund.Response>();
+        await Assert.That(body).IsNotNull();
+        await Assert.That(body!.Name).IsEqualTo("Alpha Fund");
+        await Assert.That(body.Periodicity).IsEqualTo(Periodicity.Quarterly);
+    }
+
+    [Test]
+    public async Task Create_With_Invalid_Request_Returns_Validation_Problem()
+    {
+        var client = Factory.CreateClient();
+
+        var response = await client.PostAsJsonAsync(
+            "/api/funds",
+            CreateFundRequestBuilder.Create().WithName("").Build()
+        );
+        await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.BadRequest);
+        await Assert
+            .That(response.Content.Headers.ContentType?.MediaType)
+            .IsEqualTo("application/problem+json");
+    }
+
+    [Test]
+    public async Task List_Returns_Funds()
+    {
+        var client = Factory.CreateClient();
+
+        await SeedAsync(FundEntityBuilder.Create().WithName("Listed Fund").Build());
+
+        var funds = await client.GetFromJsonAsync<TestPagedResult<ListFunds.Response>>(
+            "/api/funds"
+        );
+        await Assert.That(funds).IsNotNull();
+        await Assert.That(funds!.Data.Any(f => f.Name == "Listed Fund")).IsTrue();
+        await Assert.That(funds.Count).IsGreaterThanOrEqualTo(1);
+    }
+
+    [Test]
+    public async Task List_Returns_PermanentInformation_As_Json_Object()
+    {
+        var client = Factory.CreateClient();
+
+        await SeedAsync(
+            FundEntityBuilder
+                .Create()
+                .WithName("Listed PI Fund")
+                .WithPermanentInformation("""{"legalName": "Listed PI Fund"}""")
+                .Build()
+        );
+
+        var funds = await client.GetFromJsonAsync<TestPagedResult<ListFunds.Response>>(
+            "/api/funds"
+        );
+
+        await Assert.That(funds).IsNotNull();
+        var listed = funds!.Data.Single(f => f.Name == "Listed PI Fund");
+        await Assert.That(listed.PermanentInformation).IsNotNull();
+        await Assert
+            .That(listed.PermanentInformation!.Value.ValueKind)
+            .IsEqualTo(JsonValueKind.Object);
+    }
+
+    [Test]
+    public async Task List_With_Paging_Returns_Page_And_Total_Count()
+    {
+        var client = Factory.CreateClient();
+
+        await SeedAsync(FundEntityBuilder.Create().WithName("Fund A").Build());
+        await SeedAsync(FundEntityBuilder.Create().WithName("Fund B").Build());
+        await SeedAsync(FundEntityBuilder.Create().WithName("Fund C").Build());
+
+        var funds = await client.GetFromJsonAsync<TestPagedResult<ListFunds.Response>>(
+            "/api/funds?page=2&pageSize=2"
+        );
+        await Assert.That(funds).IsNotNull();
+        await Assert.That(funds!.Count).IsEqualTo(3);
+        await Assert.That(funds.Data.Count).IsEqualTo(1);
+        await Assert.That(funds.Data.Single().Name).IsEqualTo("Fund C");
+    }
+
+    [Test]
+    public async Task Get_Returns_Fund()
+    {
+        var client = Factory.CreateClient();
+
+        var fund = await SeedAsync(FundEntityBuilder.Create().WithName("Get Fund").Build());
+
+        var fetched = await client.GetFromJsonAsync<GetFund.Response>(
+            $"/api/funds/{fund.PublicId}"
+        );
+        await Assert.That(fetched).IsNotNull();
+        await Assert.That(fetched!.Name).IsEqualTo("Get Fund");
+    }
+
+    [Test]
+    public async Task Get_Returns_PermanentInformation_As_Json_Object()
+    {
+        var client = Factory.CreateClient();
+
+        var fund = await SeedAsync(
+            FundEntityBuilder
+                .Create()
+                .WithName("PI Fund")
+                .WithPermanentInformation("""{"legalName": "PI Fund", "nil": false}""")
+                .Build()
+        );
+
+        var fetched = await client.GetFromJsonAsync<GetFund.Response>(
+            $"/api/funds/{fund.PublicId}"
+        );
+
+        await Assert.That(fetched).IsNotNull();
+        var permanentInformation = fetched!.PermanentInformation;
+        await Assert.That(permanentInformation).IsNotNull();
+        await Assert.That(permanentInformation!.Value.ValueKind).IsEqualTo(JsonValueKind.Object);
+        await Assert
+            .That(permanentInformation.Value.GetProperty("legalName").GetString())
+            .IsEqualTo("PI Fund");
+    }
+
+    [Test]
+    public async Task Update_Returns_Updated_Fund()
+    {
+        var client = Factory.CreateClient();
+
+        var fund = await SeedAsync(FundEntityBuilder.Create().WithName("Old Name").Build());
+
+        var updated = await client.PutAsJsonAsync(
+            $"/api/funds/{fund.PublicId}",
+            UpdateFundRequestBuilder
+                .Create()
+                .WithName("New Name")
+                .WithPeriodicity(Periodicity.Monthly)
+                .Build()
+        );
+        await Assert.That(updated.StatusCode).IsEqualTo(HttpStatusCode.OK);
+
+        var result = await updated.Content.ReadFromJsonAsync<UpdateFund.Response>();
+        await Assert.That(result).IsNotNull();
+        await Assert.That(result!.Name).IsEqualTo("New Name");
+        await Assert.That(result.Periodicity).IsEqualTo(Periodicity.Monthly);
+    }
+
+    [Test]
+    public async Task Update_With_Only_PermanentInformation_Preserves_Stored_Name_And_Periodicity()
+    {
+        var client = Factory.CreateClient();
+
+        var fund = await SeedAsync(
+            FundEntityBuilder
+                .Create()
+                .WithName("Stored Name")
+                .WithPeriodicity(Periodicity.Yearly)
+                .WithPermanentInformation("""{"legalName": "Stored Name"}""")
+                .Build()
+        );
+
+        // The frontend's permanentInformation save sends exactly this body.
+        var updated = await client.PutAsync(
+            $"/api/funds/{fund.PublicId}",
+            new StringContent(
+                """{"permanentInformation": {"legalName": "New Legal Name"}}""",
+                Encoding.UTF8,
+                "application/json"
+            )
+        );
+        await Assert.That(updated.StatusCode).IsEqualTo(HttpStatusCode.OK);
+
+        var result = await updated.Content.ReadFromJsonAsync<UpdateFund.Response>();
+        await Assert.That(result).IsNotNull();
+        await Assert.That(result!.Name).IsEqualTo("Stored Name");
+        await Assert.That(result.Periodicity).IsEqualTo(Periodicity.Yearly);
+        await Assert.That(result.PermanentInformation).IsNotNull();
+        await Assert
+            .That(result.PermanentInformation!.Value.GetProperty("legalName").GetString())
+            .IsEqualTo("New Legal Name");
+
+        var fetched = await client.GetFromJsonAsync<GetFund.Response>(
+            $"/api/funds/{fund.PublicId}"
+        );
+        await Assert.That(fetched!.Name).IsEqualTo("Stored Name");
+        await Assert.That(fetched.Periodicity).IsEqualTo(Periodicity.Yearly);
+    }
+
+    [Test]
+    public async Task Update_With_Null_Name_And_Periodicity_Preserves_Stored_Values()
+    {
+        var client = Factory.CreateClient();
+
+        var fund = await SeedAsync(
+            FundEntityBuilder
+                .Create()
+                .WithName("Stored Name")
+                .WithPeriodicity(Periodicity.Yearly)
+                .Build()
+        );
+
+        var updated = await client.PutAsJsonAsync(
+            $"/api/funds/{fund.PublicId}",
+            UpdateFundRequestBuilder
+                .Create()
+                .WithName(null)
+                .WithPermanentInformation(null)
+                .WithPeriodicity(null)
+                .Build()
+        );
+        await Assert.That(updated.StatusCode).IsEqualTo(HttpStatusCode.OK);
+
+        var result = await updated.Content.ReadFromJsonAsync<UpdateFund.Response>();
+        await Assert.That(result).IsNotNull();
+        await Assert.That(result!.Name).IsEqualTo("Stored Name");
+        await Assert.That(result.Periodicity).IsEqualTo(Periodicity.Yearly);
+    }
+
+    [Test]
+    [Arguments("")]
+    [Arguments(" ")]
+    public async Task Update_With_Blank_Name_Returns_Validation_Problem(string name)
+    {
+        var client = Factory.CreateClient();
+
+        var fund = await SeedAsync(FundEntityBuilder.Create().WithName("Keep Name").Build());
+
+        var response = await client.PutAsJsonAsync(
+            $"/api/funds/{fund.PublicId}",
+            UpdateFundRequestBuilder.Create().WithName(name).Build()
+        );
+
+        await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.BadRequest);
+        await Assert
+            .That(response.Content.Headers.ContentType?.MediaType)
+            .IsEqualTo("application/problem+json");
+    }
+
+    [Test]
+    public async Task Update_With_NonObject_PermanentInformation_Returns_Validation_Problem()
+    {
+        var client = Factory.CreateClient();
+
+        var fund = await SeedAsync(FundEntityBuilder.Create().WithName("Keep PI").Build());
+
+        var response = await client.PutAsJsonAsync(
+            $"/api/funds/{fund.PublicId}",
+            UpdateFundRequestBuilder.Create().WithPermanentInformation("[1, 2]").Build()
+        );
+
+        await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.BadRequest);
+        await Assert
+            .That(response.Content.Headers.ContentType?.MediaType)
+            .IsEqualTo("application/problem+json");
+    }
+
+    [Test]
+    public async Task Delete_Returns_NoContent()
+    {
+        var client = Factory.CreateClient();
+
+        var fund = await SeedAsync(FundEntityBuilder.Create().WithName("Delete Me").Build());
+
+        var deleted = await client.DeleteAsync($"/api/funds/{fund.PublicId}");
+        await Assert.That(deleted.StatusCode).IsEqualTo(HttpStatusCode.NoContent);
+    }
+}

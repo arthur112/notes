@@ -1,0 +1,31 @@
+<Project>
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <!-- Lets the MessagePack pin below override the vulnerable 2.5.302 Aspire.Hosting pulls in. -->
+    <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageVersion Include="Aspire.Hosting.PostgreSQL" Version="13.5.3" />
+    <PackageVersion Include="Aspire.Npgsql.EntityFrameworkCore.PostgreSQL" Version="13.5.3" />
+    <PackageVersion Include="CSharpFunctionalExtensions" Version="3.7.0" />
+    <PackageVersion Include="grate.core" Version="2.1.5" />
+    <PackageVersion Include="grate.postgresql" Version="2.1.5" />
+    <PackageVersion Include="MessagePack" Version="2.5.307" />
+    <PackageVersion Include="Gridify" Version="2.19.1" />
+    <PackageVersion Include="Gridify.EntityFramework" Version="2.19.1" />
+    <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.10" />
+    <PackageVersion Include="Microsoft.Extensions.Http.Resilience" Version="10.8.0" />
+    <PackageVersion Include="Microsoft.Extensions.ServiceDiscovery" Version="10.8.0" />
+    <PackageVersion Include="Microsoft.OpenApi" Version="2.11.0" />
+    <PackageVersion Include="NetEscapades.EnumGenerators" Version="1.0.0-beta21" />
+    <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.17.0" />
+    <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.17.0" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.17.0" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.Http" Version="1.17.0" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.Runtime" Version="1.17.0" />
+    <PackageVersion Include="Scalar.AspNetCore" Version="2.16.16" />
+    <PackageVersion Include="TUnit" Version="1.61.38" />
+    <PackageVersion Include="TUnit.Aspire" Version="1.61.38" />
+    <PackageVersion Include="TUnit.AspNetCore" Version="1.61.38" />
+  </ItemGroup>
+</Project>
