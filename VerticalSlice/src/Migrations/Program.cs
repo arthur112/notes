@@ -1,6 +1,6 @@
 using grate.Configuration;
 using grate.Migration;
-using grate.postgresql.DependencyInjection;
+using grate.sqlserver.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
@@ -10,7 +10,7 @@ var connectionString =
 
 var services = new ServiceCollection();
 services.AddLogging(logging => logging.AddConsole());
-services.AddGrateWithPostgreSQL(
+services.AddGrateWithSqlServer(
     new GrateConfiguration
     {
         ConnectionString = connectionString,

@@ -13,13 +13,10 @@ public class FundEntityConfiguration : IEntityTypeConfiguration<FundEntity>
         builder
             .Property(f => f.PublicId)
             .HasColumnName("public_id")
-            .HasDefaultValueSql("gen_random_uuid()")
+            .HasDefaultValueSql("NEWID()")
             .ValueGeneratedOnAdd();
         builder.Property(f => f.Name).HasColumnName("name");
-        builder
-            .Property(f => f.PermanentInformation)
-            .HasColumnName("permanent_information")
-            .HasColumnType("jsonb");
+        builder.Property(f => f.PermanentInformation).HasColumnName("permanent_information");
         builder
             .Property(f => f.Periodicity)
             .HasColumnName("periodicity")

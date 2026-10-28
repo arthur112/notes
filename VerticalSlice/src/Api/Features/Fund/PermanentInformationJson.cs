@@ -3,9 +3,9 @@ using System.Text.Json;
 namespace Api.Features.Fund;
 
 /// <summary>
-/// <see cref="FundEntity.PermanentInformation"/> keeps the jsonb payload as raw JSON text
-/// (handy for raw-SQL consumers), while the fund responses expose the same payload as a
-/// JSON object, so it has to be re-parsed here.
+/// <see cref="FundEntity.PermanentInformation"/> keeps the payload as raw JSON text in an
+/// <c>nvarchar(max)</c> column (handy for raw-SQL consumers), while the fund responses expose
+/// the same payload as a JSON object, so it has to be re-parsed here.
 /// </summary>
 internal static class PermanentInformationJson
 {

@@ -11,6 +11,10 @@ public class ErrorHandlingTests(AppFixture fixture)
     [Test]
     public async Task Unhandled_Exception_Returns_Problem_Details()
     {
+        Skip.When(
+            AppFixture.ExternalConnectionString is not null,
+            "An existing test database is configured, so the AppHost is not started."
+        );
         var client = fixture.CreateHttpClient("api");
 
         var response = await client.GetAsync("/error/throw");

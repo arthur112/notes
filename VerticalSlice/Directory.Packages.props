@@ -1,15 +1,16 @@
 <Project>
   <PropertyGroup>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
-    <!-- Lets the MessagePack pin below override the vulnerable 2.5.302 Aspire.Hosting pulls in. -->
+    <!-- Lets the pins below override vulnerable transitive versions: MessagePack 2.5.302 (Aspire.Hosting)
+         and System.Security.Cryptography.Pkcs 9.0.13 (grate.sqlserver via Microsoft.Data.SqlClient). -->
     <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
   </PropertyGroup>
   <ItemGroup>
-    <PackageVersion Include="Aspire.Hosting.PostgreSQL" Version="13.5.3" />
-    <PackageVersion Include="Aspire.Npgsql.EntityFrameworkCore.PostgreSQL" Version="13.5.3" />
+    <PackageVersion Include="Aspire.Hosting.SqlServer" Version="13.5.3" />
+    <PackageVersion Include="Aspire.Microsoft.EntityFrameworkCore.SqlServer" Version="13.5.3" />
     <PackageVersion Include="CSharpFunctionalExtensions" Version="3.7.0" />
     <PackageVersion Include="grate.core" Version="2.1.5" />
-    <PackageVersion Include="grate.postgresql" Version="2.1.5" />
+    <PackageVersion Include="grate.sqlserver" Version="2.1.5" />
     <PackageVersion Include="MessagePack" Version="2.5.307" />
     <PackageVersion Include="Gridify" Version="2.19.1" />
     <PackageVersion Include="Gridify.EntityFramework" Version="2.19.1" />
@@ -23,6 +24,7 @@
     <PackageVersion Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.17.0" />
     <PackageVersion Include="OpenTelemetry.Instrumentation.Http" Version="1.17.0" />
     <PackageVersion Include="OpenTelemetry.Instrumentation.Runtime" Version="1.17.0" />
+    <PackageVersion Include="System.Security.Cryptography.Pkcs" Version="10.0.14" />
     <PackageVersion Include="Scalar.AspNetCore" Version="2.16.16" />
     <PackageVersion Include="TUnit" Version="1.61.38" />
     <PackageVersion Include="TUnit.Aspire" Version="1.61.38" />

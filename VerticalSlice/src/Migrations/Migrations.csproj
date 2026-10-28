@@ -5,7 +5,7 @@
 
   <ItemGroup>
     <PackageReference Include="grate.core" />
-    <PackageReference Include="grate.postgresql" />
+    <PackageReference Include="grate.sqlserver" />
   </ItemGroup>
 
   <ItemGroup>

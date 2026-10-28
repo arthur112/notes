@@ -9,7 +9,7 @@ using Scalar.AspNetCore;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
-builder.AddNpgsqlDbContext<AppDbContext>(
+builder.AddSqlServerDbContext<AppDbContext>(
     "app",
     configureDbContextOptions: options =>
         options.ReplaceService<IModelCacheKeyFactory, SchemaModelCacheKeyFactory>()

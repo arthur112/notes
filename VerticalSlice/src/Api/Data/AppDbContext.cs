@@ -6,7 +6,7 @@ namespace Api.Data;
 public class AppDbContext(DbContextOptions<AppDbContext> options, IConfiguration? config = null)
     : DbContext(options)
 {
-    public string SchemaName { get; set; } = config?["Database:Schema"] ?? "public";
+    public string SchemaName { get; set; } = config?["Database:Schema"] ?? "dbo";
 
     public DbSet<FundEntity> Funds => Set<FundEntity>();
 

@@ -14,7 +14,7 @@ public class ApiWebFactory : TestWebApplicationFactory<Program>
         configurationBuilder.AddInMemoryCollection(
             new Dictionary<string, string?>
             {
-                ["ConnectionStrings:app"] = Aspire.PostgresConnectionString,
+                ["ConnectionStrings:app"] = Aspire.ConnectionString,
             }
         );
 }
