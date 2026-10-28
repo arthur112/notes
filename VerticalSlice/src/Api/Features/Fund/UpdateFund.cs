@@ -29,7 +29,7 @@ public static class UpdateFund
     ) : IValidatableObject
     {
         /// <summary>
-        /// Name is optional, so its non-empty rule cannot use <see cref="NotEmptyStringAttribute"/>,
+        /// Name is optional, so its non-empty rule cannot use <see cref="RequiredAttribute"/>,
         /// which also rejects an omitted (null) field.
         /// </summary>
         public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)

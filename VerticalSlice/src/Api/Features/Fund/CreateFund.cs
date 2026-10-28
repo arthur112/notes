@@ -10,7 +10,7 @@ namespace Api.Features.Fund;
 public static class CreateFund
 {
     public record Request(
-        [property: NotEmptyString, MaxLength(200, ErrorMessage = "The length of '{0}' must be 200 characters or fewer.")]
+        [property: Required(ErrorMessage = "'{0}' must not be empty."), MaxLength(200, ErrorMessage = "The length of '{0}' must be 200 characters or fewer.")]
         string Name,
         string? PermanentInformation = null,
         [property: ValidEnum]

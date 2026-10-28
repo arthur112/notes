@@ -7,7 +7,7 @@ A minimal, runnable mirror of a production **Vertical Slice Architecture** backe
 - **One file per use case.** `Features/Fund/CreateFund.cs` is a static class holding its own `Request` / `Response` records and a static `Handle(Request, AppDbContext)` method. No MediatR, no repositories, no unit-of-work: the slice queries the shared `AppDbContext` directly.
 - **Everything about a domain lives in its folder.** `FundEntity` (plain POCO), `FundEntityConfiguration` (`IEntityTypeConfiguration`, picked up by `ApplyConfigurationsFromAssembly`), the `Periodicity` enum and `FundEndpoints` (one `MapGroup("/api/funds")` mapping each `Handle`). `Program.cs` calls `app.MapFundEndpoints()`.
 - **No layered projects.** Only `Data/` (the DbContext) and a few small cross-cutting folders (`ErrorHandling/`, `Validation/`, `Querying/`, `Json/`) are shared.
-- **Validation is .NET 10 built-in** (`builder.Services.AddValidation()`). `Request` records carry `[property: ...]` attributes (`NotEmptyString`, `MaxLength`, `ValidEnum`, `JsonObject`), and invalid bodies get an automatic `400` `ValidationProblemDetails` before `Handle` runs. Cross-field or optional-but-not-blank rules go in `IValidatableObject` (see `UpdateFund.Request`).
+- **Validation is .NET 10 built-in** (`builder.Services.AddValidation()`). `Request` records carry `[property: ...]` attributes (built-in `Required`, `MaxLength`, plus custom `ValidEnum`, `JsonObject`), and invalid bodies get an automatic `400` `ValidationProblemDetails` before `Handle` runs. Cross-field or optional-but-not-blank rules go in `IValidatableObject` (see `UpdateFund.Request`).
 - **Domain errors are typed.** `IHttpError` records (`NotFoundError`, `ConflictError`, `BadRequestError`, `ValidationError`) render themselves as RFC 9457 problem+json. Handlers are `Result`/`Maybe` pipelines (CSharpFunctionalExtensions) ending in `result.Match(onSuccess: ..., onFailure: error => error.ToHttpResult())`.
 - **Unexpected exceptions** go to `GlobalExceptionHandler` (`IExceptionHandler`): `500` problem+json, with exception details only in Development. No try/catch in endpoints.
 - **Lists go through Gridify behind our own contract.** `[AsParameters] ListQuery` (`page`, `pageSize`, `filter`, `orderBy`) in, `PagedResult<T>` (`{ data, count }`) out. `QueryableExtensions.ToPagedResultAsync` is the only place that calls Gridify, so the paging strategy can change without touching endpoints.
@@ -27,7 +27,7 @@ VerticalSlice/
 │       ├── Program.cs
 │       ├── Data/               # AppDbContext (+ dynamic schema for tests)
 │       ├── ErrorHandling/      # IHttpError records, GlobalExceptionHandler
-│       ├── Validation/         # NotEmptyString, ValidEnum, JsonObject
+│       ├── Validation/         # ValidEnum, JsonObject
 │       ├── Querying/           # ListQuery, PagedResult, ToPagedResultAsync
 │       ├── Json/               # source-gen context, CamelCaseEnumConverter
 │       └── Features/Fund/      # the slice
