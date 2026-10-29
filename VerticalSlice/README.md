@@ -11,8 +11,8 @@ A minimal, runnable mirror of a production **Vertical Slice Architecture** backe
 - **Domain errors are typed.** `IHttpError` records (`NotFoundError`, `ConflictError`, `BadRequestError`, `ValidationError`) render themselves as RFC 9457 problem+json. Handlers are `Result`/`Maybe` pipelines (CSharpFunctionalExtensions) ending in `result.Match(onSuccess: ..., onFailure: error => error.ToHttpResult())`.
 - **Unexpected exceptions** go to `GlobalExceptionHandler` (`IExceptionHandler`): `500` problem+json, with exception details only in Development. No try/catch in endpoints.
 - **Lists go through Gridify behind our own contract.** `[AsParameters] ListQuery` (`page`, `pageSize`, `filter`, `orderBy`) in, `PagedResult<T>` (`{ data, count }`) out. `QueryableExtensions.ToPagedResultAsync` is the only place that calls Gridify, so the paging strategy can change without touching endpoints.
-- **The schema belongs to grate, not EF.** `db/up/0001_create_funds_table.sql` is the source of truth, applied by the one-shot `src/Migrations` project. EF configuration must match the SQL exactly (for example `HasDefaultValueSql("NEWID()")`), because tests build their tables from the EF model.
-- **JSON is source-generated** (`JsonSerializerIsReflectionEnabledByDefault=false`). Every request/response type is registered in `Json/AppJsonSerializerContext.cs`. Enums serialize as camelCase strings and are stored as lowercase text.
+- **The schema belongs to grate, not EF.** `db/up/` (`0001_create_funds_table.sql`, `0002_store_periodicity_as_enum_name.sql`) is the source of truth, applied by the one-shot `src/Migrations` project. EF configuration must match the SQL exactly (for example `HasDefaultValueSql("NEWID()")`), because tests build their tables from the EF model.
+- **JSON is source-generated** (`JsonSerializerIsReflectionEnabledByDefault=false`). Every request/response type is registered in `Json/AppJsonSerializerContext.cs`. Enums keep their C# names end to end: `"Monthly"` in JSON (`JsonStringEnumConverter<T>`, no naming policy), `'Monthly'` in the column (EF's built-in `HasConversion<string>()`), and back to `Periodicity.Monthly` on read.
 
 ## Structure
 
@@ -29,7 +29,7 @@ VerticalSlice/
 │       ├── ErrorHandling/      # IHttpError records, GlobalExceptionHandler
 │       ├── Validation/         # ValidEnum, JsonObject
 │       ├── Querying/           # ListQuery, PagedResult, ToPagedResultAsync
-│       ├── Json/               # source-gen context, CamelCaseEnumConverter
+│       ├── Json/               # source-gen context
 │       └── Features/Fund/      # the slice
 └── tests/Api.Tests/
     ├── FundValidatorTests.cs   # unit
@@ -100,6 +100,6 @@ Try it:
 
 ```bash
 curl -X POST localhost:<port>/api/funds -H 'content-type: application/json' \
-     -d '{"name":"Alpha","periodicity":"monthly"}'
+     -d '{"name":"Alpha","periodicity":"Monthly"}'
 curl 'localhost:<port>/api/funds?page=1&pageSize=10&orderBy=name desc'
 ```

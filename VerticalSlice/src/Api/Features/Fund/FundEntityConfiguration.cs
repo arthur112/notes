@@ -17,12 +17,6 @@ public class FundEntityConfiguration : IEntityTypeConfiguration<FundEntity>
             .ValueGeneratedOnAdd();
         builder.Property(f => f.Name).HasColumnName("name");
         builder.Property(f => f.PermanentInformation).HasColumnName("permanent_information");
-        builder
-            .Property(f => f.Periodicity)
-            .HasColumnName("periodicity")
-            .HasConversion<string>(
-                v => v.ToStringFast().ToLowerInvariant(),
-                v => PeriodicityExtensions.Parse(v, ignoreCase: true)
-            );
+        builder.Property(f => f.Periodicity).HasColumnName("periodicity").HasConversion<string>();
     }
 }
