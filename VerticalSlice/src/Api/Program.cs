@@ -1,6 +1,7 @@
 using Api.Data;
 using Api.ErrorHandling;
 using Api.Features.Fund;
+using Api.Features.SampleRecord;
 using Api.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
@@ -12,7 +13,9 @@ builder.AddServiceDefaults();
 builder.AddSqlServerDbContext<AppDbContext>(
     "app",
     configureDbContextOptions: options =>
-        options.ReplaceService<IModelCacheKeyFactory, SchemaModelCacheKeyFactory>()
+        options
+            .ReplaceService<IModelCacheKeyFactory, SchemaModelCacheKeyFactory>()
+            .AddInterceptors(new AuditInterceptor(TimeProvider.System))
 );
 builder.Services.AddOpenApi();
 builder.Services.ConfigureHttpJsonOptions(options =>
@@ -44,6 +47,7 @@ app.MapOpenApi();
 app.MapScalarApiReference();
 
 app.MapFundEndpoints();
+app.MapSampleRecordEndpoints();
 
 app.Run();
 

@@ -1,5 +1,6 @@
 using System.Text.Json.Serialization;
 using Api.Features.Fund;
+using Api.Features.SampleRecord;
 
 namespace Api.Json;
 
@@ -16,6 +17,27 @@ namespace Api.Json;
 [JsonSerializable(
     typeof(Api.Querying.PagedResult<ListFunds.Response>),
     TypeInfoPropertyName = "ListFundsPagedResponse"
+)]
+[JsonSerializable(
+    typeof(CreateSampleRecord.Request),
+    TypeInfoPropertyName = "CreateSampleRecordRequest"
+)]
+[JsonSerializable(
+    typeof(UpdateSampleRecord.Request),
+    TypeInfoPropertyName = "UpdateSampleRecordRequest"
+)]
+[JsonSerializable(
+    typeof(ImportSampleRecords.Request),
+    TypeInfoPropertyName = "ImportSampleRecordsRequest"
+)]
+[JsonSerializable(
+    typeof(ImportSampleRecords.Response),
+    TypeInfoPropertyName = "ImportSampleRecordsResponse"
+)]
+[JsonSerializable(typeof(SampleRecordResponse))]
+[JsonSerializable(
+    typeof(Api.Querying.PagedResult<SampleRecordResponse>),
+    TypeInfoPropertyName = "SampleRecordPagedResponse"
 )]
 [JsonSerializable(typeof(Microsoft.AspNetCore.Mvc.ProblemDetails))]
 [JsonSerializable(typeof(Microsoft.AspNetCore.Http.HttpValidationProblemDetails))]
