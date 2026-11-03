@@ -2,7 +2,7 @@ import { Link, useRouterState } from "@tanstack/react-router";
 import { ChevronRight } from "lucide-react";
 import type { ComponentProps, ReactElement } from "react";
 
-import { useNav, type MicroApp } from "./nav";
+import { APPS, isNavPathActive, useNav, type NavPage } from "./nav";
 
 // `Link` with `to` widened to `string`: crumb targets come from route metadata
 // at runtime, so they can't be narrowed to the registered path union.
@@ -15,25 +15,21 @@ type Crumb = { label: string; to?: string };
 type Trail = { section: string; crumbs: Crumb[] };
 
 /**
- * The trail for a pathname: `section › …crumbs`, where the app crumb links back
- * to its list and every deeper segment (e.g. an order number) is a further,
- * unlinked crumb. Derived from the same route metadata that feeds the sidebar,
- * so adding an app needs no change here.
+ * The trail for a pathname: `app › page › …segments`, where the page crumb
+ * links back to its list and every deeper segment (e.g. an order number) is a
+ * further, unlinked crumb. Derived from the same route metadata that feeds the
+ * sidebar, so adding a page needs no change here.
  */
-function buildTrail(pathname: string, microApps: MicroApp[]): Trail {
-  if (pathname === "/") return { section: "Platform", crumbs: [{ label: "Dashboard" }] };
+function buildTrail(pathname: string, pages: NavPage[]): Trail {
+  const page = pages.find((candidate) => isNavPathActive(candidate.path, pathname));
+  if (!page) return { section: APPS.platform.name, crumbs: [{ label: "Not found" }] };
 
-  const app = microApps.find(
-    (candidate) => pathname === candidate.path || pathname.startsWith(`${candidate.path}/`),
-  );
-  if (!app) return { section: "Apps", crumbs: [{ label: "Not found" }] };
-
-  const crumbs: Crumb[] = [{ label: app.name, to: app.path }];
-  const rest = pathname.slice(app.path.length).replace(/^\/+/, "");
+  const crumbs: Crumb[] = [{ label: page.title, to: page.path }];
+  const rest = pathname.slice(page.path.length).replace(/^\/+/, "");
   for (const segment of rest ? rest.split("/") : []) {
     crumbs.push({ label: decodeURIComponent(segment) });
   }
-  return { section: "Apps", crumbs };
+  return { section: APPS[page.app].name, crumbs };
 }
 
 /**
@@ -42,9 +38,9 @@ function buildTrail(pathname: string, microApps: MicroApp[]): Trail {
  * link, so `/apps/orders-ops/ORD-100123` offers a one-click return to the desk.
  */
 export function Breadcrumbs() {
-  const { microApps } = useNav();
+  const { pages } = useNav();
   const pathname = useRouterState({ select: (state) => state.location.pathname });
-  const { section, crumbs } = buildTrail(pathname, microApps);
+  const { section, crumbs } = buildTrail(pathname, pages);
 
   return (
     <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-sm">

@@ -9,7 +9,7 @@ export const Route = createFileRoute("/apps/showcase")({
     nav: {
       title: "Components",
       description: "A living gallery of the shared UI and shared components both order apps reuse.",
-      group: "Components",
+      app: "components",
       icon: Shapes,
     },
   },

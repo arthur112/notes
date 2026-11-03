@@ -9,15 +9,22 @@ import { TooltipProvider } from "@/shared/components/ui/tooltip";
 import { AppSidebar } from "./app-sidebar";
 import { Breadcrumbs } from "./Breadcrumbs";
 import { ErrorBoundary } from "./ErrorBoundary";
+import { useActiveApp } from "./nav";
 import { useShell } from "./ShellProvider";
 
 export function AppFrame() {
   const { events } = useShell();
   const [dark, setDark] = useState(false);
+  const app = useActiveApp();
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", dark);
   }, [dark]);
+
+  // On <html>, not a wrapper, so portalled popovers and menus get the accent too.
+  useEffect(() => {
+    document.documentElement.dataset.app = app;
+  }, [app]);
 
   return (
     <TooltipProvider>

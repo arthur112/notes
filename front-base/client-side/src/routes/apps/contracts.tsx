@@ -14,7 +14,7 @@ export const Route = createFileRoute("/apps/contracts")({
       title: "Contracts",
       description:
         "The lending desk: a mortgage contract record — origination snapshot, risk grade, live state, claims and modification history.",
-      group: "Lending",
+      app: "lending",
       icon: Landmark,
     },
   },

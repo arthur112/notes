@@ -119,6 +119,33 @@
   --sidebar-ring: oklch(0.73 0.123 196.8);
 }
 
+/*
+ * Per-app accent: AppFrame mirrors the active app onto `<html data-app>`.
+ * Platform keeps the Verdant default; each other app swaps only its primary.
+ */
+[data-app] {
+  --ring: var(--primary);
+  --sidebar-primary: var(--primary);
+}
+:root[data-app="orders"] {
+  --primary: oklch(0.48 0.16 258);
+}
+.dark[data-app="orders"] {
+  --primary: oklch(0.72 0.14 258);
+}
+:root[data-app="lending"] {
+  --primary: oklch(0.52 0.15 45);
+}
+.dark[data-app="lending"] {
+  --primary: oklch(0.76 0.14 60);
+}
+:root[data-app="components"] {
+  --primary: oklch(0.48 0.2 300);
+}
+.dark[data-app="components"] {
+  --primary: oklch(0.74 0.15 300);
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

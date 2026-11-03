@@ -46,19 +46,22 @@ function DetailSkeleton() {
 }
 
 /**
- * Orders · Ops detail — the row's full record as a deep-linkable page at
- * `/apps/orders-ops/$orderNo`, rather than a drawer over the list.
+ * The order record as a deep-linkable page, rather than a drawer over the list.
+ * Mounted twice: `/apps/orders-ops/$orderNo` (with status changes) and
+ * `/apps/orders-finance/$orderNo` (`readOnly`). Every link here is relative to
+ * the current route (`.` / `..`), so the page never names its app — the route
+ * it is mounted under decides where "All orders" and the tabs lead.
  *
  * The record's workflows are split into tabs (`Details` / `Items` / `Activity`)
  * because they are mutually exclusive (UxGuide §3); the key-facts strip stays
  * above them so the fields most visits need never disappear. The active tab is
  * mirrored into `?tab=…` (with `replace`) so it is shareable while Back still
  * leaves the page for the list. The shell breadcrumb is the other way back:
- * Apps › Orders · Ops › {orderNo}.
+ * Orders › Orders · Ops › {orderNo}.
  */
-export function OrderDetailPage() {
-  const { orderNo } = useParams({ from: "/apps/orders-ops/$orderNo" });
-  const { tab } = useSearch({ from: "/apps/orders-ops/$orderNo" });
+export function OrderDetailPage({ readOnly = false }: { readOnly?: boolean }) {
+  const orderNo = useParams({ strict: false, select: (params) => params.orderNo ?? "" });
+  const tab = useSearch({ strict: false, select: (search) => search.tab });
   const navigate = useNavigate();
   const { events, publish } = useShell();
   const setStatus = useSetOrderStatusMutation();
@@ -75,8 +78,7 @@ export function OrderDetailPage() {
   // the list rather than walking the tabs the user already looked at.
   const setTab = (next: string) => {
     void navigate({
-      to: "/apps/orders-ops/$orderNo",
-      params: { orderNo },
+      to: ".",
       search: next === DEFAULT_ORDER_DETAIL_TAB ? {} : { tab: next as OrderDetailTab },
       replace: true,
     });
@@ -91,7 +93,7 @@ export function OrderDetailPage() {
           title="Order not found"
           description={order.error?.message ?? `No order matches “${orderNo}”.`}
         />
-        <Button variant="outline" render={<Link to="/apps/orders-ops" />}>
+        <Button variant="outline" render={<Link to=".." />}>
           <ArrowLeft />
           Back to orders
         </Button>
@@ -132,28 +134,30 @@ export function OrderDetailPage() {
   return (
     <div className="space-y-5">
       <PageHeader title={data.orderNo} description={data.customer.name}>
-        <Button variant="outline" render={<Link to="/apps/orders-ops" />}>
+        <Button variant="outline" render={<Link to=".." />}>
           <ArrowLeft />
           All orders
         </Button>
-        <DropdownMenu>
-          <DropdownMenuTrigger render={<Button disabled={setStatus.isPending} />}>
-            {setStatus.isPending ? "Updating…" : "Change status"}
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuLabel>Move to…</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            {transitions.map((status) => (
-              <DropdownMenuItem
-                key={status}
-                variant={status === "cancelled" ? "destructive" : "default"}
-                onClick={() => changeStatus(status)}
-              >
-                {STATUS_META[status].label}
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
+        {!readOnly && (
+          <DropdownMenu>
+            <DropdownMenuTrigger render={<Button disabled={setStatus.isPending} />}>
+              {setStatus.isPending ? "Updating…" : "Change status"}
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel>Move to…</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {transitions.map((status) => (
+                <DropdownMenuItem
+                  key={status}
+                  variant={status === "cancelled" ? "destructive" : "default"}
+                  onClick={() => changeStatus(status)}
+                >
+                  {STATUS_META[status].label}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
       </PageHeader>
 
       <OrderKeyFacts order={data} />

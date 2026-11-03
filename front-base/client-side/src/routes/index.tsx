@@ -9,7 +9,7 @@ export const Route = createFileRoute("/")({
     nav: {
       title: "Dashboard",
       description: "Overview of the platform and its apps.",
-      group: "Platform",
+      app: "platform",
       icon: LayoutDashboard,
     },
   },

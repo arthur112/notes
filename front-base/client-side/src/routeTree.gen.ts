@@ -16,6 +16,8 @@ import { Route as AppsOrdersOpsRouteImport } from './routes/apps/orders-ops'
 import { Route as AppsShowcaseRouteImport } from './routes/apps/showcase'
 import { Route as AppsContractsIndexRouteImport } from './routes/apps/contracts.index'
 import { Route as AppsContractsContractNoRouteImport } from './routes/apps/contracts.$contractNo'
+import { Route as AppsOrdersFinanceIndexRouteImport } from './routes/apps/orders-finance.index'
+import { Route as AppsOrdersFinanceOrderNoRouteImport } from './routes/apps/orders-finance.$orderNo'
 import { Route as AppsOrdersOpsIndexRouteImport } from './routes/apps/orders-ops.index'
 import { Route as AppsOrdersOpsOrderNoRouteImport } from './routes/apps/orders-ops.$orderNo'
 
@@ -54,6 +56,17 @@ const AppsContractsContractNoRoute = AppsContractsContractNoRouteImport.update({
   path: '/$contractNo',
   getParentRoute: () => AppsContractsRoute,
 } as any)
+const AppsOrdersFinanceIndexRoute = AppsOrdersFinanceIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppsOrdersFinanceRoute,
+} as any)
+const AppsOrdersFinanceOrderNoRoute =
+  AppsOrdersFinanceOrderNoRouteImport.update({
+    id: '/$orderNo',
+    path: '/$orderNo',
+    getParentRoute: () => AppsOrdersFinanceRoute,
+  } as any)
 const AppsOrdersOpsIndexRoute = AppsOrdersOpsIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -68,33 +81,38 @@ const AppsOrdersOpsOrderNoRoute = AppsOrdersOpsOrderNoRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/apps/contracts': typeof AppsContractsRouteWithChildren
-  '/apps/orders-finance': typeof AppsOrdersFinanceRoute
+  '/apps/orders-finance': typeof AppsOrdersFinanceRouteWithChildren
   '/apps/orders-ops': typeof AppsOrdersOpsRouteWithChildren
   '/apps/showcase': typeof AppsShowcaseRoute
   '/apps/contracts/$contractNo': typeof AppsContractsContractNoRoute
+  '/apps/orders-finance/$orderNo': typeof AppsOrdersFinanceOrderNoRoute
   '/apps/orders-ops/$orderNo': typeof AppsOrdersOpsOrderNoRoute
   '/apps/contracts/': typeof AppsContractsIndexRoute
+  '/apps/orders-finance/': typeof AppsOrdersFinanceIndexRoute
   '/apps/orders-ops/': typeof AppsOrdersOpsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/apps/orders-finance': typeof AppsOrdersFinanceRoute
   '/apps/showcase': typeof AppsShowcaseRoute
   '/apps/contracts/$contractNo': typeof AppsContractsContractNoRoute
+  '/apps/orders-finance/$orderNo': typeof AppsOrdersFinanceOrderNoRoute
   '/apps/orders-ops/$orderNo': typeof AppsOrdersOpsOrderNoRoute
   '/apps/contracts': typeof AppsContractsIndexRoute
+  '/apps/orders-finance': typeof AppsOrdersFinanceIndexRoute
   '/apps/orders-ops': typeof AppsOrdersOpsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/apps/contracts': typeof AppsContractsRouteWithChildren
-  '/apps/orders-finance': typeof AppsOrdersFinanceRoute
+  '/apps/orders-finance': typeof AppsOrdersFinanceRouteWithChildren
   '/apps/orders-ops': typeof AppsOrdersOpsRouteWithChildren
   '/apps/showcase': typeof AppsShowcaseRoute
   '/apps/contracts/$contractNo': typeof AppsContractsContractNoRoute
+  '/apps/orders-finance/$orderNo': typeof AppsOrdersFinanceOrderNoRoute
   '/apps/orders-ops/$orderNo': typeof AppsOrdersOpsOrderNoRoute
   '/apps/contracts/': typeof AppsContractsIndexRoute
+  '/apps/orders-finance/': typeof AppsOrdersFinanceIndexRoute
   '/apps/orders-ops/': typeof AppsOrdersOpsIndexRoute
 }
 export interface FileRouteTypes {
@@ -106,17 +124,20 @@ export interface FileRouteTypes {
     | '/apps/orders-ops'
     | '/apps/showcase'
     | '/apps/contracts/$contractNo'
+    | '/apps/orders-finance/$orderNo'
     | '/apps/orders-ops/$orderNo'
     | '/apps/contracts/'
+    | '/apps/orders-finance/'
     | '/apps/orders-ops/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/apps/orders-finance'
     | '/apps/showcase'
     | '/apps/contracts/$contractNo'
+    | '/apps/orders-finance/$orderNo'
     | '/apps/orders-ops/$orderNo'
     | '/apps/contracts'
+    | '/apps/orders-finance'
     | '/apps/orders-ops'
   id:
     | '__root__'
@@ -126,15 +147,17 @@ export interface FileRouteTypes {
     | '/apps/orders-ops'
     | '/apps/showcase'
     | '/apps/contracts/$contractNo'
+    | '/apps/orders-finance/$orderNo'
     | '/apps/orders-ops/$orderNo'
     | '/apps/contracts/'
+    | '/apps/orders-finance/'
     | '/apps/orders-ops/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AppsContractsRoute: typeof AppsContractsRouteWithChildren
-  AppsOrdersFinanceRoute: typeof AppsOrdersFinanceRoute
+  AppsOrdersFinanceRoute: typeof AppsOrdersFinanceRouteWithChildren
   AppsOrdersOpsRoute: typeof AppsOrdersOpsRouteWithChildren
   AppsShowcaseRoute: typeof AppsShowcaseRoute
 }
@@ -190,6 +213,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppsContractsContractNoRouteImport
       parentRoute: typeof AppsContractsRoute
     }
+    '/apps/orders-finance/': {
+      id: '/apps/orders-finance/'
+      path: '/'
+      fullPath: '/apps/orders-finance/'
+      preLoaderRoute: typeof AppsOrdersFinanceIndexRouteImport
+      parentRoute: typeof AppsOrdersFinanceRoute
+    }
+    '/apps/orders-finance/$orderNo': {
+      id: '/apps/orders-finance/$orderNo'
+      path: '/$orderNo'
+      fullPath: '/apps/orders-finance/$orderNo'
+      preLoaderRoute: typeof AppsOrdersFinanceOrderNoRouteImport
+      parentRoute: typeof AppsOrdersFinanceRoute
+    }
     '/apps/orders-ops/': {
       id: '/apps/orders-ops/'
       path: '/'
@@ -221,6 +258,19 @@ const AppsContractsRouteWithChildren = AppsContractsRoute._addFileChildren(
   AppsContractsRouteChildren,
 )
 
+interface AppsOrdersFinanceRouteChildren {
+  AppsOrdersFinanceOrderNoRoute: typeof AppsOrdersFinanceOrderNoRoute
+  AppsOrdersFinanceIndexRoute: typeof AppsOrdersFinanceIndexRoute
+}
+
+const AppsOrdersFinanceRouteChildren: AppsOrdersFinanceRouteChildren = {
+  AppsOrdersFinanceOrderNoRoute: AppsOrdersFinanceOrderNoRoute,
+  AppsOrdersFinanceIndexRoute: AppsOrdersFinanceIndexRoute,
+}
+
+const AppsOrdersFinanceRouteWithChildren =
+  AppsOrdersFinanceRoute._addFileChildren(AppsOrdersFinanceRouteChildren)
+
 interface AppsOrdersOpsRouteChildren {
   AppsOrdersOpsOrderNoRoute: typeof AppsOrdersOpsOrderNoRoute
   AppsOrdersOpsIndexRoute: typeof AppsOrdersOpsIndexRoute
@@ -238,7 +288,7 @@ const AppsOrdersOpsRouteWithChildren = AppsOrdersOpsRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AppsContractsRoute: AppsContractsRouteWithChildren,
-  AppsOrdersFinanceRoute: AppsOrdersFinanceRoute,
+  AppsOrdersFinanceRoute: AppsOrdersFinanceRouteWithChildren,
   AppsOrdersOpsRoute: AppsOrdersOpsRouteWithChildren,
   AppsShowcaseRoute: AppsShowcaseRoute,
 }

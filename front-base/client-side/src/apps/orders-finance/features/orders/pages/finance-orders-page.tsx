@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
+import { useNavigate } from "@tanstack/react-router";
 import {
   useTable,
   type ColumnVisibilityState,
@@ -55,6 +56,7 @@ const EMPTY_ORDERS: Order[] = [];
  * chooser, density, pagination) with Ops while sharing none of its columns.
  */
 export function FinanceOrdersPage() {
+  const navigate = useNavigate();
   const [filters, setFilters] = useState(DEFAULT_FINANCE_FILTERS);
   const [pagination, setPagination] = useState<PaginationState>({
     pageIndex: 0,
@@ -213,6 +215,12 @@ export function FinanceOrdersPage() {
                 busy={orders.isFetching}
                 density={density}
                 stickyHeader
+                onRowClick={(row) =>
+                  void navigate({
+                    to: "/apps/orders-finance/$orderNo",
+                    params: { orderNo: row.original.orderNo },
+                  })
+                }
                 empty={
                   <TableEmpty
                     icon={noFilters ? <Inbox className="size-5" /> : <SearchX className="size-5" />}

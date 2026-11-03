@@ -10,12 +10,12 @@ fed by a Gridify-aware **mock API**.
 The demonstration business is **orders**. Two apps display the _same_ order data table with
 radically different UX, and a third app is a component gallery:
 
-| App                  | Route                  | Its specificity                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| -------------------- | ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Orders · Ops**     | `/apps/orders-ops`     | Dense order desk: a persistent **search + status pills** row with **channel / created-period / amount** behind one labelled `Filters (n)` popover, all executed **server-side** via Gridify query strings. A scope line states the result count, rows are selectable (**bulk mark shipped/delivered, export CSV**), plus a column chooser, density toggle, page-size + jump pagination, row action menu, a deep-linkable **order detail page** (tabbed record: Details / Items / Activity + status changes), and order creation through a TanStack Form sheet. |
-| **Orders · Finance** | `/apps/orders-finance` | Lean, read-only: **month + the same status pills**, aggregate cards (count / net / VAT / total), fiscal columns (Net/VAT hidden by default so **Total always fits**), and a **collapsible** "live activity" rail fed by the shell event bus (watch the Ops app from here).                                                                                                                                                                                                                                                                                     |
-| **Contracts**       | `/apps/contracts`      | The lending desk: a **mortgage contract record** (deep-linkable at `/apps/contracts/$contractNo`, index redirects to the seeded contract). Identity block + key-facts stat strip, an **"Initial state"** origination snapshot (loan terms / risk assessment with an A–F grade scale / borrower / mortgage & collateral) and a **"Current state"** live snapshot (stat strip, active-claim banner, modification log). Claim/history interactions publish onto the shell event bus. Backed by its own `shared/domain/contracts` kernel and a `GET /api/contracts/:contractNo` mock route.                                                                                                                                                                          |
-| **Components**       | `/apps/showcase`       | Living gallery of `shared/components/ui` + shared components: primitives, pickers/selects, TanStack Form binding, DataTable + async states.                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| App                  | Route                  | Its specificity                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| -------------------- | ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Orders · Ops**     | `/apps/orders-ops`     | Dense order desk: a persistent **search + status pills** row with **channel / created-period / amount** behind one labelled `Filters (n)` popover, all executed **server-side** via Gridify query strings. A scope line states the result count, rows are selectable (**bulk mark shipped/delivered, export CSV**), plus a column chooser, density toggle, page-size + jump pagination, row action menu, a deep-linkable **order detail page** (tabbed record: Details / Items / Activity + status changes), and order creation through a TanStack Form sheet.                          |
+| **Orders · Finance** | `/apps/orders-finance` | Lean, read-only: **month + the same status pills**, aggregate cards (count / net / VAT / total), fiscal columns (Net/VAT hidden by default so **Total always fits**), and a **collapsible** "live activity" rail fed by the shell event bus (watch the Ops app from here).                                                                                                                                                                                                                                                                                                              |
+| **Contracts**        | `/apps/contracts`      | The lending desk: a **mortgage contract record** (deep-linkable at `/apps/contracts/$contractNo`, index redirects to the seeded contract). Identity block + key-facts stat strip, an **"Initial state"** origination snapshot (loan terms / risk assessment with an A–F grade scale / borrower / mortgage & collateral) and a **"Current state"** live snapshot (stat strip, active-claim banner, modification log). Claim/history interactions publish onto the shell event bus. Backed by its own `shared/domain/contracts` kernel and a `GET /api/contracts/:contractNo` mock route. |
+| **Components**       | `/apps/showcase`       | Living gallery of `shared/components/ui` + shared components: primitives, pickers/selects, TanStack Form binding, DataTable + async states.                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 
 Both order apps talk to the same `GET /api/orders?...` contract, share schemas, query keys and
 hooks — and share **zero** UX components. That is the point of the layout.
@@ -64,7 +64,7 @@ The shared dumb pieces are `DetailField`, `DetailGrid`, `DetailSection`, `Detail
 `OrderDetailPage`.
 
 The shell breadcrumb (`shell/Breadcrumbs.tsx`) is derived from the pathname plus route metadata, so
-it reads `Apps › Orders · Ops › ORD-100123`: the app crumb is a **link back to the list** and the
+it reads `Orders › Orders · Ops › ORD-100123`: the app crumb is a **link back to the list** and the
 record segment is the current, unlinked crumb. The list still keeps its filters in component state
 today (Phase 5.2 of `ORDERS-TABLE-PLAN.md` tracks moving them to the URL), so going back re-renders
 the desk's default view.
@@ -86,8 +86,30 @@ stated in the metric's own unit (`+€460K`, so a percentage is never the only n
 below keeps its own compact YoY delta. There are no charts: a bar and a marker, not a series.
 
 There is no date picker; the scope is always year-to-date, so the only control is the sidebar
-header's top-left **app switcher**, which lists the dashboard and every micro-app (and is
-derived from the same route metadata as the sidebar).
+header's top-left **app switcher**.
+
+### Apps: one selection, three visual changes and a route
+
+The switcher lists **apps** — `platform`, `orders`, `lending`, `components` — declared once in
+`APPS` (`shell/nav.ts`). A page joins an app by naming it in its route's
+`staticData.nav.app`; that is the only per-page cost.
+
+The selected app is **not stored**: `useActiveApp()` reads it from the URL (the deepest matched
+route with `nav`, so a record inherits its layout's app). Picking an app just navigates to its
+first page, and reloads, shared links and _Back_ all keep the selection. Everything else follows
+from that one hook:
+
+| What changes    | How                                                                                                                       |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| Sidebar menu    | `AppSidebar` lists only the active app's pages, under the app's name                                                      |
+| Breadcrumb root | the section is the page's app name (`Orders › Orders · Ops › ORD-100123`)                                                 |
+| Accent colour   | `AppFrame` mirrors the app onto `<html data-app>`; `styles.css` swaps `--primary` (on `<html>` so portalled menus follow) |
+| Record route    | a row opens the record **inside the current app**: `/apps/orders-ops/$orderNo` or `/apps/orders-finance/$orderNo`         |
+
+The last row is one page mounted twice. `OrderDetailPage` reads params/search with
+`strict: false` and only links relatively (`to: "."` for tabs, `to: ".."` for _All orders_), so
+it never names its app — the route it is mounted under decides. Finance mounts it with
+`readOnly` (no status changes).
 
 ## Stack
 
@@ -157,7 +179,7 @@ client-side/
    │        ├─ db.ts              # deterministic seed (1 200 orders, 72 customers)
    │        └─ server.ts          # route handlers (/api/orders, /aggregate, /customers…)
    ├─ routes/                     # TanStack Router file-based; staticData.nav drives sidebar+breadcrumb;
-   │                              #   orders-ops nests .index (list) + $orderNo (record)
+   │                              #   orders-ops / orders-finance nest .index (list) + $orderNo (record)
    ├─ shell/                      # AppFrame, Breadcrumbs, sidebar, app switcher + KPI dashboard, event bus, nav
    └─ assets/
 ```
@@ -187,7 +209,7 @@ client-side/
   `rowCount`), so the features own state and navigation APIs while Gridify owns the query. The dumb
   `PaginationBar` stays controlled — the shared `TablePagination` derives its props from the table
   instance.
-- **Records are routes, not overlays.** A row opens `/apps/orders-ops/$orderNo`; the shell
+- **Records are routes, not overlays.** A row opens `/apps/<app>/$orderNo`; the shell
   breadcrumb is the way back. Sheets are reserved for creating and editing, where a modal's
   focus trap and dismissal help rather than hurt.
 - **A record's workflows are tabs; its fields are sections.** Tabs only when the panels are

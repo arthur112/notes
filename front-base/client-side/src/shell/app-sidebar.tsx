@@ -9,9 +9,9 @@ import {
   SidebarRail,
 } from "@/shared/components/ui/sidebar";
 import { AppSwitcher } from "./app-switcher";
-import { NavMain, type NavItem } from "./nav-main";
+import { NavMain } from "./nav-main";
 import { NavUser } from "./nav-user";
-import { useNav, isNavPathActive } from "./nav";
+import { APPS, isNavPathActive, useActiveApp, useNav } from "./nav";
 
 const data = {
   user: {
@@ -22,16 +22,19 @@ const data = {
 };
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
-  const { groups } = useNav();
+  const { pages } = useNav();
+  const app = useActiveApp();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
-  const items: NavItem[] = groups.map((group) => ({
-    title: group.name,
-    url: group.children[0]?.path ?? "#",
-    icon: group.icon,
-    isActive: group.children.some((page) => isNavPathActive(page.path, pathname)),
-    items: group.children.map((page) => ({ title: page.name, url: page.path })),
-  }));
+  // Only the selected app's pages: switching app swaps the whole menu.
+  const items = pages
+    .filter((page) => page.app === app)
+    .map((page) => ({
+      title: page.title,
+      url: page.path,
+      icon: page.icon,
+      isActive: isNavPathActive(page.path, pathname),
+    }));
 
   return (
     <Sidebar collapsible="icon" {...props}>
@@ -39,7 +42,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <AppSwitcher />
       </SidebarHeader>
       <SidebarContent>
-        <NavMain items={items} />
+        <NavMain label={APPS[app].name} items={items} />
       </SidebarContent>
       <SidebarFooter>
         <NavUser user={data.user} />

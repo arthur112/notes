@@ -13,7 +13,7 @@ export const Route = createFileRoute("/apps/orders-ops")({
       title: "Orders · Ops",
       description:
         "The order desk: five server-side filters, rich columns, order detail pages, status changes and order creation.",
-      group: "Orders",
+      app: "orders",
       icon: ClipboardList,
     },
   },

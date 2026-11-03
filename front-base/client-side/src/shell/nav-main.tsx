@@ -1,32 +1,20 @@
 import { Link } from "@tanstack/react-router";
-import { ChevronRight, type LucideIcon } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import type { ComponentProps, ReactElement } from "react";
 
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/shared/components/ui/collapsible";
 import {
   SidebarGroup,
   SidebarGroupLabel,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarMenuSub,
-  SidebarMenuSubButton,
-  SidebarMenuSubItem,
 } from "@/shared/components/ui/sidebar";
 
 export type NavItem = {
   title: string;
   url: string;
-  icon?: LucideIcon;
-  isActive?: boolean;
-  items?: {
-    title: string;
-    url: string;
-  }[];
+  icon: LucideIcon;
+  isActive: boolean;
 };
 
 // `Link` with `to` widened to `string`: sidebar entries come from the route
@@ -35,39 +23,23 @@ const NavLink = Link as (
   props: { to: string } & Omit<ComponentProps<"a">, "href">,
 ) => ReactElement | null;
 
-/** Sidebar navigation derived from the route tree (`staticData.nav`). */
-export function NavMain({ items }: { items: NavItem[] }) {
+/** The active app's pages, as a flat list under the app's name. */
+export function NavMain({ label, items }: { label: string; items: NavItem[] }) {
   return (
     <SidebarGroup>
-      <SidebarGroupLabel>Platform</SidebarGroupLabel>
+      <SidebarGroupLabel>{label}</SidebarGroupLabel>
       <SidebarMenu>
         {items.map((item) => (
-          // Keying on `isActive` remounts the group when the active route moves,
-          // so `defaultOpen` follows it without Base UI's uncontrolled-state warning.
-          <Collapsible
-            key={`${item.title}:${item.isActive}`}
-            defaultOpen={item.isActive}
-            className="group/collapsible"
-          >
-            <SidebarMenuItem>
-              <CollapsibleTrigger render={<SidebarMenuButton tooltip={item.title} />}>
-                {item.icon && <item.icon />}
-                <span>{item.title}</span>
-                <ChevronRight className="ml-auto transition-transform duration-200 group-data-open/collapsible:rotate-90" />
-              </CollapsibleTrigger>
-              <CollapsibleContent>
-                <SidebarMenuSub>
-                  {item.items?.map((subItem) => (
-                    <SidebarMenuSubItem key={subItem.title}>
-                      <SidebarMenuSubButton render={<NavLink to={subItem.url} />}>
-                        <span>{subItem.title}</span>
-                      </SidebarMenuSubButton>
-                    </SidebarMenuSubItem>
-                  ))}
-                </SidebarMenuSub>
-              </CollapsibleContent>
-            </SidebarMenuItem>
-          </Collapsible>
+          <SidebarMenuItem key={item.url}>
+            <SidebarMenuButton
+              isActive={item.isActive}
+              tooltip={item.title}
+              render={<NavLink to={item.url} />}
+            >
+              <item.icon />
+              <span>{item.title}</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
         ))}
       </SidebarMenu>
     </SidebarGroup>
