@@ -15,6 +15,11 @@ public class ApiWebFactory : TestWebApplicationFactory<Program>
             new Dictionary<string, string?>
             {
                 ["ConnectionStrings:app"] = Aspire.ConnectionString,
+                // Trust the tokens TestTokens mints, in place of the dotnet user-jwts ones.
+                ["Authentication:Schemes:Bearer:ValidIssuer"] = TestTokens.Issuer,
+                ["Authentication:Schemes:Bearer:ValidAudiences:0"] = TestTokens.Audience,
+                ["Authentication:Schemes:Bearer:SigningKeys:0:Issuer"] = TestTokens.Issuer,
+                ["Authentication:Schemes:Bearer:SigningKeys:0:Value"] = TestTokens.SigningKey,
             }
         );
 }

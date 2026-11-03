@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
+using Api.Auth;
 using Api.Features.Fund;
 using Api.Tests.Builders;
 using Microsoft.EntityFrameworkCore;
@@ -13,7 +14,7 @@ public class FundTests : DatabaseTestBase
     [Test]
     public async Task Create_Returns_Created_Fund()
     {
-        var client = Factory.CreateClient();
+        var client = CreateClient([.. Scopes.All.Keys]);
 
         var created = await client.PostAsJsonAsync(
             "/api/funds",
@@ -30,7 +31,7 @@ public class FundTests : DatabaseTestBase
     [Test]
     public async Task Create_With_Invalid_Request_Returns_Validation_Problem()
     {
-        var client = Factory.CreateClient();
+        var client = CreateClient([.. Scopes.All.Keys]);
 
         var response = await client.PostAsJsonAsync(
             "/api/funds",
@@ -44,7 +45,7 @@ public class FundTests : DatabaseTestBase
     [Test]
     public async Task Periodicity_Round_Trips_As_Enum_Name()
     {
-        var client = Factory.CreateClient();
+        var client = CreateClient([.. Scopes.All.Keys]);
 
         var created = await client.PostAsync(
             "/api/funds",
@@ -81,7 +82,7 @@ public class FundTests : DatabaseTestBase
     [Test]
     public async Task List_Returns_Funds()
     {
-        var client = Factory.CreateClient();
+        var client = CreateClient([.. Scopes.All.Keys]);
 
         await SeedAsync(FundEntityBuilder.Create().WithName("Listed Fund").Build());
 
@@ -96,7 +97,7 @@ public class FundTests : DatabaseTestBase
     [Test]
     public async Task List_Returns_PermanentInformation_As_Json_Object()
     {
-        var client = Factory.CreateClient();
+        var client = CreateClient([.. Scopes.All.Keys]);
 
         await SeedAsync(
             FundEntityBuilder
@@ -121,7 +122,7 @@ public class FundTests : DatabaseTestBase
     [Test]
     public async Task List_With_Paging_Returns_Page_And_Total_Count()
     {
-        var client = Factory.CreateClient();
+        var client = CreateClient([.. Scopes.All.Keys]);
 
         await SeedAsync(FundEntityBuilder.Create().WithName("Fund A").Build());
         await SeedAsync(FundEntityBuilder.Create().WithName("Fund B").Build());
@@ -139,7 +140,7 @@ public class FundTests : DatabaseTestBase
     [Test]
     public async Task Get_Returns_Fund()
     {
-        var client = Factory.CreateClient();
+        var client = CreateClient([.. Scopes.All.Keys]);
 
         var fund = await SeedAsync(FundEntityBuilder.Create().WithName("Get Fund").Build());
 
@@ -153,7 +154,7 @@ public class FundTests : DatabaseTestBase
     [Test]
     public async Task Get_Returns_PermanentInformation_As_Json_Object()
     {
-        var client = Factory.CreateClient();
+        var client = CreateClient([.. Scopes.All.Keys]);
 
         var fund = await SeedAsync(
             FundEntityBuilder
@@ -179,7 +180,7 @@ public class FundTests : DatabaseTestBase
     [Test]
     public async Task Update_Returns_Updated_Fund()
     {
-        var client = Factory.CreateClient();
+        var client = CreateClient([.. Scopes.All.Keys]);
 
         var fund = await SeedAsync(FundEntityBuilder.Create().WithName("Old Name").Build());
 
@@ -202,7 +203,7 @@ public class FundTests : DatabaseTestBase
     [Test]
     public async Task Update_With_Only_PermanentInformation_Preserves_Stored_Name_And_Periodicity()
     {
-        var client = Factory.CreateClient();
+        var client = CreateClient([.. Scopes.All.Keys]);
 
         var fund = await SeedAsync(
             FundEntityBuilder
@@ -243,7 +244,7 @@ public class FundTests : DatabaseTestBase
     [Test]
     public async Task Update_With_Null_Name_And_Periodicity_Preserves_Stored_Values()
     {
-        var client = Factory.CreateClient();
+        var client = CreateClient([.. Scopes.All.Keys]);
 
         var fund = await SeedAsync(
             FundEntityBuilder
@@ -275,7 +276,7 @@ public class FundTests : DatabaseTestBase
     [Arguments(" ")]
     public async Task Update_With_Blank_Name_Returns_Validation_Problem(string name)
     {
-        var client = Factory.CreateClient();
+        var client = CreateClient([.. Scopes.All.Keys]);
 
         var fund = await SeedAsync(FundEntityBuilder.Create().WithName("Keep Name").Build());
 
@@ -293,7 +294,7 @@ public class FundTests : DatabaseTestBase
     [Test]
     public async Task Update_With_NonObject_PermanentInformation_Returns_Validation_Problem()
     {
-        var client = Factory.CreateClient();
+        var client = CreateClient([.. Scopes.All.Keys]);
 
         var fund = await SeedAsync(FundEntityBuilder.Create().WithName("Keep PI").Build());
 
@@ -311,7 +312,7 @@ public class FundTests : DatabaseTestBase
     [Test]
     public async Task Delete_Returns_NoContent()
     {
-        var client = Factory.CreateClient();
+        var client = CreateClient([.. Scopes.All.Keys], roles: [Roles.FundAdmin]);
 
         var fund = await SeedAsync(FundEntityBuilder.Create().WithName("Delete Me").Build());
 

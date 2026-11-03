@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using Api.Auth;
 using Microsoft.AspNetCore.Mvc;
 using TUnit.Aspire;
 
@@ -42,7 +43,7 @@ public class HttpErrorResponseTests : DatabaseTestBase
     [Test]
     public async Task NotFoundError_Returns_Problem_Details_With_Status()
     {
-        var client = Factory.CreateClient();
+        var client = CreateClient(Scopes.FundsRead);
 
         var response = await client.GetAsync($"/api/funds/{Guid.NewGuid()}");
 

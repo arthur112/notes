@@ -25,6 +25,19 @@ public abstract class DatabaseTestBase : WebApplicationTest<ApiWebFactory, Progr
         await creator.CreateTablesAsync();
     }
 
+    // A client whose requests carry a token granting exactly these scopes (and roles).
+    protected HttpClient CreateClient(params string[] scopes) => CreateClient(scopes, roles: []);
+
+    protected HttpClient CreateClient(string[] scopes, string[] roles)
+    {
+        var client = Factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new(
+            "Bearer",
+            TestTokens.Create(scopes, roles)
+        );
+        return client;
+    }
+
     protected AppDbContext CreateDbContext() => new(CreateOptions()) { SchemaName = SchemaName };
 
     protected async Task<T> SeedAsync<T>(T entity)

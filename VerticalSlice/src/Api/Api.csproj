@@ -3,6 +3,8 @@
     <JsonSerializerIsReflectionEnabledByDefault>false</JsonSerializerIsReflectionEnabledByDefault>
     <EnableRequestDelegateGenerator>true</EnableRequestDelegateGenerator>
     <EnumGenerator_EnableUsageAnalyzers>true</EnumGenerator_EnableUsageAnalyzers>
+    <!-- dotnet user-jwts keeps its signing key in this project's user secrets. -->
+    <UserSecretsId>vertical-slice-api</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>
@@ -14,6 +16,7 @@
     <PackageReference Include="CSharpFunctionalExtensions" />
     <PackageReference Include="Gridify" />
     <PackageReference Include="Gridify.EntityFramework" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
     <PackageReference Include="Microsoft.OpenApi" />
     <PackageReference Include="NetEscapades.EnumGenerators" />
