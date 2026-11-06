@@ -3,11 +3,11 @@ import { z } from "zod";
 
 import {
   createOrder,
-  OrderValidationError,
   updateOrder,
   type OrderDetail,
 } from "@/features/orders-filters/api/orders-api";
 import { STATUSES, type OrderStatus } from "@/features/orders-filters/filter";
+import { fieldErrors } from "@/shared/lib/problem";
 
 /** What the controls hold: raw text for numbers (`"10,"` survives), `null` for "not picked". */
 export type OrderFormLine = { product: string; quantity: string; unitPrice: string };
@@ -92,17 +92,23 @@ export function linesTotal(lines: OrderFormLine[]): number {
 }
 
 /**
- * The save, as the form's last validator. It runs only once the schema passes,
- * and a 422 comes back as errors on the fields the server named (each clears
- * when its field changes) plus a form-level message. `value` is the schema's
+ * The save, as the form's last validator. It runs only once the schema passes.
+ * The endpoints return a result instead of throwing: a validation problem (its
+ * `errors`) lands on the fields the server named (each clears when its field
+ * changes) plus a form-level message; any other problem is a form-level message.
+ * Only the unexpected (network down, bad JSON) throws. `value` is the schema's
  * *input* (raw strings), so it is parsed again for the typed payload.
  */
 async function saveOrder({ value }: { value: OrderFormValues }) {
   const { orderNo, ...input } = orderFormSchema.parse(value);
   try {
-    await (orderNo ? updateOrder(orderNo, input) : createOrder(input));
+    const result = await (orderNo ? updateOrder(orderNo, input) : createOrder(input));
+    if (result.ok) return;
+    const { problem } = result;
+    return problem.errors
+      ? { form: problem.title, fields: fieldErrors(problem.errors) }
+      : (problem.detail ?? problem.title);
   } catch (error) {
-    if (error instanceof OrderValidationError) return { form: error.message, fields: error.fields };
     return error instanceof Error ? error.message : "Could not save the order.";
   }
 }

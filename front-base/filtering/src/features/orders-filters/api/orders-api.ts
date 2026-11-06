@@ -6,6 +6,7 @@ import {
   toQueryString,
   type RequestLogEntry,
 } from "@/shared/filtering/request-log";
+import type { ApiResult, ProblemDetails } from "@/shared/lib/problem";
 
 import type { OrderStatus } from "../filter";
 
@@ -150,16 +151,6 @@ export async function fetchOrders(query: IGridifyQuery): Promise<OrdersResponse>
   };
 }
 
-/** A 422: the server's own rules, keyed by form field name. */
-export class OrderValidationError extends Error {
-  readonly fields: Record<string, string>;
-
-  constructor(fields: Record<string, string>) {
-    super("The server rejected the order.");
-    this.fields = fields;
-  }
-}
-
 function findOrder(orderNo: string): OrderDetail {
   const order = orders.find((o) => o.orderNo === orderNo);
   if (!order) throw new Error(`Order ${orderNo} not found.`);
@@ -186,35 +177,54 @@ export async function isReferenceTaken(
  * The server's own rules. The credit hold is known only here; the reference
  * check repeats the form's async one, since a client check is only a hint.
  */
-function checkServerRules(input: OrderInput, orderNo?: string): void {
-  const fields: Record<string, string> = {};
-  if (input.customer === "Umbrella") fields.customer = "Umbrella is on credit hold.";
+function checkServerRules(input: OrderInput, orderNo?: string): ProblemDetails | undefined {
+  const errors: Record<string, string[]> = {};
+  if (input.customer === "Umbrella") errors.customer = ["Umbrella is on credit hold."];
   if (
     input.reference &&
     orders.some((o) => o.reference === input.reference && o.orderNo !== orderNo)
   ) {
-    fields.reference = "Already used on another order";
+    errors.reference = ["Already used on another order"];
   }
-  if (Object.keys(fields).length > 0) throw new OrderValidationError(fields);
+  if (Object.keys(errors).length === 0) return undefined;
+  // What `AddValidation()` / `Results.ValidationProblem` send: a 400 with per-field `errors`.
+  return {
+    type: "https://tools.ietf.org/html/rfc9110#section-15.5.1",
+    title: "One or more validation errors occurred.",
+    status: 400,
+    errors,
+  };
 }
 
-export async function createOrder(input: OrderInput): Promise<OrderDetail> {
+export async function createOrder(input: OrderInput): Promise<ApiResult<OrderDetail>> {
   console.info("[mock] POST /api/orders", input);
   await sleep(300);
-  checkServerRules(input);
+  const problem = checkServerRules(input);
+  if (problem) return { ok: false, problem };
   const order: OrderDetail = {
     ...input,
     orderNo: `ORD-${100101 + orders.length}`,
     createdAt: new Date().toISOString().slice(0, 10),
   };
   orders.unshift(order);
-  return structuredClone(order);
+  return { ok: true, data: structuredClone(order) };
 }
 
-export async function updateOrder(orderNo: string, input: OrderInput): Promise<OrderDetail> {
+export async function updateOrder(
+  orderNo: string,
+  input: OrderInput,
+): Promise<ApiResult<OrderDetail>> {
   console.info(`[mock] PUT /api/orders/${orderNo}`, input);
   await sleep(300);
-  checkServerRules(input, orderNo);
-  const order = Object.assign(findOrder(orderNo), input);
-  return structuredClone(order);
+  const order = orders.find((o) => o.orderNo === orderNo);
+  if (!order) {
+    return {
+      ok: false,
+      problem: { title: "Not Found", status: 404, detail: `Order ${orderNo} not found.` },
+    };
+  }
+  const problem = checkServerRules(input, orderNo);
+  if (problem) return { ok: false, problem };
+  Object.assign(order, input);
+  return { ok: true, data: structuredClone(order) };
 }
