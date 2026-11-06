@@ -1,4 +1,4 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useBlocker, useNavigate } from "@tanstack/react-router";
 
 import { customerOptionsQueryOptions } from "@/features/customers-filters/api/use-customers";
@@ -7,7 +7,13 @@ import { STATUSES, statusLabel } from "@/features/orders-filters/filter";
 import { useAppForm } from "@/shared/components/form/use-app-form";
 import { buttonVariants } from "@/shared/components/ui/button";
 
-import { emptyOrderForm, orderFormOptions, toFormValues } from "./order-form-options";
+import {
+  emptyOrderForm,
+  orderFormOptions,
+  saveOrder,
+  submitOrder,
+  toFormValues,
+} from "./order-form-options";
 import { OrderLines } from "./order-lines";
 
 /**
@@ -23,14 +29,32 @@ export function OrderForm({ order }: { order?: OrderDetail }) {
     select: (refs) => refs.map((customer) => customer.name),
   });
 
-  const form = useAppForm({
-    ...orderFormOptions,
-    defaultValues: order ? toFormValues(order) : emptyOrderForm(),
-    // Only reached once every validator passed, the save (`onSubmitAsync`) included.
-    onSubmit: async ({ value, formApi }) => {
+  /**
+   * The write. A problem the server returns (400 validation, 404) resolves as
+   * `{ ok: false }`, so React Query sees a success and only a real failure
+   * (network down) lands in `save.error`. Invalidation lives here, next to the
+   * write, instead of in the form's submit handler.
+   */
+  const save = useMutation({
+    mutationFn: saveOrder,
+    onSuccess: (result) => {
+      if (!result.ok) return;
       // The list and the order's detail are stale now; the page we return to refetches.
       void queryClient.invalidateQueries({ queryKey: ["orders"] });
       void queryClient.invalidateQueries({ queryKey: ["order"] });
+    },
+  });
+
+  const form = useAppForm({
+    ...orderFormOptions,
+    defaultValues: order ? toFormValues(order) : emptyOrderForm(),
+    // The save goes through the mutation; its problems still land on the form's fields.
+    validators: {
+      ...orderFormOptions.validators,
+      onSubmitAsync: submitOrder(save.mutateAsync),
+    },
+    // Only reached once every validator passed, the save (`onSubmitAsync`) included.
+    onSubmit: async ({ value, formApi }) => {
       // Saved values become the new defaults, so the blocker below lets us leave.
       formApi.reset(value);
       await navigate({ to: "/orders" });

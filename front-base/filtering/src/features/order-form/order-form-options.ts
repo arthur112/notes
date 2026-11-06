@@ -7,7 +7,8 @@ import {
   type OrderDetail,
 } from "@/features/orders-filters/api/orders-api";
 import { STATUSES, type OrderStatus } from "@/features/orders-filters/filter";
-import { fieldErrors } from "@/shared/lib/problem";
+import { submitTo } from "@/shared/components/form/submit-to";
+import type { ApiResult } from "@/shared/lib/problem";
 
 /** What the controls hold: raw text for numbers (`"10,"` survives), `null` for "not picked". */
 export type OrderFormLine = { product: string; quantity: string; unitPrice: string };
@@ -91,36 +92,28 @@ export function linesTotal(lines: OrderFormLine[]): number {
   return lines.reduce((sum, l) => sum + (num(l.quantity) * num(l.unitPrice) || 0), 0);
 }
 
-/**
- * The save, as the form's last validator. It runs only once the schema passes.
- * The endpoints return a result instead of throwing: a validation problem (its
- * `errors`) lands on the fields the server named (each clears when its field
- * changes) plus a form-level message; any other problem is a form-level message.
- * Only the unexpected (network down, bad JSON) throws. `value` is the schema's
- * *input* (raw strings), so it is parsed again for the typed payload.
- */
-async function saveOrder({ value }: { value: OrderFormValues }) {
-  const { orderNo, ...input } = orderFormSchema.parse(value);
-  try {
-    const result = await (orderNo ? updateOrder(orderNo, input) : createOrder(input));
-    if (result.ok) return;
-    const { problem } = result;
-    return problem.errors
-      ? { form: problem.title, fields: fieldErrors(problem.errors) }
-      : (problem.detail ?? problem.title);
-  } catch (error) {
-    return error instanceof Error ? error.message : "Could not save the order.";
-  }
+/** The schema's output: the API payload plus `orderNo`, which picks the endpoint. */
+type OrderFormOutput = z.output<typeof orderFormSchema>;
+
+/** The write: create or update. The form's mutation runs it. */
+export function saveOrder({ orderNo, ...input }: OrderFormOutput): Promise<ApiResult<OrderDetail>> {
+  return orderNo ? updateOrder(orderNo, input) : createOrder(input);
 }
+
+/** The save as the form's last validator (see `submitTo`); `save` is `saveOrder` or the mutation over it. */
+export const submitOrder = (save: typeof saveOrder) =>
+  submitTo<OrderFormValues, OrderFormOutput>(orderFormSchema, save);
 
 /**
  * Shared by `useAppForm` and `withForm`, which must agree on every validator
- * type, so the sections are typed against the same form. `revalidateLogic`:
- * quiet until the first submit, then the schema re-runs on every change, so a
- * fixed field clears its error as you type.
+ * type, so the sections are typed against the same form. That's why the save
+ * validator is declared here, calling the API directly: `OrderForm` swaps in
+ * one over its mutation (a hook, so it can't live at module level), same type.
+ * `revalidateLogic`: quiet until the first submit, then the schema re-runs on
+ * every change, so a fixed field clears its error as you type.
  */
 export const orderFormOptions = formOptions({
   defaultValues: emptyOrderForm(),
   validationLogic: revalidateLogic(),
-  validators: { onDynamic: orderFormSchema, onSubmitAsync: saveOrder },
+  validators: { onDynamic: orderFormSchema, onSubmitAsync: submitOrder(saveOrder) },
 });
