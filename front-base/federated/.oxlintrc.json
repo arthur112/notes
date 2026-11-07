@@ -1,0 +1,26 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["typescript", "unicorn", "oxc"],
+  "categories": { "correctness": "error" },
+  "rules": {},
+  "overrides": [
+    {
+      "files": ["src/apps/**", "src/domains/**", "src/shared/**", "src/api/**", "src/shell/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["@/apps/**", "@/routes/**", "../../**"],
+                "message": "Apps are federated: share through @/domains, @/shared, @/api or the shell, never import an app (from another app, a domain or the shell). Only src/routes wires apps in."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "ignorePatterns": ["node_modules", "dist", "src/routeTree.gen.ts"],
+  "env": { "builtin": true }
+}
