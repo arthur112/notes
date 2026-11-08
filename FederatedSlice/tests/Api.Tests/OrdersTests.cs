@@ -154,49 +154,45 @@ public class OrdersTests : DatabaseTestBase
     }
 
     [Test]
-    public async Task Customer_Settings_Reject_A_Conflicting_Order()
+    public async Task Customer_Settings_Override_The_Entered_Values()
     {
         await SeedAsync(
             CustomerEntityBuilder.Create().WithName("Hooli").WithSettings(OrderStatus.Paid, forcedDueDays: 30).Build()
         );
-        var client = CreateEditorClient();
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
 
-        var rejected = await client.PostAsJsonAsync(
-            "/api/orders",
-            OrderInputBuilder.For("Hooli").WithStatus(OrderStatus.Pending).WithDueDate(today).Build()
-        );
-        var accepted = await client.PostAsJsonAsync(
-            "/api/orders",
-            OrderInputBuilder.For("Hooli").WithStatus(OrderStatus.Paid).WithDueDate(today.AddDays(30)).Build()
-        );
+        var response = await CreateEditorClient()
+            .PostAsJsonAsync(
+                "/api/orders",
+                OrderInputBuilder.For("Hooli").WithStatus(OrderStatus.Pending).WithDueDate(today).Build()
+            );
 
-        var problem = await rejected.Content.ReadFromJsonAsync<HttpValidationProblemDetails>();
-        await Assert.That(problem!.Errors["status"]).IsEquivalentTo(["Hooli orders start as Paid."]);
-        await Assert.That(problem.Errors.Keys).Contains("dueDate");
-        await Assert.That(accepted.StatusCode).IsEqualTo(HttpStatusCode.Created);
+        var order = await response.Content.ReadFromJsonAsync<OrderDetail>();
+        await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.Created);
+        await Assert.That(order!.Status).IsEqualTo(OrderStatus.Paid);
+        await Assert.That(order.DueDate).IsEqualTo(today.AddDays(30));
     }
 
     [Test]
-    public async Task Customer_Change_Must_Replace_The_Reference()
+    public async Task Customer_Change_Drops_The_Previous_Reference()
     {
         var acme = await SeedCustomerAsync("Acme");
         await SeedCustomerAsync("Globex");
-        var order = await SeedAsync(OrderEntityBuilder.For(acme).WithReference("PO-77").Build());
+        var kept = await SeedAsync(OrderEntityBuilder.For(acme).WithReference("PO-77").Build());
+        var replaced = await SeedAsync(OrderEntityBuilder.For(acme).WithReference("PO-78").Build());
         var client = CreateEditorClient();
 
-        var kept = await client.PutAsJsonAsync(
-            $"/api/orders/{order.OrderNo}",
+        var dropped = await client.PutAsJsonAsync(
+            $"/api/orders/{kept.OrderNo}",
             OrderInputBuilder.For("Globex").WithReference("PO-77").Build()
         );
-        var cleared = await client.PutAsJsonAsync(
-            $"/api/orders/{order.OrderNo}",
-            OrderInputBuilder.For("Globex").WithReference(null).Build()
+        var renewed = await client.PutAsJsonAsync(
+            $"/api/orders/{replaced.OrderNo}",
+            OrderInputBuilder.For("Globex").WithReference("PO-88").Build()
         );
 
-        var problem = await kept.Content.ReadFromJsonAsync<HttpValidationProblemDetails>();
-        await Assert.That(problem!.Errors.Keys).IsEquivalentTo(["reference"]);
-        await Assert.That(cleared.StatusCode).IsEqualTo(HttpStatusCode.OK);
+        await Assert.That((await dropped.Content.ReadFromJsonAsync<OrderDetail>())!.Reference).IsNull();
+        await Assert.That((await renewed.Content.ReadFromJsonAsync<OrderDetail>())!.Reference).IsEqualTo("PO-88");
     }
 
     // The filters below are the strings the front's orders filter builds (web/src/domains/orders/filter.ts).

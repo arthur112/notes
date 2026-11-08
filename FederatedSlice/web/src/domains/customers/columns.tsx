@@ -33,7 +33,7 @@ export const CUSTOMER_COLUMNS: FilterColumn<Customer>[] = helper.columns([
     cell: ({ getValue }) => getValue().toFixed(2),
     meta: { className: "text-right tabular-nums" },
   }),
-  // The customer's order rules, read-only: why an order for this customer may be refused.
+  // The customer's order settings, read-only: why a saved order may differ from what was typed.
   helper.accessor("initialStatus", {
     header: "New orders start",
     cell: ({ getValue }) => getValue() ?? "—",

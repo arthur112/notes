@@ -28,7 +28,7 @@ The front's mocks are gone. Each thing they used to fake is now a rule on one si
 | **Day ranges** | `createdAt>=2026-01-01T00:00:00Z,createdAt<=2026-01-31T23:59:59.999Z` (UTC instants). | `DateOnly` columns. The `UtcDay.Parse` converter takes the bound's UTC day, so both ends stay inclusive in any server time zone. |
 | **Enums** | `STATUSES = ["Pending", "Paid", …]`, `SEGMENTS`. | C# names end to end: JSON (`JsonStringEnumConverter<T>`), the URL and filter (`status=Paid`), and the column (`HasConversion<string>()`). |
 | **Numbers** | `ORD-100101`, `CUS-1001`. | Persisted computed columns over the identity (`'ORD-' + CAST(id …)`), with seeds 100101 / 1001. No number generation in code. |
-| **Expected failures** | `sendJson` returns a 4xx problem+json as `{ ok: false, problem }`, and `submitTo` puts `errors` on the fields. | Built-in validation (`[Required]`, `[Range]`, `[MinLength]` on `OrderInput` / `OrderLine`), the write path (unknown customer, reference already used) and the named `OrderRules` (credit hold, the customer's initial status and contract due date, a reference kept across a customer change) all return a `400` with field `errors`. |
+| **Expected failures** | `sendJson` returns a 4xx problem+json as `{ ok: false, problem }`, and `submitTo` puts `errors` on the fields. | Built-in validation (`[Required]`, `[Range]`, `[MinLength]` on `OrderInput` / `OrderLine`) and the write path's checks (unknown customer, **credit hold** from `customers.is_on_hold`, reference already used) return a `400` with field `errors`. The named `OrderRules` never fail a save: they overwrite values silently. |
 | **Auth** | `apiFetch` sends the Keycloak access token. A `401` goes back to the login page. `useShell().can(…)` hides and disables what the token doesn't allow. | `RequireScope(…)` per route, plus the `order-editor` role on writes. `401` / `403` are problem+json too (`UseStatusCodePages`). |
 | **Error keys** | Field paths: `customer`, `lines[0].quantity`. | Built-in validation names C# members (`Lines[0].Quantity`), so `CustomizeProblemDetails` camelCases every key in `Program.cs`. |
 | **Unexpected failures** | `getJson` throws on any non-2xx, so the route's error component renders inside the shell. For example, `/app1/orders/ORD-999999` gets a `404`. | `NotFoundError`, or a `500` from `GlobalExceptionHandler`. |
@@ -41,7 +41,7 @@ Two things to know about .NET 10 validation, both found while building this note
 
 ### One write path
 
-`POST` and `PUT` take the same `OrderInput`, because the order form sends the same payload either way. `OrderWrite.ApplyAsync` resolves the customer, copies the input onto the entity (`OrderMapper`, a C# 14 extension block), checks the named rules (`OrderRules`) and the reference uniqueness, and returns every violation at once. A rule never rewrites the input: a conflict is a `400` on its field ([write rules](docs/rules.md)). `PUT` replaces the whole order: the old lines become orphans, and EF deletes them. `CreateOrder` and `UpdateOrder` are only the pipeline around it:
+`POST` and `PUT` take the same `OrderInput`, because the order form sends the same payload either way. `OrderWrite.ApplyAsync` resolves the customer, copies the input onto the entity (`OrderMapper`, a C# 14 extension block), then runs the named rules (`OrderRules`). The rules silently overwrite columns from per-customer settings (a prepaid customer's orders start Paid, a contract fixes the due date), so special cases live in one list instead of `if (customer == …)` branches ([write rules](docs/rules.md)). The credit hold and the reference uniqueness are checked around them. `PUT` replaces the whole order: the old lines become orphans, and EF deletes them. `CreateOrder` and `UpdateOrder` are only the pipeline around it:
 
 ```csharp
 var result = await Maybe<OrderEntity>
@@ -92,11 +92,11 @@ FederatedSlice/
 | Class | Level | What |
 | --- | --- | --- |
 | `UtcDayTests` | Unit | A day bound is its UTC day. |
-| `OrderRulesTests` | Unit | Each rule on a hand-built `RuleContext`: violated or not, its message, OnCreate skipped on update, every violation collected by field. |
+| `OrderRulesTests` | Unit | Each rule on a hand-built `RuleContext`: fires or not, the value it writes, OnCreate skipped on update and OnChange on create. |
 | `OrderMapperTests` | Unit | A fully filled input leaves no entity property at its default. |
 | `OrdersAuthorizationTests` | Integration | `401` problem without a token, read scope per area, the scope × role matrix on create, the space-delimited `scope` claim. |
 | `CustomersTests` | Integration | The front's own filter strings (multi-select with spaces, flags over several columns, inclusive day range, search + select), sorted options, settings columns (sorted), unknown field → `400`. |
-| `OrdersTests` | Integration | Create (number, Location), line errors on the form's paths, missing due date, credit hold, customer settings refusing a conflicting order, a reference kept across a customer change, reference uniqueness and `reference-taken`, `PUT` replacing lines, `404`s, filtering and sorting on `lineCount` / `total` / `customer.customerNo`. |
+| `OrdersTests` | Integration | Create (number, Location), line errors on the form's paths, missing due date, credit hold, customer settings overriding the entered status and due date, a customer change dropping the old reference, reference uniqueness and `reference-taken`, `PUT` replacing lines, `404`s, filtering and sorting on `lineCount` / `total` / `customer.customerNo`. |
 | `SmokeTests` | Aspire | The real AppHost: grate created and seeded the database (12 customers, 6 orders, 2 settings rows), and the api is healthy. |
 
 Each integration test gets its own schema, built from the EF model, so `db/up` and the EF configurations must agree. They run against the Aspire SQL Server container, or against `ConnectionStrings:TestDatabase` when it is set. Tests carry real signed tokens (`TestTokens`), and the real JwtBearer validation runs on them. The AppHost also starts Keycloak and the shell during a full run, but the tests only wait for the api.
@@ -124,7 +124,7 @@ Try it, signed in as `editor`:
 
 - In App 1 → Orders, set Lines = 1 and Order total ≥ 100. The table now shows only the matching rows, because the API applies the filter.
 - Open ORD-100104 (Umbrella) and save it: the form shows "Umbrella is on credit hold." under Customer.
-- Open ORD-100102 (Globex) and save it: the due date is refused, because Globex's contract fixes it at 30 days.
+- Open ORD-100102 (Globex, due 25-01-2026) and save it: it saves, and reopening it shows a due date of 10-02-2026, because Globex's contract fixes it at 30 days after the order date.
 - Typing `PO-1001` as the reference of another order flags it before you save.
 
 Sign out and in as `viewer`: no **New order**, and the order form is read-only.

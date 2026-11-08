@@ -4,3 +4,4 @@
 !EventStorming/*
 !NORMALIZATION.md
 !ExcelImport/**/*.md
+!FederatedSlice/docs/*.md

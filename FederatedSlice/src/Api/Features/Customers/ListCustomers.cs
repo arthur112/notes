@@ -10,7 +10,7 @@ public static class ListCustomers
 {
     /// <summary>
     /// The front's <c>Customer</c> (web/src/api/customers.ts), with the customer's order settings,
-    /// shown read-only so a rejected save can be traced to its rule.
+    /// shown read-only so a value the rules overwrote can be traced to its setting.
     /// </summary>
     public record Response(
         string CustomerNo,

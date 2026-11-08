@@ -6,7 +6,7 @@ How the main technical pieces of FederatedSlice work, from the browser to SQL Se
 | --- | --- | --- |
 | [Filtering](filtering.md) | Filtered lists: the filter definition, the URL as the only filter state, the Gridify query, the API's mapper and the SQL it becomes | Implemented |
 | [Forms](forms.md) | The order form: raw values vs. payload, the four validation layers, server errors on fields, create/edit, read-only without the role, unsaved-changes guard | Implemented |
-| [Write rules](rules.md) | One create/update path: 1:1 mapper, named rules (OnCreate / OnChange / Always) that refuse conflicting input, per-customer settings | Implemented |
+| [Write rules](rules.md) | One create/update path: 1:1 mapper, named rules (OnCreate / OnChange / Always) that silently override columns, per-customer settings, the order they run in | Implemented |
 | [OIDC](oidc.md) | Keycloak sign-in in the shell (PKCE), scopes and roles on the API, `dotnet user-jwts`, Scalar login, test tokens | Implemented |
 
 Paths in these docs are relative to the note's root (`FederatedSlice/`). The root [README](../README.md) has the overview, the contract table and how to run the project.

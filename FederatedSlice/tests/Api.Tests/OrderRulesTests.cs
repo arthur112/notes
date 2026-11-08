@@ -9,59 +9,55 @@ public class OrderRulesTests
 {
     private static readonly DateOnly Today = new(2026, 1, 11);
 
-    private static CustomerEntity Customer(OrderStatus? initialStatus = null, int? forcedDueDays = null) =>
-        CustomerEntityBuilder
-            .Create()
-            .WithId(1001)
-            .WithName("Globex")
-            .WithSettings(initialStatus, forcedDueDays)
-            .Build();
-
-    private static RuleContext Create(OrderEntity order, CustomerEntity customer) =>
-        new(order, null, customer, Today);
-
-    [Test]
-    public async Task CreditHold_Is_Violated_For_A_Customer_On_Hold()
+    // Fires one rule in isolation, the way Run does: Apply only when When matches.
+    private static bool Fire(OrderRule rule, RuleContext ctx)
     {
-        var customer = CustomerEntityBuilder.Create().WithName("Umbrella").OnHold().Build();
-        var ctx = Create(OrderEntityBuilder.For(customer).Build(), customer);
-
-        await Assert.That(OrderRules.CustomerNotOnCreditHold.Violated(ctx)).IsTrue();
-        await Assert.That(OrderRules.CustomerNotOnCreditHold.Message(ctx)).IsEqualTo("Umbrella is on credit hold.");
+        if (!rule.When(ctx))
+            return false;
+        rule.Apply(ctx);
+        return true;
     }
 
+    private static CustomerEntity Customer(OrderStatus? initialStatus = null, int? forcedDueDays = null) =>
+        CustomerEntityBuilder.Create().WithId(1001).WithSettings(initialStatus, forcedDueDays).Build();
+
     [Test]
-    [Arguments(OrderStatus.Pending, true)]
-    [Arguments(OrderStatus.Paid, false)]
-    public async Task InitialStatus_Requires_The_Customers_Status(OrderStatus status, bool violated)
+    public async Task InitialStatus_Overrides_The_Entered_Status()
     {
         var customer = Customer(initialStatus: OrderStatus.Paid);
-        var ctx = Create(OrderEntityBuilder.For(customer).WithStatus(status).Build(), customer);
+        var order = OrderEntityBuilder.For(customer).WithStatus(OrderStatus.Pending).Build();
 
-        await Assert.That(OrderRules.CustomerInitialStatus.Violated(ctx)).IsEqualTo(violated);
+        var fired = Fire(OrderRules.CustomerInitialStatus, new(order, null, customer, Today));
+
+        await Assert.That(fired).IsTrue();
+        await Assert.That(order.Status).IsEqualTo(OrderStatus.Paid);
     }
 
     [Test]
-    public async Task No_Settings_Means_No_Customer_Rule()
+    public async Task Customer_Without_Settings_Keeps_What_Was_Entered()
     {
         var customer = CustomerEntityBuilder.Create().Build();
-        var ctx = Create(OrderEntityBuilder.For(customer).WithDueDate(new(2030, 1, 1)).Build(), customer);
+        var order = OrderEntityBuilder
+            .For(customer)
+            .WithStatus(OrderStatus.Pending)
+            .WithDueDate(new(2030, 1, 1))
+            .Build();
 
-        await Assert.That(OrderRules.Check(ctx)).IsEmpty();
+        OrderRules.Run(new(order, null, customer, Today));
+
+        await Assert.That(order.Status).IsEqualTo(OrderStatus.Pending);
+        await Assert.That(order.DueDate).IsEqualTo(new DateOnly(2030, 1, 1));
     }
 
     [Test]
     public async Task ForcedDueDays_Counts_From_Today_On_Create()
     {
         var customer = Customer(forcedDueDays: 30);
-        var wrong = Create(OrderEntityBuilder.For(customer).WithDueDate(new(2026, 3, 1)).Build(), customer);
-        var right = Create(OrderEntityBuilder.For(customer).WithDueDate(new(2026, 2, 10)).Build(), customer);
+        var order = OrderEntityBuilder.For(customer).WithDueDate(new(2026, 3, 1)).Build();
 
-        await Assert.That(OrderRules.CustomerForcedDueDays.Violated(wrong)).IsTrue();
-        await Assert
-            .That(OrderRules.CustomerForcedDueDays.Message(wrong))
-            .IsEqualTo("Globex orders are due 30 days after the order date: 10-02-2026.");
-        await Assert.That(OrderRules.CustomerForcedDueDays.Violated(right)).IsFalse();
+        Fire(OrderRules.CustomerForcedDueDays, new(order, null, customer, Today));
+
+        await Assert.That(order.DueDate).IsEqualTo(new DateOnly(2026, 2, 10));
     }
 
     [Test]
@@ -69,22 +65,43 @@ public class OrderRulesTests
     {
         var customer = Customer(forcedDueDays: 30);
         var original = OrderEntityBuilder.For(customer).WithCreatedAt(new(2025, 12, 1)).Build();
-        var entity = OrderEntityBuilder.For(customer).WithCreatedAt(new(2025, 12, 1)).WithDueDate(new(2025, 12, 31)).Build();
+        var order = OrderEntityBuilder
+            .For(customer)
+            .WithCreatedAt(new(2025, 12, 1))
+            .WithDueDate(new(2026, 6, 1))
+            .Build();
 
-        await Assert.That(OrderRules.CustomerForcedDueDays.Violated(new(entity, original, customer, Today))).IsFalse();
+        Fire(OrderRules.CustomerForcedDueDays, new(order, original, customer, Today));
+
+        await Assert.That(order.DueDate).IsEqualTo(new DateOnly(2025, 12, 31));
     }
 
     [Test]
-    public async Task Reference_Kept_Across_A_Customer_Change_Is_Violated()
+    public async Task Customer_Change_Drops_A_Reference_Left_Unchanged()
     {
         var acme = CustomerEntityBuilder.Create().WithId(1).Build();
         var globex = CustomerEntityBuilder.Create().WithId(2).Build();
         var original = OrderEntityBuilder.For(acme).WithReference("PO-77").Build();
-        var kept = OrderEntityBuilder.For(globex).WithReference("PO-77").Build();
-        var replaced = OrderEntityBuilder.For(globex).WithReference("PO-88").Build();
+        var order = OrderEntityBuilder.For(globex).WithReference("PO-77").Build();
 
-        await Assert.That(OrderRules.ReferenceStaysWithItsCustomer.Violated(new(kept, original, globex, Today))).IsTrue();
-        await Assert.That(OrderRules.ReferenceStaysWithItsCustomer.Violated(new(replaced, original, globex, Today))).IsFalse();
+        var fired = Fire(OrderRules.CustomerChangeDropsReference, new(order, original, globex, Today));
+
+        await Assert.That(fired).IsTrue();
+        await Assert.That(order.Reference).IsNull();
+    }
+
+    [Test]
+    public async Task Customer_Change_Keeps_A_New_Reference()
+    {
+        var acme = CustomerEntityBuilder.Create().WithId(1).Build();
+        var globex = CustomerEntityBuilder.Create().WithId(2).Build();
+        var original = OrderEntityBuilder.For(acme).WithReference("PO-77").Build();
+        var order = OrderEntityBuilder.For(globex).WithReference("PO-88").Build();
+
+        var fired = Fire(OrderRules.CustomerChangeDropsReference, new(order, original, globex, Today));
+
+        await Assert.That(fired).IsFalse();
+        await Assert.That(order.Reference).IsEqualTo("PO-88");
     }
 
     [Test]
@@ -92,17 +109,21 @@ public class OrderRulesTests
     {
         var customer = Customer(initialStatus: OrderStatus.Paid);
         var original = OrderEntityBuilder.For(customer).WithStatus(OrderStatus.Paid).Build();
-        var entity = OrderEntityBuilder.For(customer).WithStatus(OrderStatus.Shipped).Build();
+        var order = OrderEntityBuilder.For(customer).WithStatus(OrderStatus.Shipped).Build();
 
-        await Assert.That(OrderRules.Check(new(entity, original, customer, Today))).IsEmpty();
+        OrderRules.Run(new(order, original, customer, Today));
+
+        await Assert.That(order.Status).IsEqualTo(OrderStatus.Shipped);
     }
 
     [Test]
-    public async Task Check_Collects_Every_Violation_By_Field()
+    public async Task OnChange_Rules_Do_Not_Run_On_Create()
     {
-        var customer = CustomerEntityBuilder.Create().WithName("Umbrella").OnHold().WithSettings(OrderStatus.Paid, 30).Build();
-        var ctx = Create(OrderEntityBuilder.For(customer).WithStatus(OrderStatus.Pending).Build(), customer);
+        var customer = Customer();
+        var order = OrderEntityBuilder.For(customer).WithReference("PO-1").Build();
 
-        await Assert.That(OrderRules.Check(ctx).Keys).IsEquivalentTo(["customer", "status", "dueDate"]);
+        OrderRules.Run(new(order, null, customer, Today));
+
+        await Assert.That(order.Reference).IsEqualTo("PO-1");
     }
 }
