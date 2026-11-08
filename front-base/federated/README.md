@@ -64,7 +64,8 @@ domain's. Nothing else changes: not the other app, not the domain, not the shell
 | **Apps don't import each other**       | Lint-enforced (`.oxlintrc.json`, `no-restricted-imports`): `apps`, `domains`, `shared`, `api` and `shell` may not import `@/apps/**`, `@/routes/**` or `../../**`. Only `src/routes` wires apps in.                        |
 
 Saving an order (in either app) publishes `Created ORD-…` / `Updated ORD-…` on the bus
-(`domains/orders/order-form/order-form.tsx`); the footer shows it across apps.
+(`domains/orders/order-form/use-order-form-data.ts`, the hook that owns the form's customer query, save
+mutation and reference check, so `order-form.tsx` only renders); the footer shows it across apps.
 
 ## Routes
 

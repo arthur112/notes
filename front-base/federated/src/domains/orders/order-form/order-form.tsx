@@ -1,54 +1,24 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useBlocker } from "@tanstack/react-router";
 
-import { customerOptionsQueryOptions } from "@/api/customers";
-import { isReferenceTaken, STATUSES, type OrderDetail } from "@/api/orders";
+import { STATUSES, type OrderDetail } from "@/api/orders";
 import { useAppForm } from "@/shared/components/form/use-app-form";
 import { Button } from "@/shared/components/ui/button";
-import { useShell } from "@/shell/shell-provider";
 
 import { statusLabel } from "../filter";
 
-import {
-  emptyOrderForm,
-  orderFormOptions,
-  saveOrder,
-  submitOrder,
-  toFormValues,
-} from "./order-form-options";
+import { emptyOrderForm, orderFormOptions, submitOrder, toFormValues } from "./order-form-options";
 import { OrderLines } from "./order-lines";
+import { useOrderFormData } from "./use-order-form-data";
 
 /**
  * Create (no `order`) or edit an order. The form owns its values: `order` only
  * seeds `defaultValues`, once, so the edit route keys it by order number.
  * `onDone` (after a save, or Cancel) is the app's: only it knows its routes.
+ * Server reads and writes come from `useOrderFormData`; the form only renders
+ * and validates.
  */
 export function OrderForm({ order, onDone }: { order?: OrderDetail; onDone: () => void }) {
-  const queryClient = useQueryClient();
-  const { publish } = useShell();
-  // orders reference customers by name
-  const { data: customers = [] } = useQuery({
-    ...customerOptionsQueryOptions(),
-    select: (refs) => refs.map((customer) => customer.name),
-  });
-
-  /**
-   * The write. A problem the server returns (400 validation, 404) resolves as
-   * `{ ok: false }`, so React Query sees a success and only a real failure
-   * (network down) lands in `save.error`. Invalidation lives here, next to the
-   * write, instead of in the form's submit handler.
-   */
-  const save = useMutation({
-    mutationFn: saveOrder,
-    onSuccess: (result) => {
-      if (!result.ok) return;
-      // Other apps (and the shell footer) hear about it through the shell's event bus.
-      publish("orders", `${order ? "Updated" : "Created"} ${result.data.orderNo}`);
-      // The list and the order's detail are stale now; the page we return to refetches.
-      void queryClient.invalidateQueries({ queryKey: ["orders"] });
-      void queryClient.invalidateQueries({ queryKey: ["order"] });
-    },
-  });
+  const { customers, save, isReferenceTaken } = useOrderFormData(order);
 
   const form = useAppForm({
     ...orderFormOptions,
@@ -56,7 +26,7 @@ export function OrderForm({ order, onDone }: { order?: OrderDetail; onDone: () =
     // The save goes through the mutation; its problems still land on the form's fields.
     validators: {
       ...orderFormOptions.validators,
-      onSubmitAsync: submitOrder(save.mutateAsync),
+      onSubmitAsync: submitOrder(save),
     },
     // Only reached once every validator passed, the save (`onSubmitAsync`) included.
     onSubmit: async ({ value, formApi }) => {
@@ -102,7 +72,7 @@ export function OrderForm({ order, onDone }: { order?: OrderDetail; onDone: () =
             onChangeAsyncDebounceMs: 400,
             onChangeAsync: async ({ value }) => {
               const reference = value.trim();
-              if (reference && (await isReferenceTaken(reference, order?.orderNo))) {
+              if (reference && (await isReferenceTaken(reference))) {
                 return "Already used on another order";
               }
             },

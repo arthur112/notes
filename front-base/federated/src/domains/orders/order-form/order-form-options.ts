@@ -96,7 +96,7 @@ export function linesTotal(lines: OrderFormLine[]): number {
 /** The schema's output: the API payload plus `orderNo`, which picks the endpoint. */
 type OrderFormOutput = z.output<typeof orderFormSchema>;
 
-/** The write: create or update. The form's mutation runs it. */
+/** The write: create or update. `useOrderFormData`'s mutation runs it. */
 export function saveOrder({ orderNo, ...input }: OrderFormOutput): Promise<ApiResult<OrderDetail>> {
   return orderNo ? updateOrder(orderNo, input) : createOrder(input);
 }
@@ -109,7 +109,8 @@ export const submitOrder = (save: typeof saveOrder) =>
  * Shared by `useAppForm` and `withForm`, which must agree on every validator
  * type, so the sections are typed against the same form. That's why the save
  * validator is declared here, calling the API directly: `OrderForm` swaps in
- * one over its mutation (a hook, so it can't live at module level), same type.
+ * one over `useOrderFormData`'s mutation (a hook, so it can't live at module
+ * level), same type.
  * `revalidateLogic`: quiet until the first submit, then the schema re-runs on
  * every change, so a fixed field clears its error as you type.
  */
