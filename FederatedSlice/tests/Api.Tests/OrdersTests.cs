@@ -1,0 +1,236 @@
+using System.Net;
+using System.Net.Http.Json;
+using Api.Features.Customers;
+using Api.Features.Orders;
+using Api.Tests.Builders;
+using Microsoft.AspNetCore.Http;
+using Microsoft.EntityFrameworkCore;
+using TUnit.Assertions.Enums;
+
+namespace Api.Tests;
+
+public class OrdersTests : DatabaseTestBase
+{
+    private Task<CustomerEntity> SeedCustomerAsync(string name) =>
+        SeedAsync(CustomerEntityBuilder.Create().WithName(name).Build());
+
+    private async Task<TestPagedResult<ListOrders.Response>> ListAsync(string query) =>
+        (await CreateEditorClient().GetFromJsonAsync<TestPagedResult<ListOrders.Response>>($"/api/orders?{query}"))!;
+
+    private static string Filter(string filter) => $"filter={Uri.EscapeDataString(filter)}";
+
+    [Test]
+    public async Task Create_Returns_The_Order_With_Its_Number()
+    {
+        await SeedCustomerAsync("Acme");
+
+        var response = await CreateEditorClient()
+            .PostAsJsonAsync(
+                "/api/orders",
+                OrderInputBuilder.For("Acme").WithLines(new OrderLine("Anvil", 3, 43.3m)).Build()
+            );
+
+        await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.Created);
+        var order = await response.Content.ReadFromJsonAsync<OrderDetail>();
+        await Assert.That(order!.OrderNo).StartsWith("ORD-1001");
+        await Assert.That(order.Customer).IsEqualTo("Acme");
+        await Assert.That(order.CreatedAt).IsEqualTo(DateOnly.FromDateTime(DateTime.UtcNow));
+        await Assert.That(response.Headers.Location!.ToString()).IsEqualTo($"/api/orders/{order.OrderNo}");
+    }
+
+    [Test]
+    public async Task Invalid_Lines_Are_Reported_On_The_Form_Field_Paths()
+    {
+        await SeedCustomerAsync("Acme");
+
+        var response = await CreateEditorClient()
+            .PostAsJsonAsync(
+                "/api/orders",
+                OrderInputBuilder.For("Acme").WithLines(new OrderLine("", 0, -1)).Build()
+            );
+
+        var problem = await response.Content.ReadFromJsonAsync<HttpValidationProblemDetails>();
+        await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.BadRequest);
+        await Assert
+            .That(problem!.Errors.Keys)
+            .IsEquivalentTo(["lines[0].product", "lines[0].quantity", "lines[0].unitPrice"]);
+    }
+
+    [Test]
+    public async Task Customer_On_Credit_Hold_Is_A_Customer_Error()
+    {
+        await SeedAsync(CustomerEntityBuilder.Create().WithName("Umbrella").OnHold().Build());
+
+        var response = await CreateEditorClient()
+            .PostAsJsonAsync("/api/orders", OrderInputBuilder.For("Umbrella").Build());
+
+        var problem = await response.Content.ReadFromJsonAsync<HttpValidationProblemDetails>();
+        await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.BadRequest);
+        await Assert.That(problem!.Errors["customer"]).IsEquivalentTo(["Umbrella is on credit hold."]);
+    }
+
+    [Test]
+    public async Task Reference_Must_Be_Unique_Except_On_Its_Own_Order()
+    {
+        var acme = await SeedCustomerAsync("Acme");
+        var existing = await SeedAsync(OrderEntityBuilder.For(acme).WithReference("PO-1").Build());
+        var client = CreateEditorClient();
+
+        var create = await client.PostAsJsonAsync(
+            "/api/orders",
+            OrderInputBuilder.For("Acme").WithReference("PO-1").Build()
+        );
+        var problem = await create.Content.ReadFromJsonAsync<HttpValidationProblemDetails>();
+        await Assert.That(problem!.Errors["reference"]).IsEquivalentTo(["Already used on another order"]);
+
+        var update = await client.PutAsJsonAsync(
+            $"/api/orders/{existing.OrderNo}",
+            OrderInputBuilder.For("Acme").WithReference("PO-1").Build()
+        );
+        await Assert.That(update.StatusCode).IsEqualTo(HttpStatusCode.OK);
+
+        await Assert
+            .That(await client.GetFromJsonAsync<bool>("/api/orders/reference-taken?reference=PO-1"))
+            .IsTrue();
+        await Assert
+            .That(
+                await client.GetFromJsonAsync<bool>(
+                    $"/api/orders/reference-taken?reference=PO-1&exceptOrderNo={existing.OrderNo}"
+                )
+            )
+            .IsFalse();
+    }
+
+    [Test]
+    public async Task Update_Replaces_The_Lines()
+    {
+        var acme = await SeedCustomerAsync("Acme");
+        await SeedCustomerAsync("Globex");
+        var order = await SeedAsync(
+            OrderEntityBuilder.For(acme).WithLine("Anvil", 1, 10).WithLine("Rope", 2, 5).Build()
+        );
+
+        var response = await CreateEditorClient()
+            .PutAsJsonAsync(
+                $"/api/orders/{order.OrderNo}",
+                OrderInputBuilder
+                    .For("Globex")
+                    .WithStatus(OrderStatus.Shipped)
+                    .WithLines(new OrderLine("Stapler", 1, 310.5m))
+                    .Build()
+            );
+
+        var updated = await response.Content.ReadFromJsonAsync<OrderDetail>();
+        await Assert.That(updated!.Customer).IsEqualTo("Globex");
+        await Assert.That(updated.Status).IsEqualTo(OrderStatus.Shipped);
+        await Assert.That(updated.Lines).IsEquivalentTo([new OrderLine("Stapler", 1, 310.5m)]);
+        await using var db = CreateDbContext();
+        await Assert.That(await db.Set<OrderLineEntity>().CountAsync()).IsEqualTo(1);
+    }
+
+    [Test]
+    public async Task Missing_Order_Is_Not_Found()
+    {
+        var client = CreateEditorClient();
+
+        var get = await client.GetAsync("/api/orders/ORD-999999");
+        var put = await client.PutAsJsonAsync("/api/orders/ORD-999999", OrderInputBuilder.For("Acme").Build());
+
+        await Assert.That(get.StatusCode).IsEqualTo(HttpStatusCode.NotFound);
+        await Assert.That(put.StatusCode).IsEqualTo(HttpStatusCode.NotFound);
+    }
+
+    [Test]
+    public async Task Missing_Due_Date_Is_A_Due_Date_Error()
+    {
+        await SeedCustomerAsync("Acme");
+
+        var response = await CreateEditorClient()
+            .PostAsJsonAsync("/api/orders", OrderInputBuilder.For("Acme").WithDueDate(null).Build());
+
+        var problem = await response.Content.ReadFromJsonAsync<HttpValidationProblemDetails>();
+        await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.BadRequest);
+        await Assert.That(problem!.Errors.Keys).IsEquivalentTo(["dueDate"]);
+    }
+
+    [Test]
+    public async Task Customer_Settings_Reject_A_Conflicting_Order()
+    {
+        await SeedAsync(
+            CustomerEntityBuilder.Create().WithName("Hooli").WithSettings(OrderStatus.Paid, forcedDueDays: 30).Build()
+        );
+        var client = CreateEditorClient();
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+
+        var rejected = await client.PostAsJsonAsync(
+            "/api/orders",
+            OrderInputBuilder.For("Hooli").WithStatus(OrderStatus.Pending).WithDueDate(today).Build()
+        );
+        var accepted = await client.PostAsJsonAsync(
+            "/api/orders",
+            OrderInputBuilder.For("Hooli").WithStatus(OrderStatus.Paid).WithDueDate(today.AddDays(30)).Build()
+        );
+
+        var problem = await rejected.Content.ReadFromJsonAsync<HttpValidationProblemDetails>();
+        await Assert.That(problem!.Errors["status"]).IsEquivalentTo(["Hooli orders start as Paid."]);
+        await Assert.That(problem.Errors.Keys).Contains("dueDate");
+        await Assert.That(accepted.StatusCode).IsEqualTo(HttpStatusCode.Created);
+    }
+
+    [Test]
+    public async Task Customer_Change_Must_Replace_The_Reference()
+    {
+        var acme = await SeedCustomerAsync("Acme");
+        await SeedCustomerAsync("Globex");
+        var order = await SeedAsync(OrderEntityBuilder.For(acme).WithReference("PO-77").Build());
+        var client = CreateEditorClient();
+
+        var kept = await client.PutAsJsonAsync(
+            $"/api/orders/{order.OrderNo}",
+            OrderInputBuilder.For("Globex").WithReference("PO-77").Build()
+        );
+        var cleared = await client.PutAsJsonAsync(
+            $"/api/orders/{order.OrderNo}",
+            OrderInputBuilder.For("Globex").WithReference(null).Build()
+        );
+
+        var problem = await kept.Content.ReadFromJsonAsync<HttpValidationProblemDetails>();
+        await Assert.That(problem!.Errors.Keys).IsEquivalentTo(["reference"]);
+        await Assert.That(cleared.StatusCode).IsEqualTo(HttpStatusCode.OK);
+    }
+
+    // The filters below are the strings the front's orders filter builds (web/src/domains/orders/filter.ts).
+
+    [Test]
+    public async Task Computed_Fields_Filter_And_Sort_In_Sql()
+    {
+        var acme = await SeedCustomerAsync("Acme");
+        await SeedAsync(OrderEntityBuilder.For(acme).WithReference("one").WithLine("A", 1, 50).Build());
+        await SeedAsync(OrderEntityBuilder.For(acme).WithReference("two").WithLine("A", 1, 100).WithLine("B", 2, 100).Build());
+        await SeedAsync(OrderEntityBuilder.For(acme).WithReference("big").WithLine("A", 1, 900).WithLine("B", 1, 1).Build());
+
+        var twoLines = await ListAsync($"orderBy=total desc&{Filter("lineCount=2,total>=100,total<=500")}");
+
+        await Assert.That(twoLines.Data.Select(o => o.Total)).IsEquivalentTo([300m]);
+
+        var byTotal = await ListAsync("orderBy=total desc");
+        await Assert.That(byTotal.Data.Select(o => o.Total)).IsEquivalentTo([901m, 300m, 50m], CollectionOrdering.Matching);
+    }
+
+    [Test]
+    public async Task Customer_Is_Filtered_By_Number_And_Searched_By_Name()
+    {
+        var acme = await SeedCustomerAsync("Acme Corp");
+        var globex = await SeedCustomerAsync("Globex");
+        await SeedAsync(OrderEntityBuilder.For(acme).WithStatus(OrderStatus.Paid).Build());
+        await SeedAsync(OrderEntityBuilder.For(acme).WithStatus(OrderStatus.Pending).Build());
+        await SeedAsync(OrderEntityBuilder.For(globex).WithStatus(OrderStatus.Paid).Build());
+
+        var byNumber = await ListAsync(Filter($"customer.customerNo={acme.CustomerNo},status=Paid"));
+        var bySearch = await ListAsync(Filter("(orderNo=*acme|customer.name=*acme)"));
+
+        await Assert.That(byNumber.Count).IsEqualTo(1);
+        await Assert.That(byNumber.Data.Single().Customer).IsEqualTo("Acme Corp");
+        await Assert.That(bySearch.Count).IsEqualTo(2);
+    }
+}
