@@ -1,6 +1,6 @@
 # Write rules
 
-Create and update go through **one write path**. Every special case of saving an order is a **named rule** in one list, instead of an `if (customer == "…")` branch inside a handler. A rule assigns columns **silently**: it overwrites what the user entered, and the save succeeds. Customer-specific values come from **per-customer settings** (a table), never from customer IDs in code.
+Create and update each have **their own write path**, so the two can evolve separately, but both use the same mapper and the same rules. Every special case of saving an order is a **named rule** in one list, instead of an `if (customer == "…")` branch inside a handler. A rule assigns columns **silently**: it overwrites what the user entered, and the save succeeds. Customer-specific values come from **per-customer settings** (a table), never from customer IDs in code.
 
 | Without rules | With rules |
 | --- | --- |
@@ -8,41 +8,42 @@ Create and update go through **one write path**. Every special case of saving an
 | Adding a customer with a special contract = a code change and a deployment | Adding a customer with a special contract = one row in `customer_settings` |
 | "Which special cases exist?" = grep the handlers | "Which special cases exist?" = read `OrderRules.All` |
 
-Code: `src/Api/Features/Orders/` (`OrderWrite.cs`, `OrderMapper.cs`, `OrderRules.cs`) and `src/Api/Features/Customers/CustomerSettingsEntity.cs`.
+Code: `src/Api/Features/Orders/` (`CreateOrder.cs`, `UpdateOrder.cs`, `OrderMapper.cs`, `OrderRules.cs`) and `src/Api/Features/Customers/CustomerSettingsEntity.cs`.
 
-## 1. The write path
+## 1. The write paths
 
-`CreateOrder` (`POST /api/orders`) and `UpdateOrder` (`PUT /api/orders/{orderNo}`) both call `OrderWrite.ApplyAsync(order, input, db, clock)`. It is the only code that assigns order columns.
+`CreateOrder` (`POST /api/orders`) and `UpdateOrder` (`PUT /api/orders/{orderNo}`) each hold their own write path in a private method (`CreateOrder.BuildAsync`, `UpdateOrder.ApplyAsync`), next to the handler. They are the only code that assigns order columns. The steps are the same today; the split lets one change without the other (credit hold blocking edits, say), and makes the mode explicit: create passes `Original: null` to the rules, update passes the snapshot.
 
 ```text
 request body
   │ .NET 10 validation attributes on OrderInput / OrderLine (before the handler runs)
   │   missing dueDate, quantity 0, no lines… → 400, the handler never runs
   ▼
-CreateOrder: order = new OrderEntity()          UpdateOrder: order = stored order + lines (tracked), or 404
-  ▼
-OrderWrite.ApplyAsync
+CreateOrder.BuildAsync                          UpdateOrder: order = stored order + lines (tracked), or 404
+                                                  ▼
+                                                UpdateOrder.ApplyAsync
   ① customer = Customers.Include(c => c.Settings).FirstOrDefault(c => c.Name == input.Customer)
        null → 400 { customer: "Unknown customer." }               (stops: the rules need a customer)
      customer.IsOnHold → error { customer: "Umbrella is on credit hold." }   (collected, path continues)
-  ② original = order.Id == 0 ? null : snapshot of the stored values
+  ② create: order = new OrderEntity()           update: original = snapshot of the stored values
   ③ order.MapFrom(input, customer)                                 (plain 1:1 copy)
-  ④ OrderRules.Run(new RuleContext(order, original, customer, today))   (may overwrite ③)
+  ④ OrderRules.Run(new RuleContext(order, null | original, customer, today))   (may overwrite ③)
   ⑤ order.Reference used by another order → error { reference: "Already used on another order" }
+       (update excludes the order itself: o.Id != order.Id)
   ⑥ errors empty ? Success(order) : Failure(ValidationError(errors))
   ▼
 Success → (create: db.Orders.Add) → SaveChanges → 201 / 200, body = order.ToDetail() (the values as saved)
 Failure → SaveChanges is skipped → 400 problem+json with every error
 ```
 
-The two handlers are only the pipeline around it:
+Each handler is a pipeline around its write path:
 
 ```csharp
 // UpdateOrder
 var result = await Maybe<OrderEntity>
     .From(await db.Orders.Include(o => o.Lines).FirstOrDefaultAsync(o => o.OrderNo == orderNo))
     .ToResult((IHttpError)new NotFoundError())
-    .Bind(order => OrderWrite.ApplyAsync(order, request, db, clock))
+    .Bind(order => ApplyAsync(order, request, db, clock))
     .Tap(_ => db.SaveChangesAsync())
     .Map(order => order.ToDetail());
 ```
@@ -51,7 +52,7 @@ Each step in detail:
 
 - **① Customer.** Orders name their customer (the form sends the name), so the lookup is by name, a unique index on `customers.name`. `Include(c => c.Settings)` loads the settings row in the same query. Rules do no I/O, so everything they read must be loaded here.
 - **Credit hold** is a validation, not a rule: a rule changes a value, and there is nothing to change about a customer on hold. The error is collected and the path continues, so a reference conflict (⑤) is reported in the same response.
-- **② Snapshot.** `db.Entry(order).OriginalValues.ToObject()` builds a detached `OrderEntity` holding the column values as loaded from the database (`CustomerId`, `Status`, `DueDate`, `Reference`, `CreatedAt`, …). It is taken **before** ③ overwrites the tracked entity. It holds scalar columns only: `Customer` is `null` and `Lines` is empty. On create there is nothing stored, so `original` is `null`, which is how a rule knows it is a create.
+- **② Snapshot.** `db.Entry(order).OriginalValues.ToObject()` builds a detached `OrderEntity` holding the column values as loaded from the database (`CustomerId`, `Status`, `DueDate`, `Reference`, `CreatedAt`, …). It is taken **before** ③ overwrites the tracked entity. It holds scalar columns only: `Customer` is `null` and `Lines` is empty. Create has nothing stored and passes `null`, which is how a rule knows it is a create.
 - **③ Mapping** copies the input as is (see [The mapper](#2-the-mapper)).
 - **④ Rules** run on the mapped entity and may overwrite any column (see [The rules](#3-the-rules)).
 - **⑤ Reference uniqueness** needs a query, so it is not a rule. It runs **after** the rules, on the order's final reference. A rule may clear the reference, and a cleared reference can't conflict.
@@ -183,12 +184,12 @@ The rules are silent on purpose:
 | Check | Where | Why not a rule |
 | --- | --- | --- |
 | Required fields, ranges, lengths, at least one line, due date present | Attributes on `OrderInput` / `OrderLine` | Shape of the input, rejected before any handler runs |
-| Unknown customer | `OrderWrite` ① | Rules need a customer; it fails instead of changing a value |
-| Credit hold | `OrderWrite` ① | A refusal, not an assignment |
-| Reference unique | `OrderWrite` ⑤ | Needs a query, and must see the reference the rules left |
+| Unknown customer | Write path ① | Rules need a customer; it fails instead of changing a value |
+| Credit hold | Write path ① | A refusal, not an assignment |
+| Reference unique | Write path ⑤ | Needs a query, and must see the reference the rules left |
 | Who may save | `OrderEndpoints` (`orders.write` + `order-editor`) | Authorization ([OIDC](oidc.md)) |
 
-The line to draw: **a rule changes a value; a validation refuses the save.** If the right answer is "this can't be saved", it belongs in `OrderWrite` (database needed) or on `OrderInput` (input shape only), not in `OrderRules`.
+The line to draw: **a rule changes a value; a validation refuses the save.** If the right answer is "this can't be saved", it belongs in the write path of `CreateOrder` / `UpdateOrder` (database needed) or on `OrderInput` (input shape only), not in `OrderRules`.
 
 ## 7. Tests
 
@@ -204,7 +205,7 @@ Builders (`tests/Api.Tests/Builders/`) set up the cases: `CustomerEntityBuilder.
 
 1. **Customer-specific?** Add a nullable column in a new grate script (`db/up/000N_…sql`), the property on `CustomerSettingsEntity` and its configuration, and seed a customer that has it. Show it in the Customers list: `ListCustomers.Response`, a Gridify `settings.…` map if it is sortable, and `web/src/domains/customers/columns.tsx`.
 2. **Write the rule** in `OrderRules`: a business name, the kind, a `When` that only reads the context, and an `Apply` that only assigns `ctx.Entity` columns. Add it to `All`. Its position only matters relative to rules of the same kind that write the same column.
-3. **Data from elsewhere?** Load it in `OrderWrite` ① and add it to `RuleContext`. Rules never query.
+3. **Data from elsewhere?** Load it in both write paths ① and add it to `RuleContext`. Rules never query.
 4. **Test it** in `OrderRulesTests` (fires and writes the value, doesn't fire otherwise), and add an `OrdersTests` case if the end-to-end result matters.
 
 No change is needed in the handlers, the mapper (unless the rule writes a new column) or the shell.

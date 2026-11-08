@@ -39,15 +39,15 @@ Two things to know about .NET 10 validation, both found while building this note
 - Nested items are only validated through a `List<T>` (or another generic collection). With `OrderLine[] Lines`, the generator never registers `OrderLine`, so a line with quantity 0 passes.
 - The keys don't follow the JSON naming policy, which is why `Program.cs` renames them.
 
-### One write path
+### Write paths
 
-`POST` and `PUT` take the same `OrderInput`, because the order form sends the same payload either way. `OrderWrite.ApplyAsync` resolves the customer, copies the input onto the entity (`OrderMapper`, a C# 14 extension block), then runs the named rules (`OrderRules`). The rules silently overwrite columns from per-customer settings (a prepaid customer's orders start Paid, a contract fixes the due date), so special cases live in one list instead of `if (customer == …)` branches ([write rules](docs/rules.md)). The credit hold and the reference uniqueness are checked around them. `PUT` replaces the whole order: the old lines become orphans, and EF deletes them. `CreateOrder` and `UpdateOrder` are only the pipeline around it:
+`POST` and `PUT` take the same `OrderInput`, because the order form sends the same payload either way, but each handler has its own write path so create and update can evolve separately. Each resolves the customer, copies the input onto the entity (`OrderMapper`, a C# 14 extension block), then runs the named rules (`OrderRules`). The rules silently overwrite columns from per-customer settings (a prepaid customer's orders start Paid, a contract fixes the due date), so special cases live in one list instead of `if (customer == …)` branches ([write rules](docs/rules.md)). The credit hold and the reference uniqueness are checked around them. `PUT` replaces the whole order: the old lines become orphans, and EF deletes them. `UpdateOrder`, for example:
 
 ```csharp
 var result = await Maybe<OrderEntity>
     .From(await db.Orders.Include(o => o.Lines).FirstOrDefaultAsync(o => o.OrderNo == orderNo))
     .ToResult((IHttpError)new NotFoundError())
-    .Bind(order => OrderWrite.ApplyAsync(order, request, db, clock))
+    .Bind(order => ApplyAsync(order, request, db, clock))
     .Tap(_ => db.SaveChangesAsync())
     .Map(order => order.ToDetail());
 ```
@@ -81,7 +81,7 @@ FederatedSlice/
 │       ├── Json/             # source-gen context
 │       └── Features/
 │           ├── Customers/    # ListCustomers, ListCustomerOptions, CustomerSettings
-│           └── Orders/       # List/Get/Create/Update, IsReferenceTaken, OrderInput, OrderDetail, OrderMapper, OrderRules, OrderWrite
+│           └── Orders/       # List/Get/Create/Update, IsReferenceTaken, OrderInput, OrderDetail, OrderMapper, OrderRules
 ├── tests/Api.Tests/          # TUnit: unit + per-test-schema integration + Aspire smoke
 ├── web/                      # the shell (see web/README.md)
 └── docs/                     # how filtering, forms and OIDC work (docs/README.md)

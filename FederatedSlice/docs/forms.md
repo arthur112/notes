@@ -9,7 +9,7 @@ The order form (create at `/app1/orders/new`, edit at `/<app>/orders/$orderNo`) 
 | Data | `…/order-form/use-order-form-data.ts` | Everything the form reads from or writes to the server |
 | Form | `…/order-form/order-form.tsx`, `order-lines.tsx` | Rendering only |
 | Pages | `…/order-form/order-pages.tsx` | `NewOrder` / `EditOrder`, with the app passing `onDone` |
-| API | `src/Api/Features/Orders/` | `OrderInput` (attributes), `OrderWrite` + `OrderRules` (the write path, see [Write rules](rules.md)), `CreateOrder` / `UpdateOrder` |
+| API | `src/Api/Features/Orders/` | `OrderInput` (attributes), `CreateOrder` / `UpdateOrder` (each with its write path) + `OrderRules` (see [Write rules](rules.md)) |
 
 ## Raw values in, payload out
 
@@ -35,7 +35,7 @@ type OrderFormValues = {
 | 1 | `orderFormSchema`, run as `validators.onDynamic` with `revalidateLogic()` | Quiet until the first submit, then on every change | "Pick a customer", "Whole units", "Add at least one line" | Under the field, cleared as you fix it |
 | 2 | `reference` field's `onChangeAsync`, debounced 400 ms | While typing | "Already used on another order" (`GET /api/orders/reference-taken?reference=…&exceptOrderNo=…`) | Under the field, "Checking…" meanwhile |
 | 3 | .NET 10 built-in validation on `OrderInput` / `OrderLine` attributes | Before the handler runs | `[Range(1, …)] Quantity`, `[MaxLength(50)] Reference` | `400` with `errors`, mapped to fields |
-| 4 | `OrderWrite.ApplyAsync` | In the handler, with the database | Unknown customer, "Umbrella is on credit hold.", reference taken | `400` with `errors`, mapped to fields |
+| 4 | The handler's write path | In the handler, with the database | Unknown customer, "Umbrella is on credit hold.", reference taken | `400` with `errors`, mapped to fields |
 
 Layers 1 and 2 are for the user's convenience. Layers 3 and 4 are the authority, since a client check is only a hint (another tab may take the reference in between). The credit hold only exists in layer 4, because only the database knows it (`customers.is_on_hold`).
 
@@ -45,10 +45,10 @@ The client and server rules are written twice, in Zod and in C# attributes. Keep
 
 | Rule | Zod (`orderFormSchema`) | C# (`OrderInput.cs`) |
 | --- | --- | --- |
-| Customer picked | `z.string({ error: "Pick a customer" })` | `[Required]`, plus *exists* and *not on credit hold* (`OrderWrite`) |
+| Customer picked | `z.string({ error: "Pick a customer" })` | `[Required]`, plus *exists* and *not on credit hold* (write path) |
 | Status | `z.enum(STATUSES)` | `OrderStatus` enum. An unknown name fails JSON reading: a `400` with no `errors`, shown as a form-level message. On create, overwritten by the customer's `initial_status` when set (a rule). |
 | Due date | `z.string({ error: "Pick a due date" })` | `[Required] DateOnly?`: nullable so that a missing value fails instead of binding as `0001-01-01`. Overwritten by the customer's `forced_due_days` when set (a rule). |
-| Reference | trimmed, blank → omitted | `[MaxLength(50)]`, *unique* in `OrderWrite` and a filtered unique index, checked on the reference the rules left. Cleared when the customer changes and the reference was left as is (a rule). |
+| Reference | trimmed, blank → omitted | `[MaxLength(50)]`, *unique* in the write path and a filtered unique index, checked on the reference the rules left. Cleared when the customer changes and the reference was left as is (a rule). |
 | At least one line | `.min(1, "Add at least one line")` | `[Required, MinLength(1)] List<OrderLine>` |
 | Product | `.min(1, "Required")` | `[Required, MaxLength(200)]` |
 | Quantity | integer, `≥ 1` | `[Range(1, int.MaxValue)]` |
@@ -88,7 +88,7 @@ The form component makes no `fetch` calls. The hook gives it:
 
 - **Create**: `NewOrder` renders `OrderForm` with `emptyOrderForm()`.
 - **Edit**: the route's loader **awaits** the order (`orderRouteLoader`, `staleTime: "static"`), because the form reads `defaultValues` once, at mount. `EditOrder` reads it with `useSuspenseQuery` and renders `<OrderForm key={orderNo} order={order} />`. The `key` remounts the form when you go from one order to another. A missing order (`404`) throws in the loader, and the router's error component renders inside the shell.
-- **On the server**, `POST` and `PUT` share `OrderInput` and `OrderWrite.ApplyAsync`, which copies the input onto the entity (`OrderMapper`) and then runs the rules, which may overwrite some of it. `PUT` replaces the whole order: the lines are cleared and re-added, and EF deletes the orphans. `CreateOrder` returns `201` with `Location: /api/orders/ORD-…`, and `UpdateOrder` returns `200` or `404`. Both bodies are the `OrderDetail`, so the response has the same shape as the edit form's input.
+- **On the server**, `POST` and `PUT` share `OrderInput`, the mapper and the rules, each in its own write path: it copies the input onto the entity (`OrderMapper`) and then runs the rules, which may overwrite some of it. `PUT` replaces the whole order: the lines are cleared and re-added, and EF deletes the orphans. `CreateOrder` returns `201` with `Location: /api/orders/ORD-…`, and `UpdateOrder` returns `200` or `404`. Both bodies are the `OrderDetail`, so the response has the same shape as the edit form's input.
 
 ## Read only without the right role
 

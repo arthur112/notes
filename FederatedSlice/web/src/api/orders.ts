@@ -65,7 +65,7 @@ export function isReferenceTaken(reference: string, exceptOrderNo?: string): Pro
 }
 
 /**
- * The server re-validates the input and adds its own rules (`OrderWrite`): unknown
+ * The server re-validates the input and adds its own rules (`CreateOrder` / `UpdateOrder`): unknown
  * customer, credit hold, reference already used. Each is a 400 on its field.
  */
 export function createOrder(input: OrderInput) {
