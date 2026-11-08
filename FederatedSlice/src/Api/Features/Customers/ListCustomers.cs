@@ -32,11 +32,15 @@ public static class ListCustomers
     /// <summary>
     /// What <c>filter</c> / <c>orderBy</c> may name. The front's customers filter
     /// (web/src/domains/customers/filter.ts) uses the entity's own property names, so the
-    /// generated mappings fit; only the day range needs its converter.
+    /// generated mappings fit; only the day range needs its converter, and the settings columns
+    /// (sortable in the list) their path through the optional settings row.
     /// </summary>
     private static readonly IGridifyMapper<CustomerEntity> Mapper = new GridifyMapper<CustomerEntity>(
         autoGenerateMappings: true
-    ).AddMap("createdAt", c => c.CreatedAt, UtcDay.Parse);
+    )
+        .AddMap("createdAt", c => c.CreatedAt, UtcDay.Parse)
+        .AddMap("settings.initialStatus", c => c.Settings!.InitialStatus)
+        .AddMap("settings.forcedDueDays", c => c.Settings!.ForcedDueDays);
 
     public static async Task<IResult> Handle(
         [AsParameters] ListQuery query,

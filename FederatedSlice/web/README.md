@@ -60,6 +60,7 @@ domain's. Nothing else changes: not the other app, not the domain, not the shell
 | **Lazy per page**                      | `autoCodeSplitting` turns each route's `component` into a chunk, so a page, its columns and the form download on first open.                                                                                               |
 | **Shell services**                     | `ShellProvider`: the signed-in user and an event bus (`publish(source, message)`). Everything shares the one module instance, so it is a plain context with no federation contract.                                        |
 | **A broken app never kills the shell** | `defaultErrorComponent` / `defaultPendingComponent` on the router (`shell/app-states.tsx`): the router's own boundaries render inside the root outlet, so sidebar, header and footer stay.                                 |
+| **Signed in before any app loads**     | `main.tsx` runs `signIn()` (`shell/auth.ts`, Keycloak with PKCE) before importing the app, and `ShellProvider` exposes the user and `can({ scopes, roles })`. Apps hide or disable what the token doesn't allow (`domains/orders/access.ts`). See `../docs/oidc.md`. |
 | **Apps don't import each other**       | Lint-enforced (`.oxlintrc.json`, `no-restricted-imports`): `apps`, `domains`, `shared`, `api` and `shell` may not import `@/apps/**`, `@/routes/**` or `../../**`. Only `src/routes` wires apps in.                        |
 
 Saving an order (in either app) publishes `Created ORD-…` / `Updated ORD-…` on the bus

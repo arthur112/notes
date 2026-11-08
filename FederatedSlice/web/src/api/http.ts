@@ -2,21 +2,37 @@ import type { IGridifyQuery, Paging } from "gridify-client";
 
 import { toQueryString, type RequestLog } from "@/shared/filtering/request-log";
 import type { ApiResult, ProblemDetails } from "@/shared/lib/problem";
+import { accessToken, redirectToLogin } from "@/shell/auth";
 
 /**
  * The calls to the .NET API. Every URL is relative (`/api/…`): Vite proxies it to the
  * api resource Aspire started (`vite.config.ts`), so the browser stays on one origin.
+ * Every call carries the signed-in user's access token.
  */
 
-/** A read. Any failure (404, 500, network down) throws, for the query's or route's error state. */
+/**
+ * `fetch` with the bearer token. A 401 means the session is gone (expired, revoked, signed out
+ * elsewhere): back to the login page, which returns to this URL. A 403 is an answer like any
+ * other: the token is valid but lacks a scope or role.
+ */
+async function apiFetch(url: string, init: RequestInit = {}): Promise<Response> {
+  const token = await accessToken();
+  const headers = new Headers(init.headers);
+  if (token) headers.set("authorization", `Bearer ${token}`);
+  const response = await fetch(url, { ...init, headers });
+  if (response.status === 401) return redirectToLogin();
+  return response;
+}
+
+/** A read. Any failure (403, 404, 500, network down) throws, for the query's or route's error state. */
 export async function getJson<T>(url: string): Promise<T> {
-  const response = await fetch(url);
+  const response = await apiFetch(url);
   if (!response.ok) throw new Error(await failureMessage(response));
   return (await response.json()) as T;
 }
 
 /**
- * A write. A 4xx problem+json (400 validation, 404) is an expected failure, so it comes
+ * A write. A 4xx problem+json (400 validation, 403, 404) is an expected failure, so it comes
  * back as a value; anything else unexpected throws.
  */
 export async function sendJson<T>(
@@ -24,7 +40,7 @@ export async function sendJson<T>(
   url: string,
   body: unknown,
 ): Promise<ApiResult<T>> {
-  const response = await fetch(url, {
+  const response = await apiFetch(url, {
     method,
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body),
@@ -60,8 +76,6 @@ function isProblem(response: Response): boolean {
 }
 
 async function failureMessage(response: Response): Promise<string> {
-  const problem = isProblem(response)
-    ? ((await response.json()) as ProblemDetails)
-    : undefined;
+  const problem = isProblem(response) ? ((await response.json()) as ProblemDetails) : undefined;
   return problem?.title ?? `${response.status} ${response.statusText}`;
 }

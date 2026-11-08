@@ -1,5 +1,5 @@
 import { Link, Outlet } from "@tanstack/react-router";
-import { LayoutDashboard } from "lucide-react";
+import { LayoutDashboard, LogOut } from "lucide-react";
 
 import { useActiveNav, useMicroApps } from "./nav";
 import { useShell } from "./shell-provider";
@@ -17,7 +17,7 @@ const navItemActive = `${navItem} bg-sidebar-accent text-sidebar-accent-foregrou
 export function AppFrame() {
   const apps = useMicroApps();
   const active = useActiveNav();
-  const { user, events } = useShell();
+  const { user, signOut, events } = useShell();
   const latest = events.at(-1);
 
   return (
@@ -58,10 +58,19 @@ export function AppFrame() {
           <span className="flex size-8 items-center justify-center rounded-lg bg-secondary text-xs font-medium text-secondary-foreground">
             {user.initials}
           </span>
-          <span className="grid leading-tight">
+          <span className="grid min-w-0 flex-1 leading-tight">
             <span className="truncate font-medium">{user.name}</span>
             <span className="truncate text-xs text-muted-foreground">{user.email}</span>
           </span>
+          <button
+            type="button"
+            onClick={signOut}
+            aria-label="Sign out"
+            title="Sign out"
+            className="rounded-md p-1.5 text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+          >
+            <LogOut className="size-4" />
+          </button>
         </div>
       </aside>
 

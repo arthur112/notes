@@ -10,14 +10,20 @@ import { UserManager, type User } from "oidc-client-ts";
 /** The API's scopes (`src/Api/Auth/Scopes.cs`); the shell requests all of them. */
 export const SCOPES = ["customers.read", "orders.read", "orders.write"] as const;
 
-export const userManager = new UserManager({
-  authority: import.meta.env.VITE_OIDC_AUTHORITY,
-  client_id: import.meta.env.VITE_OIDC_CLIENT_ID,
-  redirect_uri: `${window.location.origin}/`,
-  post_logout_redirect_uri: `${window.location.origin}/`,
-  scope: `openid profile email ${SCOPES.join(" ")}`,
-  automaticSilentRenew: true,
-});
+let manager: UserManager | undefined;
+
+/** Created on first use, so importing this module (the API client, its tests) has no side effect. */
+export function userManager(): UserManager {
+  manager ??= new UserManager({
+    authority: import.meta.env.VITE_OIDC_AUTHORITY,
+    client_id: import.meta.env.VITE_OIDC_CLIENT_ID,
+    redirect_uri: `${window.location.origin}/`,
+    post_logout_redirect_uri: `${window.location.origin}/`,
+    scope: `openid profile email ${SCOPES.join(" ")}`,
+    automaticSilentRenew: true,
+  });
+  return manager;
+}
 
 /** Where to come back to after the identity provider's login page. */
 const here = () => window.location.pathname + window.location.search;
@@ -30,21 +36,21 @@ const here = () => window.location.pathname + window.location.search;
 export async function signIn(): Promise<User> {
   const params = new URLSearchParams(window.location.search);
   if (params.has("code") && params.has("state")) {
-    const user = await userManager.signinRedirectCallback();
+    const user = await userManager().signinRedirectCallback();
     window.history.replaceState(null, "", typeof user.state === "string" ? user.state : "/");
     return user;
   }
-  const user = await userManager.getUser();
+  const user = await userManager().getUser();
   if (user && !user.expired) return user;
   return redirectToLogin();
 }
 
 /** Leaves for the login page; the returned promise never settles. */
 export async function redirectToLogin(): Promise<never> {
-  await userManager.signinRedirect({ state: here() });
+  await userManager().signinRedirect({ state: here() });
   return new Promise<never>(() => {});
 }
 
 export async function accessToken(): Promise<string | undefined> {
-  return (await userManager.getUser())?.access_token;
+  return (await userManager().getUser())?.access_token;
 }

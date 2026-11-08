@@ -33,6 +33,19 @@ export const CUSTOMER_COLUMNS: FilterColumn<Customer>[] = helper.columns([
     cell: ({ getValue }) => getValue().toFixed(2),
     meta: { className: "text-right tabular-nums" },
   }),
+  // The customer's order rules, read-only: why an order for this customer may be refused.
+  helper.accessor("initialStatus", {
+    header: "New orders start",
+    cell: ({ getValue }) => getValue() ?? "—",
+  }),
+  helper.accessor("forcedDueDays", {
+    header: "Due after",
+    cell: ({ getValue }) => {
+      const days = getValue();
+      return days === null ? "—" : `${days} days`;
+    },
+    meta: { className: "tabular-nums" },
+  }),
   helper.accessor("createdAt", {
     header: "Customer since",
     cell: ({ getValue }) => formatDate(getValue()),

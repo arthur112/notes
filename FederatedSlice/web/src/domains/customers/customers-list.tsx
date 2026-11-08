@@ -49,9 +49,7 @@ export function CustomersList({
         <section className="space-y-2">
           <h2 className="text-sm font-medium">
             Customers{" "}
-            <span className="text-muted-foreground">
-              (filtered, sorted and paged by the API)
-            </span>
+            <span className="text-muted-foreground">(filtered, sorted and paged by the API)</span>
           </h2>
           <DataTable
             columns={columns}

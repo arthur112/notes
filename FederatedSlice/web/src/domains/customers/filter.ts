@@ -32,6 +32,8 @@ export const SORT_FIELDS = {
   country: "country",
   active: "active",
   creditLimit: "creditLimit",
+  initialStatus: "settings.initialStatus",
+  forcedDueDays: "settings.forcedDueDays",
   createdAt: "createdAt",
 } as const;
 

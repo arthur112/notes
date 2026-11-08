@@ -1,9 +1,11 @@
 import { getRouteApi, Link } from "@tanstack/react-router";
 
+import { ORDER_WRITE } from "@/domains/orders/access";
 import { orderColumns, orderLinkClass } from "@/domains/orders/columns";
 import { OrdersList } from "@/domains/orders/orders-list";
 import { EditOrder, NewOrder } from "@/domains/orders/order-form/order-pages";
 import { buttonVariants } from "@/shared/components/ui/button";
+import { useShell } from "@/shell/shell-provider";
 
 /**
  * App 1's orders: everything from the domain defaults. The app only supplies
@@ -20,6 +22,8 @@ const listRoute = getRouteApi("/app1/orders/");
 
 export function OrdersPage() {
   const navigate = listRoute.useNavigate();
+  // Shown only to users who may save it; the API enforces the same rule.
+  const canCreate = useShell().can(ORDER_WRITE);
   return (
     <OrdersList
       search={listRoute.useSearch()}
@@ -32,9 +36,11 @@ export function OrdersPage() {
       }
       columns={columns}
       action={
-        <Link to="/app1/orders/new" className={buttonVariants({ size: "lg" })}>
-          New order
-        </Link>
+        canCreate && (
+          <Link to="/app1/orders/new" className={buttonVariants({ size: "lg" })}>
+            New order
+          </Link>
+        )
       }
     />
   );

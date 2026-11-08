@@ -4,6 +4,7 @@ import type { IGridifyQuery, Paging } from "gridify-client";
 import { createRequestLog } from "@/shared/filtering/request-log";
 
 import { getJson, getPage } from "./http";
+import type { OrderStatus } from "./orders";
 
 /** The customers API (`src/Api/Features/Customers`); `Customer` mirrors `ListCustomers.Response`. */
 
@@ -32,6 +33,9 @@ export type Customer = {
   isVerified: boolean;
   isOnHold: boolean;
   createdAt: string; // YYYY-MM-DD
+  /** The customer's order rules (`customer_settings`); `null` = no rule. */
+  initialStatus: OrderStatus | null;
+  forcedDueDays: number | null;
 };
 
 /** What a customer picker needs: the key to filter on and the name to show. */
