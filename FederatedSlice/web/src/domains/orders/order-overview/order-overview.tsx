@@ -37,33 +37,39 @@ const STATUS_HINT: Record<OrderStatus, string> = {
 
 const days = (n: number) => `${n} ${n === 1 ? "day" : "days"}`;
 const yesNo = (value: boolean) => (value ? "Yes" : "No");
+const mono = (value: string) => <span className="font-mono">{value}</span>;
+/** The payment term: order date to due date. */
+const termDays = (order: Overview) =>
+  differenceInCalendarDays(parseISO(order.dueDate), parseISO(order.createdAt));
 
-/** Identity (customer, status, mono references) and the four figures most visits need. */
+/**
+ * Identity (customer, status), then the record's three references and its three dates. Mirrors a
+ * loan-insurance contract header: order N° ≈ loan N°, customer N° ≈ branch N°, customer reference
+ * ≈ branch reference, order date ≈ booking date, due date ≈ effective date, term ≈ duration.
+ */
 function Hero({ order, action }: { order: Overview; action?: ReactNode }) {
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-            <h1 className="text-3xl font-semibold tracking-tight">{order.customer.name}</h1>
-            <span className="flex items-center gap-1.5 text-sm font-medium">
-              <span aria-hidden className={cn("size-2 rounded-full", STATUS_DOT[order.status])} />
-              {order.status}
-            </span>
-          </div>
-          <p className="mt-2 font-mono text-sm text-muted-foreground">
-            {order.orderNo} · {order.customer.customerNo} · {order.reference ?? "no PO"}
-          </p>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+          <h1 className="text-3xl font-semibold tracking-tight">{order.customer.name}</h1>
+          <span className="flex items-center gap-1.5 text-sm font-medium">
+            <span aria-hidden className={cn("size-2 rounded-full", STATUS_DOT[order.status])} />
+            {order.status}
+          </span>
         </div>
         {action}
       </div>
       <Separator />
       <StatStrip
+        columns={3}
         stats={[
-          { label: "Total", value: formatAmount(order.total) },
+          { label: "Order N°", value: mono(order.orderNo) },
+          { label: "Customer N°", value: mono(order.customer.customerNo) },
+          { label: "Customer reference", value: order.reference ? mono(order.reference) : "—" },
           { label: "Order date", value: formatDate(order.createdAt) },
           { label: "Due date", value: formatDate(order.dueDate) },
-          { label: "Risk grade", value: `${order.risk.grade} · ${order.risk.band}` },
+          { label: "Term", value: days(termDays(order)) },
         ]}
       />
     </div>
@@ -74,7 +80,6 @@ function Hero({ order, action }: { order: Overview; action?: ReactNode }) {
 function OrderDetails({ order }: { order: Overview }) {
   const { customer, risk } = order;
   const units = order.lines.reduce((sum, line) => sum + line.quantity, 0);
-  const termDays = differenceInCalendarDays(parseISO(order.dueDate), parseISO(order.createdAt));
 
   return (
     <RecordSection id="order-details" title="Order" note={`Placed ${formatDate(order.createdAt)}`}>
@@ -83,7 +88,7 @@ function OrderDetails({ order }: { order: Overview }) {
           <SpecRow label="Order date" value={formatDate(order.createdAt)} />
           <SpecRow
             label="Due date"
-            value={`${formatDate(order.dueDate)} · ${days(termDays)} after order`}
+            value={`${formatDate(order.dueDate)} · ${days(termDays(order))} after order`}
           />
           <SpecRow label="Customer payment terms" value={days(customer.paymentTermsDays)} />
           <SpecRow
