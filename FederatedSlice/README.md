@@ -61,7 +61,7 @@ public static async Task<Results<Ok<OrderDetail>, NotFound, ValidationProblem>> 
 
 ### The order record page
 
-Opening an order shows its record page (`/<app>/orders/$orderNo`), and **Edit** leads to the form (`…/edit`). The page reads `GET /api/orders/{orderNo}/overview` (`GetOrderOverview`), a read model of its own, so the form's `OrderDetail` stays the form's payload. The page has a hero titled by the order N° (customer, then customer N°, reference, booked and due dates, term), an **Order** section (six label-left / value-right groups in two columns: terms beside risk & value, customer beside credit, lines beside the customer's order rules; two independent readings share one group: the risk grade as a coloured tile over a single A–F scale, and a 0–100 value score (order size, payment terms, tenure, VIP: none of the grade's inputs) as a plain figure, so the section carries one gradient, not two), a **Current state** section (status, payment, open exposure, credit headroom, a credit-hold banner), and a **Modifications** section (the latest three entries, the rest behind *View more*). Each section collapses from its heading. The log is **mocked on the front** (`order-overview/modifications.ts`): orders keep no history, so it is made up from the order's own data.
+Opening an order shows its record page (`/<app>/orders/$orderNo`), and **Edit** leads to the form (`…/edit`). The page reads `GET /api/orders/{orderNo}/overview` (`GetOrderOverview`), a read model of its own, so the form's `OrderDetail` stays the form's payload. The page has a hero titled by the order N° (customer, then customer N°, reference, booked and due dates, term), an **Order** section (six label-left / value-right groups in two columns: terms beside risk & value, customer beside credit, lines beside the customer's order rules; two independent readings share one group: the risk grade as a coloured tile over a single A–F scale, and a 0–100 value score (order size, payment terms, tenure, VIP: none of the grade's inputs) as a plain figure, so the section carries one gradient, not two), a **Current state** section (what the order still owes, six figures in two rows of three: remaining term and scheduled balance always, then overdue amount, late interest, at-risk date and provision, each `—` until it exists and toned amber when late, red when at risk; then a credit-hold banner), and a **Modifications** section (the latest three entries, the rest behind *View more*). Each section collapses from its heading. The log is **mocked on the front** (`order-overview/modifications.ts`): orders keep no history, so it is made up from the order's own data.
 
 The risk grade is computed on the server from data it already holds. Each factor adds points, and the sum (capped at 5) is the position on the A–F scale (`risk-grade-scale.tsx`):
 
@@ -71,6 +71,8 @@ The risk grade is computed on the server from data it already holds. Each factor
 | Unpaid (Pending) after the due date | 1, or 2 past 30 days |
 | Customer's unpaid orders vs. its credit limit | 1 from 50%, 2 from 90% |
 | Unverified / inactive customer, Startup segment | 1 each |
+
+The receivable figures are computed on the server too (`GetOrderOverview.Owed`) and come back `null` until they exist. An unpaid order is overdue from the day after its due date and accrues 12% simple interest a year. Once it is more than 30 days late it is at risk, and a provision is set aside: 25% of the overdue amount, 50% from 61 days, all of it from 91.
 
 ## Sign-in and permissions
 

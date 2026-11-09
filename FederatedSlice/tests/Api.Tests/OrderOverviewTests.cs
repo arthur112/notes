@@ -91,6 +91,60 @@ public class OrderOverviewTests : DatabaseTestBase
         await Assert.That(value.Drivers[0]).IsEqualTo("Order of 1,200.00");
     }
 
+    private static GetOrderOverview.Receivable Owed(int daysPastDue, OrderStatus status = OrderStatus.Pending)
+    {
+        var order = OrderEntityBuilder
+            .For(CustomerEntityBuilder.Create().Build())
+            .WithStatus(status)
+            .WithDueDate(Today.AddDays(-daysPastDue))
+            .Build();
+        return GetOrderOverview.Owed(order, 1_000, Math.Max(0, daysPastDue), Today);
+    }
+
+    [Test]
+    public async Task On_Time_Order_Owes_Only_Its_Schedule()
+    {
+        var owed = Owed(daysPastDue: -10);
+
+        await Assert.That(owed.RemainingDays).IsEqualTo(10);
+        await Assert.That(owed.ScheduledBalance).IsEqualTo(1_000m);
+        await Assert.That(owed.Overdue).IsNull();
+        await Assert.That(owed.LateInterest).IsNull();
+        await Assert.That(owed.AtRiskSince).IsNull();
+        await Assert.That(owed.Provision).IsNull();
+    }
+
+    [Test]
+    public async Task Late_Order_Accrues_Interest_Before_It_Is_At_Risk()
+    {
+        // 1,000 × 12% × 30 / 365 = 9.86.
+        var owed = Owed(daysPastDue: 30);
+
+        await Assert.That(owed.RemainingDays).IsEqualTo(0);
+        await Assert.That(owed.Overdue).IsEqualTo(1_000m);
+        await Assert.That(owed.LateInterest).IsEqualTo(9.86m);
+        await Assert.That(owed.AtRiskSince).IsNull();
+        await Assert.That(owed.Provision).IsNull();
+    }
+
+    [Test]
+    public async Task Past_30_Days_It_Is_At_Risk_And_Provisioned()
+    {
+        var owed = Owed(daysPastDue: 75);
+
+        await Assert.That(owed.AtRiskSince).IsEqualTo(Today.AddDays(-75 + 31));
+        await Assert.That(owed.Provision).IsEqualTo(500m);
+    }
+
+    [Test]
+    public async Task Settled_Order_Owes_Nothing()
+    {
+        var owed = Owed(daysPastDue: 0, OrderStatus.Paid);
+
+        await Assert.That(owed.ScheduledBalance).IsEqualTo(0m);
+        await Assert.That(owed.Overdue).IsNull();
+    }
+
     [Test]
     public async Task Overview_Sums_The_Customers_Unpaid_Orders()
     {

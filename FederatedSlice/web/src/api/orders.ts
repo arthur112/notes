@@ -89,6 +89,20 @@ export type OrderOverview = {
     /** What earned points, biggest first. */
     drivers: string[];
   };
+  /** What the order still owes: two figures always, the other four null until they exist. */
+  receivable: {
+    /** Days left to the due date, 0 once reached. */
+    remainingDays: number;
+    /** The total while Pending, else 0. */
+    scheduledBalance: number;
+    /** The unpaid total once past due. */
+    overdue: number | null;
+    lateInterest: number | null;
+    /** YYYY-MM-DD: the first day past 30 days late. */
+    atRiskSince: string | null;
+    /** The share of `overdue` set aside once at risk. */
+    provision: number | null;
+  };
   /** The server's today, which the risk was assessed on. */
   asOf: string;
 };

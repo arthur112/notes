@@ -26,18 +26,28 @@ export type Stat = {
   value: ReactNode;
   /** Supporting line under the value (e.g. "of 300 · 10.7% elapsed"). */
   hint?: ReactNode;
+  /** On the value, e.g. a tone colour. */
+  className?: string;
 };
 
-/** 4-up on desktop, 2-up on mobile; tabular figures so amounts line up across the strip. */
-export function StatStrip({ stats }: { stats: Stat[] }) {
+/**
+ * 4-up on desktop (or as `className` sets), 2-up on mobile; tabular figures so amounts line up
+ * across the strip.
+ */
+export function StatStrip({ stats, className }: { stats: Stat[]; className?: string }) {
   return (
-    <dl className="grid grid-cols-2 gap-x-6 gap-y-6 md:grid-cols-4">
+    <dl className={cn("grid grid-cols-2 gap-x-6 gap-y-6 md:grid-cols-4", className)}>
       {stats.map((stat) => (
         <div key={stat.label}>
           <dt className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
             {stat.label}
           </dt>
-          <dd className="mt-1.5 text-2xl font-semibold tracking-tight tabular-nums">
+          <dd
+            className={cn(
+              "mt-1.5 text-2xl font-semibold tracking-tight tabular-nums",
+              stat.className,
+            )}
+          >
             {orDash(stat.value)}
           </dd>
           {stat.hint && <dd className="mt-1 text-sm text-muted-foreground">{stat.hint}</dd>}

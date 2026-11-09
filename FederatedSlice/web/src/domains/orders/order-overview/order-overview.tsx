@@ -33,14 +33,6 @@ const STATUS_DOT: Record<OrderStatus, string> = {
   Cancelled: "bg-muted-foreground",
 };
 
-const STATUS_HINT: Record<OrderStatus, string> = {
-  Pending: "Awaiting payment",
-  Paid: "Waiting to ship",
-  Shipped: "In transit",
-  Delivered: "Complete",
-  Cancelled: "Closed",
-};
-
 const yesNo = (value: boolean) => (value ? "Yes" : "No");
 /** The payment term: order date to due date. */
 const termDays = (order: Overview) =>
@@ -194,13 +186,6 @@ function OrderDetails({ order }: { order: Overview }) {
   );
 }
 
-function paymentStat(order: Overview) {
-  if (order.status === "Cancelled") return "Not due";
-  if (order.status !== "Pending") return "Received";
-  if (order.risk.daysPastDue > 0) return `${formatDays(order.risk.daysPastDue)} late`;
-  return `Due in ${formatDays(differenceInCalendarDays(parseISO(order.dueDate), parseISO(order.asOf)))}`;
-}
-
 /** Modifications shown before "View more": the rest expand in place. */
 const VISIBLE_MODIFICATIONS = 3;
 
@@ -256,36 +241,75 @@ function Modifications({ modifications }: { modifications: Modification[] }) {
   );
 }
 
-/** Live figures as of the server's today and the credit-hold banner. */
+/**
+ * What the order still owes as of the server's today, six figures in two rows of three: the
+ * schedule's two (remaining term, scheduled balance), then arrears, interest, entry into risk and
+ * provision, each "—" until it exists so every figure keeps its place. Those that exist are toned
+ * amber (late) or red (at risk). Then the credit-hold banner.
+ */
 function CurrentState({ order }: { order: Overview }) {
-  const { customer, risk } = order;
+  const { customer, risk, receivable: owed } = order;
+  const tone =
+    owed.atRiskSince != null
+      ? "text-red-600 dark:text-red-400"
+      : "text-amber-600 dark:text-amber-400";
+  /** A dash stays neutral: only a figure that exists is toned. */
+  const toned = (value: unknown) => (value == null ? undefined : tone);
+
   return (
     <RecordSection
       id="order-current-state"
       title="Current state"
       note={`As of ${formatDate(order.asOf)}`}
     >
+      {/* null, not `false`: the strip dashes a null value and skips a null hint. */}
       <StatStrip
+        className="md:grid-cols-3"
         stats={[
           {
-            label: "Status",
-            value: order.status,
-            hint: STATUS_HINT[order.status],
+            label: "Remaining term",
+            value: formatDays(owed.remainingDays),
+            hint: `of ${formatDays(termDays(order))} · due ${formatDate(order.dueDate)}`,
           },
           {
-            label: "Payment",
-            value: paymentStat(order),
-            hint: `Due ${formatDate(order.dueDate)}`,
+            label: "Scheduled balance",
+            value: formatAmount(owed.scheduledBalance),
+            hint:
+              order.status === "Pending"
+                ? "Awaiting payment"
+                : order.status === "Cancelled"
+                  ? "Nothing owed"
+                  : "Settled",
           },
           {
-            label: "Open exposure",
-            value: formatAmount(risk.openExposure),
-            hint: `${formatPercent(risk.creditUsedPct)} of ${formatAmount(customer.creditLimit)} limit`,
+            label: "Overdue",
+            value: owed.overdue == null ? null : formatAmount(owed.overdue),
+            hint: owed.overdue == null ? null : `${formatDays(risk.daysPastDue)} past due`,
+            className: toned(owed.overdue),
           },
           {
-            label: "Credit headroom",
-            value: formatAmount(Math.max(0, customer.creditLimit - risk.openExposure)),
-            hint: `${formatDays(customer.paymentTermsDays)} payment terms`,
+            label: "Late interest",
+            value: owed.lateInterest == null ? null : formatAmount(owed.lateInterest),
+            hint: owed.lateInterest == null ? null : `Accruing since ${formatDate(order.dueDate)}`,
+            className: toned(owed.lateInterest),
+          },
+          {
+            label: "At risk since",
+            value: owed.atRiskSince == null ? null : formatDate(owed.atRiskSince),
+            hint:
+              owed.atRiskSince == null
+                ? null
+                : `${formatDays(differenceInCalendarDays(parseISO(order.asOf), parseISO(owed.atRiskSince)))} ago`,
+            className: toned(owed.atRiskSince),
+          },
+          {
+            label: "Provision",
+            value: owed.provision == null ? null : formatAmount(owed.provision),
+            hint:
+              owed.provision && owed.overdue
+                ? `${formatPercent((owed.provision / owed.overdue) * 100)} of overdue`
+                : null,
+            className: toned(owed.provision),
           },
         ]}
       />

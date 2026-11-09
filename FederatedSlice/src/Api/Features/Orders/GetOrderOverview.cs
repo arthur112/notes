@@ -24,6 +24,7 @@ public static class GetOrderOverview
         CustomerFacts Customer,
         RiskAssessment Risk,
         ValueScore Value,
+        Receivable Receivable,
         DateOnly AsOf
     );
 
@@ -61,6 +62,33 @@ public static class GetOrderOverview
     /// <param name="Score">0–100, higher is better.</param>
     /// <param name="Drivers">What earned points, biggest first; empty for a 0.</param>
     public record ValueScore(int Score, string Band, string[] Drivers);
+
+    /// <summary>
+    /// What the order still owes as of today: two figures always there, four only once it is late.
+    /// Mirrors a loan-insurance contract's current state: remaining term ≈ DRAC (durée restant à
+    /// courir), scheduled balance ≈ theoretical SDR, then arrears, interest, entry into risk and
+    /// provision, each null until it exists.
+    /// </summary>
+    /// <param name="RemainingDays">Days left to the due date, 0 once it is reached.</param>
+    /// <param name="ScheduledBalance">What the schedule says is owed: the total while Pending, else 0.</param>
+    /// <param name="Overdue">The unpaid total once past due.</param>
+    /// <param name="LateInterest">Simple interest on <paramref name="Overdue"/> at <see cref="LateInterestRate"/> a year.</param>
+    /// <param name="AtRiskSince">The first day past <see cref="RiskThresholdDays"/> days late.</param>
+    /// <param name="Provision">The share of <paramref name="Overdue"/> set aside once at risk.</param>
+    public record Receivable(
+        int RemainingDays,
+        decimal ScheduledBalance,
+        decimal? Overdue,
+        decimal? LateInterest,
+        DateOnly? AtRiskSince,
+        decimal? Provision
+    );
+
+    private const decimal LateInterestRate = 0.12m;
+    private const int RiskThresholdDays = 30;
+
+    /// <summary>Provision rate by days past due, once at risk: a quarter, a half, then all of it.</summary>
+    private static readonly (int MinDays, decimal Rate)[] ProvisionRates = [(91, 1m), (61, 0.5m), (0, 0.25m)];
 
     private static readonly string[] Bands = ["Minimal", "Low", "Moderate", "Elevated", "High", "Severe"];
 
@@ -102,6 +130,7 @@ public static class GetOrderOverview
     {
         var c = order.Customer;
         var total = order.Lines.Sum(l => l.Quantity * l.UnitPrice);
+        var risk = Assess(order, openExposure, today);
         return new(
             order.OrderNo,
             order.Status,
@@ -126,8 +155,9 @@ public static class GetOrderOverview
                 c.Settings?.InitialStatus,
                 c.Settings?.ForcedDueDays
             ),
-            Assess(order, openExposure, today),
+            risk,
             Value(order.Customer, total, today),
+            Owed(order, total, risk.DaysPastDue, today),
             today
         );
     }
@@ -187,5 +217,23 @@ public static class GetOrderOverview
         var score = hits.Sum(p => p.Points);
 
         return new(score, ValueBands.First(b => score >= b.Min).Band, [.. hits.Select(p => p.Driver)]);
+    }
+
+    /// <summary>
+    /// <paramref name="daysPastDue"/> comes from <see cref="Assess"/>: 0 unless the order is
+    /// Pending after its due date, so a settled order never shows arrears.
+    /// </summary>
+    public static Receivable Owed(OrderEntity order, decimal total, int daysPastDue, DateOnly today)
+    {
+        var overdue = daysPastDue > 0 ? total : (decimal?)null;
+        var atRisk = daysPastDue > RiskThresholdDays;
+        return new(
+            Math.Max(0, order.DueDate.DayNumber - today.DayNumber),
+            order.Status == OrderStatus.Pending ? total : 0,
+            overdue,
+            overdue is { } o ? Math.Round(o * LateInterestRate * daysPastDue / 365, 2) : null,
+            atRisk ? order.DueDate.AddDays(RiskThresholdDays + 1) : null,
+            atRisk ? Math.Round(total * ProvisionRates.First(r => daysPastDue >= r.MinDays).Rate, 2) : null
+        );
     }
 }
