@@ -1,4 +1,11 @@
 import type { ReactNode } from "react";
+import { ChevronDown } from "lucide-react";
+
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/shared/components/ui/collapsible";
 
 /**
  * The record page's building blocks, from the lending desk's contract page:
@@ -36,7 +43,10 @@ export function StatStrip({ stats }: { stats: Stat[] }) {
   );
 }
 
-/** A page section: heading with a muted note on the right, then a rule. */
+/**
+ * A page section: heading with a muted note on the right, then a rule. The whole
+ * heading row toggles it (open by default); the chevron is only its affordance.
+ */
 export function RecordSection({
   id,
   title,
@@ -49,16 +59,28 @@ export function RecordSection({
   children: ReactNode;
 }) {
   return (
-    <section className="space-y-6" aria-labelledby={id}>
-      <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
-        <h2 id={id} className="text-xl font-semibold tracking-tight">
-          {title}
+    <Collapsible defaultOpen render={<section aria-labelledby={id} />}>
+      <div className="space-y-6">
+        <h2>
+          <CollapsibleTrigger className="group flex w-full items-center gap-x-6 rounded-md text-left focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-4 focus-visible:outline-none">
+            <span id={id} className="text-xl font-semibold tracking-tight">
+              {title}
+            </span>
+            <span className="ml-auto text-sm text-muted-foreground">{note}</span>
+            <span
+              aria-hidden
+              className="grid size-7 shrink-0 place-items-center rounded-full border text-muted-foreground transition-colors group-hover:bg-muted group-hover:text-foreground"
+            >
+              <ChevronDown className="size-4 transition-transform duration-200 group-data-panel-open:rotate-180" />
+            </span>
+          </CollapsibleTrigger>
         </h2>
-        <p className="text-sm text-muted-foreground">{note}</p>
+        <Separator />
       </div>
-      <Separator />
-      {children}
-    </section>
+      <CollapsibleContent className="h-(--collapsible-panel-height) overflow-hidden transition-[height] duration-200 ease-out data-ending-style:h-0 data-starting-style:h-0">
+        <div className="space-y-6 pt-6">{children}</div>
+      </CollapsibleContent>
+    </Collapsible>
   );
 }
 

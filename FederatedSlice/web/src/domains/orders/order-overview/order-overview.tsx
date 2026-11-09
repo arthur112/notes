@@ -172,17 +172,17 @@ function ModificationList({ modifications }: { modifications: Modification[] }) 
 }
 
 /** The log, most recent first: the latest few shown, the rest expanding in place. */
-function ModificationLog({ modifications }: { modifications: Modification[] }) {
+function Modifications({ modifications }: { modifications: Modification[] }) {
   const [open, setOpen] = useState(false);
   const recent = modifications.slice(0, VISIBLE_MODIFICATIONS);
   const older = modifications.slice(VISIBLE_MODIFICATIONS);
 
   return (
-    <div className="space-y-1">
-      <p className="text-sm text-muted-foreground">
-        Modifications · {modifications.length} entries — most recent first
-      </p>
-      <Separator />
+    <RecordSection
+      id="order-modifications"
+      title="Modifications"
+      note={`${modifications.length} entries · most recent first`}
+    >
       <Collapsible open={open} onOpenChange={setOpen}>
         <ModificationList modifications={recent} />
         <CollapsibleContent className="h-(--collapsible-panel-height) overflow-hidden transition-[height] duration-200 ease-out data-ending-style:h-0 data-starting-style:h-0">
@@ -195,11 +195,11 @@ function ModificationLog({ modifications }: { modifications: Modification[] }) {
           </CollapsibleTrigger>
         )}
       </Collapsible>
-    </div>
+    </RecordSection>
   );
 }
 
-/** Live figures as of the server's today, the credit-hold banner and the modification log. */
+/** Live figures as of the server's today and the credit-hold banner. */
 function CurrentState({ order }: { order: Overview }) {
   const { customer, risk } = order;
   return (
@@ -237,15 +237,13 @@ function CurrentState({ order }: { order: Overview }) {
           </div>
         </>
       )}
-
-      <ModificationLog modifications={mockModifications(order)} />
     </RecordSection>
   );
 }
 
 /**
  * An order's record page: hero, the order as placed (with its risk grade on the
- * A–F scale), then its current state. The route's loader awaited the overview
+ * A–F scale), its current state, then its modifications. The route's loader awaited the overview
  * (`orderOverviewRouteLoader`). `action` is the app's: only it knows its routes.
  */
 export function OrderOverview({ orderNo, action }: { orderNo: string; action?: ReactNode }) {
@@ -255,6 +253,7 @@ export function OrderOverview({ orderNo, action }: { orderNo: string; action?: R
       <Hero order={order} action={action} />
       <OrderDetails order={order} />
       <CurrentState order={order} />
+      <Modifications modifications={mockModifications(order)} />
     </div>
   );
 }
