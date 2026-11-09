@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Api.Auth;
 using Api.Data;
 using Api.ErrorHandling;
@@ -34,8 +35,12 @@ builder.Services.AddAuthorization();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddOpenApi(options => options.AddDocumentTransformer<SecuritySchemeTransformer>());
 builder.Services.ConfigureHttpJsonOptions(options =>
-    options.SerializerOptions.TypeInfoResolverChain.Insert(0, AppJsonSerializerContext.Default)
-);
+{
+    options.SerializerOptions.TypeInfoResolverChain.Insert(0, AppJsonSerializerContext.Default);
+    // The web defaults also read numbers from strings, which the OpenAPI document then types as
+    // `integer | string`. The front sends real numbers, so strict keeps the contract `number`.
+    options.SerializerOptions.NumberHandling = JsonNumberHandling.Strict;
+});
 builder.Services.AddValidation();
 // Built-in validation keys name the C# members (`Lines[0].Quantity`). The JSON is camelCase, and
 // so are the order form's field paths, so the keys follow it (`lines[0].quantity`).

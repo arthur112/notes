@@ -1,10 +1,8 @@
 using Api.Data;
-using Api.ErrorHandling;
 using Api.Features.Customers;
-using CSharpFunctionalExtensions;
+using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using IResult = Microsoft.AspNetCore.Http.IResult;
 
 namespace Api.Features.Orders;
 
@@ -14,7 +12,7 @@ namespace Api.Features.Orders;
 /// </summary>
 public static class GetOrderOverview
 {
-    public record Response(
+    public record OrderOverview(
         string OrderNo,
         OrderStatus Status,
         string? Reference,
@@ -57,23 +55,21 @@ public static class GetOrderOverview
 
     private static readonly string[] Bands = ["Minimal", "Low", "Moderate", "Elevated", "High", "Severe"];
 
-    public static async Task<IResult> Handle(string orderNo, AppDbContext db, [FromServices] TimeProvider clock)
+    public static async Task<Results<Ok<OrderOverview>, NotFound>> Handle(
+        string orderNo,
+        AppDbContext db,
+        [FromServices] TimeProvider clock
+    )
     {
-        var today = DateOnly.FromDateTime(clock.GetUtcNow().UtcDateTime);
-        var result = await Maybe<OrderEntity>
-            .From(
-                await db
-                    .Orders.Include(o => o.Customer)
-                    .Include(o => o.Lines)
-                    .FirstOrDefaultAsync(o => o.OrderNo == orderNo)
-            )
-            .ToResult((IHttpError)new NotFoundError())
-            .Map(async order => ToResponse(order, await OpenExposureAsync(db, order.CustomerId), today));
+        var order = await db
+            .Orders.Include(o => o.Customer)
+            .Include(o => o.Lines)
+            .FirstOrDefaultAsync(o => o.OrderNo == orderNo);
+        if (order is null)
+            return TypedResults.NotFound();
 
-        return result.Match(
-            onSuccess: response => (IResult)Results.Ok(response),
-            onFailure: error => error.ToHttpResult()
-        );
+        var today = DateOnly.FromDateTime(clock.GetUtcNow().UtcDateTime);
+        return TypedResults.Ok(ToOverview(order, await OpenExposureAsync(db, order.CustomerId), today));
     }
 
     // SelectMany, not Sum(o => o.Lines.Sum(…)): SQL Server can't aggregate over a subquery.
@@ -84,7 +80,7 @@ public static class GetOrderOverview
             .SumAsync(l => l.Quantity * l.UnitPrice);
 
     /// <summary>Needs <see cref="OrderEntity.Customer"/> and <see cref="OrderEntity.Lines"/> loaded.</summary>
-    private static Response ToResponse(OrderEntity order, decimal openExposure, DateOnly today)
+    private static OrderOverview ToOverview(OrderEntity order, decimal openExposure, DateOnly today)
     {
         var c = order.Customer;
         return new(

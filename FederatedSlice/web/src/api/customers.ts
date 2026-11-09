@@ -6,7 +6,7 @@ import { createRequestLog } from "@/shared/filtering/request-log";
 import { getJson, getPage } from "./http";
 import type { OrderStatus } from "./orders";
 
-/** The customers API (`src/Api/Features/Customers`); `Customer` mirrors `ListCustomers.Response`. */
+/** The customers API (`src/Api/Features/Customers`); `Customer` mirrors `ListCustomers.CustomerRow`. */
 
 export const SEGMENTS = ["Enterprise", "SMB", "Startup"] as const;
 export type Segment = (typeof SEGMENTS)[number];

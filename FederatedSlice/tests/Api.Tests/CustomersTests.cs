@@ -12,10 +12,10 @@ namespace Api.Tests;
 /// </summary>
 public class CustomersTests : DatabaseTestBase
 {
-    private async Task<TestPagedResult<ListCustomers.Response>> ListAsync(string filter) =>
+    private async Task<TestPagedResult<ListCustomers.CustomerRow>> ListAsync(string filter) =>
         (
             await CreateClient(Scopes.CustomersRead)
-                .GetFromJsonAsync<TestPagedResult<ListCustomers.Response>>(
+                .GetFromJsonAsync<TestPagedResult<ListCustomers.CustomerRow>>(
                     $"/api/customers?orderBy=name&filter={Uri.EscapeDataString(filter)}"
                 )
         )!;
@@ -36,7 +36,7 @@ public class CustomersTests : DatabaseTestBase
         await SeedAsync(CustomerEntityBuilder.Create().WithName("Acme").Build());
 
         var options = await CreateClient(Scopes.CustomersRead)
-            .GetFromJsonAsync<List<ListCustomerOptions.Response>>("/api/customers/options");
+            .GetFromJsonAsync<List<ListCustomerOptions.CustomerOption>>("/api/customers/options");
 
         await Assert.That(options!.Select(o => o.Name)).IsEquivalentTo(["Acme", "Globex"]);
     }

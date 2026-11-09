@@ -12,7 +12,7 @@ public static class ListCustomers
     /// The front's <c>Customer</c> (web/src/api/customers.ts), with the customer's order settings,
     /// shown read-only so a value the rules overwrote can be traced to its setting.
     /// </summary>
-    public record Response(
+    public record CustomerRow(
         string CustomerNo,
         string Name,
         string Email,
@@ -42,34 +42,32 @@ public static class ListCustomers
         .AddMap("settings.initialStatus", c => c.Settings!.InitialStatus)
         .AddMap("settings.forcedDueDays", c => c.Settings!.ForcedDueDays);
 
-    public static async Task<IResult> Handle(
+    public static Task<PagedResult<CustomerRow>> Handle(
         [AsParameters] ListQuery query,
         AppDbContext db,
         CancellationToken cancellationToken
     ) =>
-        Results.Ok(
-            await db
-                .Customers.OrderBy(c => c.Id)
-                .ToPagedResultAsync(
-                    query,
-                    Mapper,
-                    c => new Response(
-                        c.CustomerNo,
-                        c.Name,
-                        c.Email,
-                        c.Segment,
-                        c.Country,
-                        c.Active,
-                        c.CreditLimit,
-                        c.PaymentTermsDays,
-                        c.IsVip,
-                        c.IsVerified,
-                        c.IsOnHold,
-                        c.CreatedAt,
-                        c.Settings == null ? null : c.Settings.InitialStatus,
-                        c.Settings == null ? null : c.Settings.ForcedDueDays
-                    ),
-                    cancellationToken
-                )
-        );
+        db
+            .Customers.OrderBy(c => c.Id)
+            .ToPagedResultAsync(
+                query,
+                Mapper,
+                c => new CustomerRow(
+                    c.CustomerNo,
+                    c.Name,
+                    c.Email,
+                    c.Segment,
+                    c.Country,
+                    c.Active,
+                    c.CreditLimit,
+                    c.PaymentTermsDays,
+                    c.IsVip,
+                    c.IsVerified,
+                    c.IsOnHold,
+                    c.CreatedAt,
+                    c.Settings == null ? null : c.Settings.InitialStatus,
+                    c.Settings == null ? null : c.Settings.ForcedDueDays
+                ),
+                cancellationToken
+            );
 }

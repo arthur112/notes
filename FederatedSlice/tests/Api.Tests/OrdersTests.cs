@@ -14,8 +14,8 @@ public class OrdersTests : DatabaseTestBase
     private Task<CustomerEntity> SeedCustomerAsync(string name) =>
         SeedAsync(CustomerEntityBuilder.Create().WithName(name).Build());
 
-    private async Task<TestPagedResult<ListOrders.Response>> ListAsync(string query) =>
-        (await CreateEditorClient().GetFromJsonAsync<TestPagedResult<ListOrders.Response>>($"/api/orders?{query}"))!;
+    private async Task<TestPagedResult<ListOrders.OrderRow>> ListAsync(string query) =>
+        (await CreateEditorClient().GetFromJsonAsync<TestPagedResult<ListOrders.OrderRow>>($"/api/orders?{query}"))!;
 
     private static string Filter(string filter) => $"filter={Uri.EscapeDataString(filter)}";
 

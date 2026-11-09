@@ -10,7 +10,6 @@
     <PackageVersion Include="Aspire.Hosting.Keycloak" Version="13.5.3-preview.1.26425.3" />
     <PackageVersion Include="Aspire.Hosting.SqlServer" Version="13.5.3" />
     <PackageVersion Include="Aspire.Microsoft.EntityFrameworkCore.SqlServer" Version="13.5.3" />
-    <PackageVersion Include="CSharpFunctionalExtensions" Version="3.7.0" />
     <PackageVersion Include="grate.core" Version="2.1.5" />
     <PackageVersion Include="grate.sqlserver" Version="2.1.5" />
     <PackageVersion Include="MessagePack" Version="2.5.307" />

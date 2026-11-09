@@ -1,36 +1,29 @@
 using Api.Data;
-using Api.ErrorHandling;
-using CSharpFunctionalExtensions;
+using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using IResult = Microsoft.AspNetCore.Http.IResult;
 
 namespace Api.Features.Orders;
 
 public static class UpdateOrder
 {
-    public static async Task<IResult> Handle(
+    public static async Task<Results<Ok<OrderDetail>, NotFound, ValidationProblem>> Handle(
         string orderNo,
         OrderInput request,
         AppDbContext db,
         [FromServices] TimeProvider clock
     )
     {
-        var result = await Maybe<OrderEntity>
-            .From(
-                await db
-                    .Orders.Include(o => o.Lines)
-                    .FirstOrDefaultAsync(o => o.OrderNo == orderNo)
-            )
-            .ToResult((IHttpError)new NotFoundError())
-            .Bind(order => ApplyAsync(order, request, db, clock))
-            .Tap(_ => db.SaveChangesAsync())
-            .Map(order => order.ToDetail());
+        var order = await db.Orders.Include(o => o.Lines).FirstOrDefaultAsync(o => o.OrderNo == orderNo);
+        if (order is null)
+            return TypedResults.NotFound();
 
-        return result.Match(
-            onSuccess: response => (IResult)Results.Ok(response),
-            onFailure: error => error.ToHttpResult()
-        );
+        var errors = await ApplyAsync(order, request, db, clock);
+        if (errors.Count > 0)
+            return TypedResults.ValidationProblem(errors);
+
+        await db.SaveChangesAsync();
+        return TypedResults.Ok(order.ToDetail());
     }
 
     /// <summary>
@@ -38,9 +31,9 @@ public static class UpdateOrder
     /// (<see cref="OrderMapper"/>), then run the update rules (<see cref="OrderRules"/>), which may
     /// overwrite what was mapped. The attributes on <see cref="OrderInput"/> have already run (400
     /// before the handler); the checks here need the database, and the reference check runs on the
-    /// reference the rules left.
+    /// reference the rules left. Returns the field errors, empty when the order can be saved.
     /// </summary>
-    private static async Task<Result<OrderEntity, IHttpError>> ApplyAsync(
+    private static async Task<Dictionary<string, string[]>> ApplyAsync(
         OrderEntity order,
         OrderInput input,
         AppDbContext db,
@@ -51,9 +44,7 @@ public static class UpdateOrder
             .Customers.Include(c => c.Settings)
             .FirstOrDefaultAsync(c => c.Name == input.Customer);
         if (customer is null)
-            return Result.Failure<OrderEntity, IHttpError>(
-                new ValidationError("customer", "Unknown customer.")
-            );
+            return new() { ["customer"] = ["Unknown customer."] };
 
         var errors = new Dictionary<string, string[]>();
         if (customer.IsOnHold)
@@ -72,8 +63,6 @@ public static class UpdateOrder
         )
             errors["reference"] = ["Already used on another order"];
 
-        return errors.Count == 0
-            ? Result.Success<OrderEntity, IHttpError>(order)
-            : Result.Failure<OrderEntity, IHttpError>(new ValidationError(errors));
+        return errors;
     }
 }

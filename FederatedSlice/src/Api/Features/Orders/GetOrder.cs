@@ -1,25 +1,18 @@
 using Api.Data;
-using Api.ErrorHandling;
-using CSharpFunctionalExtensions;
+using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
-using IResult = Microsoft.AspNetCore.Http.IResult;
 
 namespace Api.Features.Orders;
 
 public static class GetOrder
 {
-    public static async Task<IResult> Handle(string orderNo, AppDbContext db) =>
-        Maybe<OrderEntity>
-            .From(
-                await db
-                    .Orders.Include(o => o.Customer)
-                    .Include(o => o.Lines)
-                    .FirstOrDefaultAsync(o => o.OrderNo == orderNo)
-            )
-            .ToResult(new NotFoundError())
-            .Map(order => order.ToDetail())
-            .Match(
-                onSuccess: response => (IResult)Results.Ok(response),
-                onFailure: error => error.ToHttpResult()
-            );
+    public static async Task<Results<Ok<OrderDetail>, NotFound>> Handle(string orderNo, AppDbContext db)
+    {
+        var order = await db
+            .Orders.Include(o => o.Customer)
+            .Include(o => o.Lines)
+            .FirstOrDefaultAsync(o => o.OrderNo == orderNo);
+
+        return order is null ? TypedResults.NotFound() : TypedResults.Ok(order.ToDetail());
+    }
 }

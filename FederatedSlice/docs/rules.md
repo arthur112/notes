@@ -12,40 +12,44 @@ Code: `src/Api/Features/Orders/` (`CreateOrder.cs`, `UpdateOrder.cs`, `OrderMapp
 
 ## 1. The write paths
 
-`CreateOrder` (`POST /api/orders`) and `UpdateOrder` (`PUT /api/orders/{orderNo}`) each hold their own write path in a private method (`CreateOrder.BuildAsync`, `UpdateOrder.ApplyAsync`), next to the handler. They are the only code that assigns order columns. The steps are the same today; the split lets one change without the other (credit hold blocking edits, say), and makes the mode explicit: create passes `Original: null` to the rules, update passes the snapshot.
+`CreateOrder` (`POST /api/orders`) and `UpdateOrder` (`PUT /api/orders/{orderNo}`) each hold their own write path in a private `ApplyAsync`, next to the handler. It returns the field errors, empty when the order can be saved. They are the only code that assigns order columns. The steps are the same today; the split lets one change without the other (credit hold blocking edits, say), and makes the mode explicit: create passes `Original: null` to the rules, update passes the snapshot.
 
 ```text
 request body
   │ .NET 10 validation attributes on OrderInput / OrderLine (before the handler runs)
   │   missing dueDate, quantity 0, no lines… → 400, the handler never runs
   ▼
-CreateOrder.BuildAsync                          UpdateOrder: order = stored order + lines (tracked), or 404
-                                                  ▼
-                                                UpdateOrder.ApplyAsync
+CreateOrder: order = new OrderEntity()          UpdateOrder: order = stored order + lines (tracked), or 404
+  ▼                                               ▼
+CreateOrder.ApplyAsync(order, …)                UpdateOrder.ApplyAsync(order, …)
   ① customer = Customers.Include(c => c.Settings).FirstOrDefault(c => c.Name == input.Customer)
        null → 400 { customer: "Unknown customer." }               (stops: the rules need a customer)
      customer.IsOnHold → error { customer: "Umbrella is on credit hold." }   (collected, path continues)
-  ② create: order = new OrderEntity()           update: original = snapshot of the stored values
+  ② create: nothing stored (original = null)    update: original = snapshot of the stored values
   ③ order.MapFrom(input, customer)                                 (plain 1:1 copy)
   ④ OrderRules.Run(new RuleContext(order, null | original, customer, today))   (may overwrite ③)
   ⑤ order.Reference used by another order → error { reference: "Already used on another order" }
        (update excludes the order itself: o.Id != order.Id)
-  ⑥ errors empty ? Success(order) : Failure(ValidationError(errors))
+  ⑥ return errors
   ▼
-Success → (create: db.Orders.Add) → SaveChanges → 201 / 200, body = order.ToDetail() (the values as saved)
-Failure → SaveChanges is skipped → 400 problem+json with every error
+no errors → (create: db.Orders.Add) → SaveChanges → 201 / 200, body = order.ToDetail() (the values as saved)
+errors    → SaveChanges is skipped → 400 problem+json with every error (TypedResults.ValidationProblem)
 ```
 
-Each handler is a pipeline around its write path:
+Each handler returns early around its write path, and its signature lists every outcome (`Results<Ok<OrderDetail>, NotFound, ValidationProblem>`), which is also what the OpenAPI document shows:
 
 ```csharp
 // UpdateOrder
-var result = await Maybe<OrderEntity>
-    .From(await db.Orders.Include(o => o.Lines).FirstOrDefaultAsync(o => o.OrderNo == orderNo))
-    .ToResult((IHttpError)new NotFoundError())
-    .Bind(order => ApplyAsync(order, request, db, clock))
-    .Tap(_ => db.SaveChangesAsync())
-    .Map(order => order.ToDetail());
+var order = await db.Orders.Include(o => o.Lines).FirstOrDefaultAsync(o => o.OrderNo == orderNo);
+if (order is null)
+    return TypedResults.NotFound();
+
+var errors = await ApplyAsync(order, request, db, clock);
+if (errors.Count > 0)
+    return TypedResults.ValidationProblem(errors);
+
+await db.SaveChangesAsync();
+return TypedResults.Ok(order.ToDetail());
 ```
 
 Each step in detail:
@@ -56,7 +60,7 @@ Each step in detail:
 - **③ Mapping** copies the input as is (see [The mapper](#2-the-mapper)).
 - **④ Rules** run on the mapped entity and may overwrite any column (see [The rules](#3-the-rules)).
 - **⑤ Reference uniqueness** needs a query, so it is not a rule. It runs **after** the rules, on the order's final reference. A rule may clear the reference, and a cleared reference can't conflict.
-- **⑥ Failure leaves nothing behind.** ③ and ④ mutated the tracked entity, but on failure the `Result` pipeline skips `SaveChanges`, and the `DbContext` is scoped to the request. The filtered unique index `orders_reference` remains the last guard against two concurrent saves of one reference: that race is a `500`, not a `400`.
+- **⑥ Failure leaves nothing behind.** ③ and ④ mutated the tracked entity, but on failure the handler returns before `SaveChanges`, and the `DbContext` is scoped to the request. The filtered unique index `orders_reference` remains the last guard against two concurrent saves of one reference: that race is a `500`, not a `400`.
 - **"Today"** is `DateOnly.FromDateTime(clock.GetUtcNow().UtcDateTime)`, where `clock` is the `TimeProvider` registered in `Program.cs` (`TimeProvider.System`), so tests can pin it. It matches the database's own stamp on insert (`created_at DEFAULT CAST(SYSUTCDATETIME() AS date)`), apart from a save that straddles midnight UTC.
 
 ## 2. The mapper
@@ -168,7 +172,7 @@ Things to know:
 
 - **`null` means "no rule".** Every `When` starts with `ctx.Settings?.X is not null`, so a customer without a row, or with a `null` column, behaves normally.
 - **EF.** `CustomerEntity.Settings` is an optional one-to-one (`HasOne(c => c.Settings).WithOne().HasForeignKey<CustomerSettingsEntity>(s => s.CustomerId)`), with `initial_status` stored as the enum name (`HasConversion<string>()`). It lives in `Features/Customers`, since it is customer data shown by the customers list. The Orders slice reads it through `Customer.Settings`.
-- **Visible, not editable.** The Customers list shows **New orders start** and **Due after** (`ListCustomers.Response.InitialStatus` / `ForcedDueDays`), sortable through the Gridify fields `settings.initialStatus` and `settings.forcedDueDays`. Because the rules are silent, this is how a user finds out why a saved order differs from what was typed. Settings change in SQL; there is no endpoint.
+- **Visible, not editable.** The Customers list shows **New orders start** and **Due after** (`ListCustomers.CustomerRow.InitialStatus` / `ForcedDueDays`), sortable through the Gridify fields `settings.initialStatus` and `settings.forcedDueDays`. Because the rules are silent, this is how a user finds out why a saved order differs from what was typed. Settings change in SQL; there is no endpoint.
 - **grate scripts run once.** `0004_…sql` must not be edited after it ran, because grate tracks a hash of every run-once script. A new setting is a new script (`0005_add_…sql`).
 
 ## 5. What the user sees
@@ -203,7 +207,7 @@ Builders (`tests/Api.Tests/Builders/`) set up the cases: `CustomerEntityBuilder.
 
 ## 8. Adding a rule
 
-1. **Customer-specific?** Add a nullable column in a new grate script (`db/up/000N_…sql`), the property on `CustomerSettingsEntity` and its configuration, and seed a customer that has it. Show it in the Customers list: `ListCustomers.Response`, a Gridify `settings.…` map if it is sortable, and `web/src/domains/customers/columns.tsx`.
+1. **Customer-specific?** Add a nullable column in a new grate script (`db/up/000N_…sql`), the property on `CustomerSettingsEntity` and its configuration, and seed a customer that has it. Show it in the Customers list: `ListCustomers.CustomerRow`, a Gridify `settings.…` map if it is sortable, and `web/src/domains/customers/columns.tsx`.
 2. **Write the rule** in `OrderRules`: a business name, the kind, a `When` that only reads the context, and an `Apply` that only assigns `ctx.Entity` columns. Add it to `All`. Its position only matters relative to rules of the same kind that write the same column.
 3. **Data from elsewhere?** Load it in both write paths ① and add it to `RuleContext`. Rules never query.
 4. **Test it** in `OrderRulesTests` (fires and writes the value, doesn't fire otherwise), and add an `OrdersTests` case if the end-to-end result matters.

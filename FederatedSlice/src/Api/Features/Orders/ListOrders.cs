@@ -8,7 +8,7 @@ namespace Api.Features.Orders;
 public static class ListOrders
 {
     /// <summary>The front's <c>Order</c> row (web/src/api/orders.ts).</summary>
-    public record Response(
+    public record OrderRow(
         string OrderNo,
         string Customer,
         OrderStatus Status,
@@ -30,25 +30,23 @@ public static class ListOrders
         .AddMap("total", o => o.Lines.Sum(l => l.Quantity * l.UnitPrice))
         .AddMap("createdAt", o => o.CreatedAt, UtcDay.Parse);
 
-    public static async Task<IResult> Handle(
+    public static Task<PagedResult<OrderRow>> Handle(
         [AsParameters] ListQuery query,
         AppDbContext db,
         CancellationToken cancellationToken
     ) =>
-        Results.Ok(
-            await db
-                .Orders.OrderByDescending(o => o.Id)
-                .ToPagedResultAsync(
-                    query,
-                    Mapper,
-                    o => new Response(
-                        o.OrderNo,
-                        o.Customer.Name,
-                        o.Status,
-                        o.Lines.Sum(l => l.Quantity * l.UnitPrice),
-                        o.CreatedAt
-                    ),
-                    cancellationToken
-                )
-        );
+        db
+            .Orders.OrderByDescending(o => o.Id)
+            .ToPagedResultAsync(
+                query,
+                Mapper,
+                o => new OrderRow(
+                    o.OrderNo,
+                    o.Customer.Name,
+                    o.Status,
+                    o.Lines.Sum(l => l.Quantity * l.UnitPrice),
+                    o.CreatedAt
+                ),
+                cancellationToken
+            );
 }

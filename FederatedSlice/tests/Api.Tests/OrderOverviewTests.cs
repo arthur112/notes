@@ -78,7 +78,7 @@ public class OrderOverviewTests : DatabaseTestBase
         );
 
         var overview = await CreateClient(Scopes.OrdersRead)
-            .GetFromJsonAsync<GetOrderOverview.Response>($"/api/orders/{order.OrderNo}/overview");
+            .GetFromJsonAsync<GetOrderOverview.OrderOverview>($"/api/orders/{order.OrderNo}/overview");
 
         await Assert.That(overview!.Total).IsEqualTo(300m);
         await Assert.That(overview.Customer.CustomerNo).IsEqualTo(customer.CustomerNo);

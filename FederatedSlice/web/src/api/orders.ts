@@ -7,7 +7,7 @@ import { getJson, getPage, sendJson } from "./http";
 
 /**
  * The orders API (`src/Api/Features/Orders`). The types mirror its records:
- * `ListOrders.Response`, `OrderInput`, `OrderDetail`. Statuses keep their C# enum
+ * `ListOrders.OrderRow`, `OrderInput`, `OrderDetail`. Statuses keep their C# enum
  * names end to end (JSON, URL, filter and column).
  */
 
@@ -42,7 +42,7 @@ export type OrderDetail = Omit<OrderInput, "reference"> & {
   createdAt: string;
 };
 
-/** `GET /api/orders/:orderNo/overview` (`GetOrderOverview.Response`): the record page's read model. */
+/** `GET /api/orders/:orderNo/overview` (`GetOrderOverview.OrderOverview`): the record page's read model. */
 export type OrderOverview = {
   orderNo: string;
   status: OrderStatus;

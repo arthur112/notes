@@ -1,6 +1,6 @@
 # FederatedSlice
 
-The federated React shell (`web/`) on a real .NET 10 back end (`src/Api`), started together by Aspire. The API is a vertical slice architecture: one file per use case, Result/`IHttpError` pipelines, built-in validation, a rule-based write path with per-customer settings, Gridify behind our own contract, per-route scopes and roles, grate-owned schema, TUnit with a schema per test. The shell signs in against Keycloak. Its slices are cut the same way as the front's domains, so each front domain has one back-end folder:
+The federated React shell (`web/`) on a real .NET 10 back end (`src/Api`), started together by Aspire. The API is a vertical slice architecture: one file per use case, `TypedResults` unions as handler signatures (so the OpenAPI document is complete), built-in validation, a rule-based write path with per-customer settings, Gridify behind our own contract, per-route scopes and roles, grate-owned schema, TUnit with a schema per test. The shell signs in against Keycloak. Its slices are cut the same way as the front's domains, so each front domain has one back-end folder:
 
 | Front (`web/src/`) | Back (`src/Api/Features/`) | Endpoints |
 | --- | --- | --- |
@@ -31,7 +31,7 @@ The front's mocks are gone. Each thing they used to fake is now a rule on one si
 | **Expected failures** | `sendJson` returns a 4xx problem+json as `{ ok: false, problem }`, and `submitTo` puts `errors` on the fields. | Built-in validation (`[Required]`, `[Range]`, `[MinLength]` on `OrderInput` / `OrderLine`) and the write path's checks (unknown customer, **credit hold** from `customers.is_on_hold`, reference already used) return a `400` with field `errors`. The named `OrderRules` never fail a save: they overwrite values silently. |
 | **Auth** | `apiFetch` sends the Keycloak access token. A `401` goes back to the login page. `useShell().can(…)` hides and disables what the token doesn't allow. | `RequireScope(…)` per route, plus the `order-editor` role on writes. `401` / `403` are problem+json too (`UseStatusCodePages`). |
 | **Error keys** | Field paths: `customer`, `lines[0].quantity`. | Built-in validation names C# members (`Lines[0].Quantity`), so `CustomizeProblemDetails` camelCases every key in `Program.cs`. |
-| **Unexpected failures** | `getJson` throws on any non-2xx, so the route's error component renders inside the shell. For example, `/app1/orders/ORD-999999` gets a `404`. | `NotFoundError`, or a `500` from `GlobalExceptionHandler`. |
+| **Unexpected failures** | `getJson` throws on any non-2xx, so the route's error component renders inside the shell. For example, `/app1/orders/ORD-999999` gets a `404`. | `TypedResults.NotFound()` (bodiless; `UseStatusCodePages` adds the problem+json), or a `500` from `GlobalExceptionHandler`. |
 | **Request log** | Recorded by the client as each list response arrives, so the Requests panel stays. | — |
 
 Two things to know about .NET 10 validation, both found while building this note:
@@ -44,12 +44,19 @@ Two things to know about .NET 10 validation, both found while building this note
 `POST` and `PUT` take the same `OrderInput`, because the order form sends the same payload either way, but each handler has its own write path so create and update can evolve separately. Each resolves the customer, copies the input onto the entity (`OrderMapper`, a C# 14 extension block), then runs the named rules (`OrderRules`). The rules silently overwrite columns from per-customer settings (a prepaid customer's orders start Paid, a contract fixes the due date), so special cases live in one list instead of `if (customer == …)` branches ([write rules](docs/rules.md)). The credit hold and the reference uniqueness are checked around them. `PUT` replaces the whole order: the old lines become orphans, and EF deletes them. `UpdateOrder`, for example:
 
 ```csharp
-var result = await Maybe<OrderEntity>
-    .From(await db.Orders.Include(o => o.Lines).FirstOrDefaultAsync(o => o.OrderNo == orderNo))
-    .ToResult((IHttpError)new NotFoundError())
-    .Bind(order => ApplyAsync(order, request, db, clock))
-    .Tap(_ => db.SaveChangesAsync())
-    .Map(order => order.ToDetail());
+public static async Task<Results<Ok<OrderDetail>, NotFound, ValidationProblem>> Handle(…)
+{
+    var order = await db.Orders.Include(o => o.Lines).FirstOrDefaultAsync(o => o.OrderNo == orderNo);
+    if (order is null)
+        return TypedResults.NotFound();
+
+    var errors = await ApplyAsync(order, request, db, clock);
+    if (errors.Count > 0)
+        return TypedResults.ValidationProblem(errors);
+
+    await db.SaveChangesAsync();
+    return TypedResults.Ok(order.ToDetail());
+}
 ```
 
 ### The order record page
@@ -86,10 +93,10 @@ FederatedSlice/
 │   ├── ServiceDefaults/
 │   ├── Migrations/           # grate in-process against ConnectionStrings__app
 │   └── Api/
-│       ├── Program.cs        # + validation keys camelCased, auth middleware order
+│       ├── Program.cs        # + validation keys camelCased, strict numbers, auth middleware order
 │       ├── Auth/             # Scopes + RequireScope, Roles, OpenAPI security schemes, Scalar login
 │       ├── Data/             # AppDbContext (+ per-test schema)
-│       ├── ErrorHandling/    # NotFoundError, ValidationError; Gridify exceptions → 400
+│       ├── ErrorHandling/    # GlobalExceptionHandler: Gridify exceptions → 400, the rest → 500
 │       ├── Querying/         # ListQuery, PagedResult, ToPagedResultAsync, UtcDay
 │       ├── Json/             # source-gen context
 │       └── Features/
