@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using Api.Auth;
+using Api.Features.Customers;
 using Api.Features.Orders;
 using Api.Tests.Builders;
 
@@ -65,6 +66,29 @@ public class OrderOverviewTests : DatabaseTestBase
 
         await Assert.That(risk.CreditUsedPct).IsEqualTo(60m);
         await Assert.That(risk.Grade).IsEqualTo("B");
+    }
+
+    [Test]
+    public async Task Value_Ignores_What_The_Risk_Grade_Reads()
+    {
+        // Same order and customer, but on hold, unverified and a startup: the grade moves, the value doesn't.
+        var clean = CustomerEntityBuilder.Create().Verified().Build();
+        var risky = CustomerEntityBuilder.Create().OnHold().WithSegment(Segment.Startup).Build();
+
+        await Assert
+            .That(GetOrderOverview.Value(risky, 300, Today))
+            .IsEquivalentTo(GetOrderOverview.Value(clean, 300, Today));
+    }
+
+    [Test]
+    public async Task Value_Adds_Size_Terms_Tenure_And_Vip()
+    {
+        // 1,000+ order 30 + 30-day terms 20 + 1 full year (builder: since 2025-01-01) 4 + VIP 20 = 74.
+        var value = GetOrderOverview.Value(CustomerEntityBuilder.Create().Vip().Build(), 1_200, Today);
+
+        await Assert.That(value.Score).IsEqualTo(74);
+        await Assert.That(value.Band).IsEqualTo("Good");
+        await Assert.That(value.Drivers[0]).IsEqualTo("Order of 1,200.00");
     }
 
     [Test]

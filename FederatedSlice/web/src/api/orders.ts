@@ -63,6 +63,11 @@ export type OrderOverview = {
     isOnHold: boolean;
     creditLimit: number;
     paymentTermsDays: number;
+    /** The customer's creation date. */
+    since: string;
+    /** Order rules from the customer's settings; null when the rule is off. */
+    initialStatus: OrderStatus | null;
+    forcedDueDays: number | null;
   };
   risk: {
     grade: string;
@@ -75,6 +80,14 @@ export type OrderOverview = {
     /** The customer's unpaid (Pending) orders, this one included. */
     openExposure: number;
     creditUsedPct: number;
+  };
+  /** What the order is worth, independent of its risk: none of the grade's inputs feed it. */
+  value: {
+    /** 0–100, higher is better. */
+    score: number;
+    band: string;
+    /** What earned points, biggest first. */
+    drivers: string[];
   };
   /** The server's today, which the risk was assessed on. */
   asOf: string;

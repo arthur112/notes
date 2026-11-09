@@ -16,8 +16,8 @@ import { cn } from "@/shared/lib/utils";
 import { orderOverviewQueryOptions } from "../use-orders";
 
 import { mockModifications, type Modification } from "./modifications";
-import { RecordSection, Separator, SpecGroup, SpecRow, StatStrip } from "./record-layout";
-import { RiskGradeScale } from "./risk-grade-scale";
+import { orDash, RecordSection, Separator, SpecGroup, SpecRow, StatStrip } from "./record-layout";
+import { RiskSummary } from "./risk-grade-scale";
 
 const STATUS_DOT: Record<OrderStatus, string> = {
   Pending: "bg-amber-500",
@@ -53,7 +53,7 @@ function Hero({ order, action }: { order: Overview; action?: ReactNode }) {
   const factLines: [label: string, value: ReactNode][][] = [
     [
       ["Customer N°", mono(order.customer.customerNo)],
-      ["Ref.", order.reference ? mono(order.reference) : "—"],
+      ["Ref.", order.reference && mono(order.reference)],
     ],
     [
       ["Booked", formatDate(order.createdAt)],
@@ -85,7 +85,7 @@ function Hero({ order, action }: { order: Overview; action?: ReactNode }) {
                 <dt className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
                   {label}
                 </dt>
-                <dd className="text-sm font-medium tabular-nums">{value}</dd>
+                <dd className="text-sm font-medium tabular-nums">{orDash(value)}</dd>
               </div>
             ))}
           </dl>
@@ -95,7 +95,18 @@ function Hero({ order, action }: { order: Overview; action?: ReactNode }) {
   );
 }
 
-/** The order as placed, its customer and its risk: four groups, two columns. */
+const joinOrNone = (items: string[]) => (items.length > 0 ? items.join(" · ") : "None");
+
+/** "Active · Verified · VIP": the customer's flags in one row, the negatives named too. */
+const standing = ({ active, isVerified, isVip }: Overview["customer"]) =>
+  [active ? "Active" : "Inactive", isVerified ? "Verified" : "Unverified", isVip && "VIP"]
+    .filter(Boolean)
+    .join(" · ");
+
+/**
+ * The order as placed: six groups in two columns, read in rows: terms beside risk and value (the
+ * decision pair), customer beside credit, lines beside the rules that shaped the order.
+ */
 function OrderDetails({ order }: { order: Overview }) {
   const { customer, risk } = order;
   const units = order.lines.reduce((sum, line) => sum + line.quantity, 0);
@@ -105,45 +116,44 @@ function OrderDetails({ order }: { order: Overview }) {
       <div className="grid gap-x-12 gap-y-10 md:grid-cols-2">
         <SpecGroup title="Order terms">
           <SpecRow label="Order date" value={formatDate(order.createdAt)} />
-          <SpecRow
-            label="Due date"
-            value={`${formatDate(order.dueDate)} · ${days(termDays(order))} after order`}
-          />
+          <SpecRow label="Due date" value={formatDate(order.dueDate)} />
+          <SpecRow label="Term" value={days(termDays(order))} />
           <SpecRow label="Customer payment terms" value={days(customer.paymentTermsDays)} />
-          <SpecRow
-            label="Customer reference"
-            value={<span className="font-mono text-xs">{order.reference ?? "—"}</span>}
-          />
-          <SpecRow label="Lines" value={`${order.lines.length} lines · ${units} units`} />
-          <SpecRow label="Total" value={formatAmount(order.total)} />
+          <SpecRow label="Customer reference" value={order.reference && mono(order.reference)} />
         </SpecGroup>
 
-        <SpecGroup title="Risk assessment">
-          <SpecRow label="Risk grade" value={`${risk.grade} · ${risk.band}`} />
-          <RiskGradeScale activeIndex={risk.gradeIndex} label={`${risk.grade} (${risk.band})`} />
+        <SpecGroup title="Risk & value">
+          <RiskSummary
+            grade={risk.grade}
+            band={risk.band}
+            activeIndex={risk.gradeIndex}
+            label={`${risk.grade} (${risk.band})`}
+            value={order.value.score}
+            valueBand={order.value.band}
+          />
           <SpecRow label="Days past due" value={risk.daysPastDue} />
-          <SpecRow
-            label="Open exposure"
-            value={`${formatAmount(risk.openExposure)} · ${risk.creditUsedPct}% of limit`}
-          />
-          <SpecRow label="Credit limit" value={formatAmount(customer.creditLimit)} />
-          <SpecRow
-            label="Factors"
-            value={risk.factors.length > 0 ? risk.factors.join(" · ") : "None"}
-          />
+          <SpecRow label="Risk factors" value={joinOrNone(risk.factors)} />
+          <SpecRow label="Value drivers" value={joinOrNone(order.value.drivers)} />
         </SpecGroup>
 
         <SpecGroup title="Customer">
-          <SpecRow
-            label="Customer N°"
-            value={<span className="font-mono text-xs">{customer.customerNo}</span>}
-          />
+          <SpecRow label="Customer N°" value={mono(customer.customerNo)} />
           <SpecRow label="Segment" value={customer.segment} />
           <SpecRow label="Country" value={customer.country} />
           <SpecRow label="Billing email" value={customer.email} />
-          <SpecRow label="Account" value={customer.active ? "Active" : "Inactive"} />
-          <SpecRow label="Verified" value={yesNo(customer.isVerified)} />
-          <SpecRow label="VIP" value={yesNo(customer.isVip)} />
+          <SpecRow label="Customer since" value={formatDate(customer.since)} />
+          <SpecRow label="Standing" value={standing(customer)} />
+        </SpecGroup>
+
+        <SpecGroup title="Credit">
+          <SpecRow label="Credit limit" value={formatAmount(customer.creditLimit)} />
+          <SpecRow label="Open exposure" value={formatAmount(risk.openExposure)} />
+          <SpecRow label="Limit in use" value={`${risk.creditUsedPct}%`} />
+          <SpecRow
+            label="Headroom"
+            value={formatAmount(Math.max(0, customer.creditLimit - risk.openExposure))}
+          />
+          <SpecRow label="Credit hold" value={yesNo(customer.isOnHold)} />
         </SpecGroup>
 
         <SpecGroup title="Lines">
@@ -155,6 +165,24 @@ function OrderDetails({ order }: { order: Overview }) {
               value={formatAmount(line.quantity * line.unitPrice)}
             />
           ))}
+          <SpecRow
+            className="border-t font-semibold"
+            label={`Total · ${units} units`}
+            value={formatAmount(order.total)}
+          />
+        </SpecGroup>
+
+        <SpecGroup title="Order rules">
+          <SpecRow label="Initial status" value={customer.initialStatus ?? "As entered"} />
+          <SpecRow
+            label="Forced due date"
+            value={
+              customer.forcedDueDays === null
+                ? "As entered"
+                : `${days(customer.forcedDueDays)} after order`
+            }
+          />
+          <SpecRow label="Reference on customer change" value="Dropped unless re-entered" />
         </SpecGroup>
       </div>
     </RecordSection>
@@ -234,8 +262,16 @@ function CurrentState({ order }: { order: Overview }) {
     >
       <StatStrip
         stats={[
-          { label: "Status", value: order.status, hint: STATUS_HINT[order.status] },
-          { label: "Payment", value: paymentStat(order), hint: `Due ${formatDate(order.dueDate)}` },
+          {
+            label: "Status",
+            value: order.status,
+            hint: STATUS_HINT[order.status],
+          },
+          {
+            label: "Payment",
+            value: paymentStat(order),
+            hint: `Due ${formatDate(order.dueDate)}`,
+          },
           {
             label: "Open exposure",
             value: formatAmount(risk.openExposure),

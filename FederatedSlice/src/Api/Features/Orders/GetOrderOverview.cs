@@ -1,3 +1,4 @@
+using System.Globalization;
 using Api.Data;
 using Api.Features.Customers;
 using Microsoft.AspNetCore.Http.HttpResults;
@@ -22,6 +23,7 @@ public static class GetOrderOverview
         decimal Total,
         CustomerFacts Customer,
         RiskAssessment Risk,
+        ValueScore Value,
         DateOnly AsOf
     );
 
@@ -36,7 +38,10 @@ public static class GetOrderOverview
         bool IsVip,
         bool IsOnHold,
         decimal CreditLimit,
-        int PaymentTermsDays
+        int PaymentTermsDays,
+        DateOnly Since,
+        OrderStatus? InitialStatus,
+        int? ForcedDueDays
     );
 
     /// <param name="GradeIndex">0 (A) to 5 (F): the front's scale position.</param>
@@ -53,7 +58,19 @@ public static class GetOrderOverview
         decimal CreditUsedPct
     );
 
+    /// <param name="Score">0–100, higher is better.</param>
+    /// <param name="Drivers">What earned points, biggest first; empty for a 0.</param>
+    public record ValueScore(int Score, string Band, string[] Drivers);
+
     private static readonly string[] Bands = ["Minimal", "Low", "Moderate", "Elevated", "High", "Severe"];
+
+    private static readonly (int Min, string Band)[] ValueBands =
+    [
+        (80, "Excellent"),
+        (60, "Good"),
+        (40, "Fair"),
+        (0, "Poor"),
+    ];
 
     public static async Task<Results<Ok<OrderOverview>, NotFound>> Handle(
         string orderNo,
@@ -63,6 +80,7 @@ public static class GetOrderOverview
     {
         var order = await db
             .Orders.Include(o => o.Customer)
+            .ThenInclude(c => c.Settings)
             .Include(o => o.Lines)
             .FirstOrDefaultAsync(o => o.OrderNo == orderNo);
         if (order is null)
@@ -83,6 +101,7 @@ public static class GetOrderOverview
     private static OrderOverview ToOverview(OrderEntity order, decimal openExposure, DateOnly today)
     {
         var c = order.Customer;
+        var total = order.Lines.Sum(l => l.Quantity * l.UnitPrice);
         return new(
             order.OrderNo,
             order.Status,
@@ -90,7 +109,7 @@ public static class GetOrderOverview
             order.CreatedAt,
             order.DueDate,
             [.. order.Lines.Select(l => new OrderLine(l.Product, l.Quantity, l.UnitPrice))],
-            order.Lines.Sum(l => l.Quantity * l.UnitPrice),
+            total,
             new(
                 c.CustomerNo,
                 c.Name,
@@ -102,9 +121,13 @@ public static class GetOrderOverview
                 c.IsVip,
                 c.IsOnHold,
                 c.CreditLimit,
-                c.PaymentTermsDays
+                c.PaymentTermsDays,
+                c.CreatedAt,
+                c.Settings?.InitialStatus,
+                c.Settings?.ForcedDueDays
             ),
             Assess(order, openExposure, today),
+            Value(order.Customer, total, today),
             today
         );
     }
@@ -142,5 +165,27 @@ public static class GetOrderOverview
             openExposure,
             creditUsedPct
         );
+    }
+
+    /// <summary>
+    /// What the order is worth, from inputs <see cref="Assess"/> never reads, so the two move
+    /// independently: a risky order can be valuable, a safe one worth little. Four parts that add up
+    /// to at most 100: order size and payment terms up to 30 each, tenure and VIP up to 20 each.
+    /// </summary>
+    public static ValueScore Value(CustomerEntity customer, decimal total, DateOnly today)
+    {
+        var terms = customer.PaymentTermsDays;
+        var years = (today.DayNumber - customer.CreatedAt.DayNumber) / 365;
+        (int Points, string Driver)[] parts =
+        [
+            (total >= 1_000 ? 30 : total >= 250 ? 20 : total >= 50 ? 10 : 0, $"Order of {total.ToString("N2", CultureInfo.InvariantCulture)}"),
+            (terms <= 15 ? 30 : terms <= 30 ? 20 : terms <= 60 ? 10 : 0, $"{terms}-day terms"),
+            (Math.Min(years, 5) * 4, $"Customer since {customer.CreatedAt.Year}"),
+            (customer.IsVip ? 20 : 0, "VIP"),
+        ];
+        var hits = parts.Where(p => p.Points > 0).OrderByDescending(p => p.Points).ToArray();
+        var score = hits.Sum(p => p.Points);
+
+        return new(score, ValueBands.First(b => score >= b.Min).Band, [.. hits.Select(p => p.Driver)]);
     }
 }

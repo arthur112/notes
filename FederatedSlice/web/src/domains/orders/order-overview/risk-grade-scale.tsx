@@ -12,6 +12,50 @@ const GRADE_COLORS = [
   "bg-red-600",
 ] as const;
 
+export type RiskSummaryProps = RiskGradeScaleProps & {
+  grade: string;
+  band: string;
+  /** The value score, 0–100: independent of the grade, shown as a figure, not a second scale. */
+  value: number;
+  valueBand: string;
+};
+
+/**
+ * The group's header: two independent readings side by side, the grade as a coloured tile on the
+ * left, the value score as a plain figure on the right, then the single A–F scale under them. One
+ * gradient per section: a second bar for the value would compete with the grade and invert its
+ * direction (A is good, 100 is good), so the value stays a number.
+ */
+export function RiskSummary({ grade, band, value, valueBand, ...scale }: RiskSummaryProps) {
+  return (
+    <div className="space-y-3 py-2">
+      <div className="flex items-center gap-3">
+        <span
+          aria-hidden
+          className={cn(
+            "grid size-11 shrink-0 place-items-center rounded-lg text-xl font-semibold text-white",
+            GRADE_COLORS[scale.activeIndex],
+          )}
+        >
+          {grade}
+        </span>
+        <div className="min-w-0">
+          <p className="text-sm font-semibold">{band} risk</p>
+          <p className="text-xs text-muted-foreground">Grade {grade} on A–F</p>
+        </div>
+        <div className="ml-auto text-right">
+          <p className="text-sm tabular-nums">
+            <span className="text-xl font-semibold tracking-tight">{value}</span>
+            <span className="text-muted-foreground"> / 100</span>
+          </p>
+          <p className="text-xs text-muted-foreground">Value score · {valueBand}</p>
+        </div>
+      </div>
+      <RiskGradeScale {...scale} />
+    </div>
+  );
+}
+
 export type RiskGradeScaleProps = {
   /** 0-based index into the A–F scale. */
   activeIndex: number;
@@ -27,7 +71,7 @@ export type RiskGradeScaleProps = {
  */
 export function RiskGradeScale({ activeIndex, label }: RiskGradeScaleProps) {
   return (
-    <div role="img" aria-label={`Risk grade ${label} on an A to F scale`} className="py-2">
+    <div role="img" aria-label={`Risk grade ${label} on an A to F scale`}>
       <div className="flex gap-1">
         {GRADE_LETTERS.map((letter, index) => {
           const active = index === activeIndex;

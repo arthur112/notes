@@ -6,12 +6,16 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/shared/components/ui/collapsible";
+import { cn } from "@/shared/lib/utils";
 
 /**
  * The record page's building blocks, from the lending desk's contract page:
  * a big-figure stat strip, titled sections, and label-left / value-right rows.
  * All dumb: values in, markup out.
  */
+
+/** A missing value reads "—", never blank or `undefined`. */
+export const orDash = (value: ReactNode) => (value == null || value === "" ? "—" : value);
 
 export function Separator() {
   return <div role="separator" className="h-px bg-border" />;
@@ -34,7 +38,7 @@ export function StatStrip({ stats }: { stats: Stat[] }) {
             {stat.label}
           </dt>
           <dd className="mt-1.5 text-2xl font-semibold tracking-tight tabular-nums">
-            {stat.value}
+            {orDash(stat.value)}
           </dd>
           {stat.hint && <dd className="mt-1 text-sm text-muted-foreground">{stat.hint}</dd>}
         </div>
@@ -85,11 +89,19 @@ export function RecordSection({
 }
 
 /** Long labels scan better against right-aligned values than in a label-over-value grid. */
-export function SpecRow({ label, value }: { label: ReactNode; value: ReactNode }) {
+export function SpecRow({
+  label,
+  value,
+  className,
+}: {
+  label: ReactNode;
+  value: ReactNode;
+  className?: string;
+}) {
   return (
-    <div className="flex items-baseline justify-between gap-8 py-2">
+    <div className={cn("flex items-baseline justify-between gap-8 py-2", className)}>
       <dt className="shrink-0 text-sm text-muted-foreground">{label}</dt>
-      <dd className="text-right text-sm font-medium break-words">{value}</dd>
+      <dd className="text-right text-sm font-medium break-words">{orDash(value)}</dd>
     </div>
   );
 }
