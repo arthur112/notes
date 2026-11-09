@@ -10,7 +10,13 @@ import {
   CollapsibleTrigger,
 } from "@/shared/components/ui/collapsible";
 import { differenceInCalendarDays, parseISO } from "@/shared/lib/date";
-import { formatAmount, formatDate } from "@/shared/lib/format";
+import {
+  formatAmount,
+  formatDate,
+  formatDays,
+  formatNumber,
+  formatPercent,
+} from "@/shared/lib/format";
 import { cn } from "@/shared/lib/utils";
 
 import { orderOverviewQueryOptions } from "../use-orders";
@@ -35,7 +41,6 @@ const STATUS_HINT: Record<OrderStatus, string> = {
   Cancelled: "Closed",
 };
 
-const days = (n: number) => `${n} ${n === 1 ? "day" : "days"}`;
 const yesNo = (value: boolean) => (value ? "Yes" : "No");
 /** The payment term: order date to due date. */
 const termDays = (order: Overview) =>
@@ -58,7 +63,7 @@ function Hero({ order, action }: { order: Overview; action?: ReactNode }) {
     [
       ["Booked", formatDate(order.createdAt)],
       ["Due", formatDate(order.dueDate)],
-      ["Term", days(termDays(order))],
+      ["Term", formatDays(termDays(order))],
     ],
   ];
 
@@ -117,8 +122,8 @@ function OrderDetails({ order }: { order: Overview }) {
         <SpecGroup title="Order terms">
           <SpecRow label="Order date" value={formatDate(order.createdAt)} />
           <SpecRow label="Due date" value={formatDate(order.dueDate)} />
-          <SpecRow label="Term" value={days(termDays(order))} />
-          <SpecRow label="Customer payment terms" value={days(customer.paymentTermsDays)} />
+          <SpecRow label="Term" value={formatDays(termDays(order))} />
+          <SpecRow label="Customer payment terms" value={formatDays(customer.paymentTermsDays)} />
           <SpecRow label="Customer reference" value={order.reference && mono(order.reference)} />
         </SpecGroup>
 
@@ -131,7 +136,7 @@ function OrderDetails({ order }: { order: Overview }) {
             value={order.value.score}
             valueBand={order.value.band}
           />
-          <SpecRow label="Days past due" value={risk.daysPastDue} />
+          <SpecRow label="Days past due" value={formatNumber(risk.daysPastDue)} />
           <SpecRow label="Risk factors" value={joinOrNone(risk.factors)} />
           <SpecRow label="Value drivers" value={joinOrNone(order.value.drivers)} />
         </SpecGroup>
@@ -148,7 +153,7 @@ function OrderDetails({ order }: { order: Overview }) {
         <SpecGroup title="Credit">
           <SpecRow label="Credit limit" value={formatAmount(customer.creditLimit)} />
           <SpecRow label="Open exposure" value={formatAmount(risk.openExposure)} />
-          <SpecRow label="Limit in use" value={`${risk.creditUsedPct}%`} />
+          <SpecRow label="Limit in use" value={formatPercent(risk.creditUsedPct)} />
           <SpecRow
             label="Headroom"
             value={formatAmount(Math.max(0, customer.creditLimit - risk.openExposure))}
@@ -161,13 +166,13 @@ function OrderDetails({ order }: { order: Overview }) {
             <SpecRow
               // Lines have no id; the same product may appear twice.
               key={index}
-              label={`${line.quantity} × ${line.product} @ ${formatAmount(line.unitPrice)}`}
+              label={`${formatNumber(line.quantity)} × ${line.product} @ ${formatAmount(line.unitPrice)}`}
               value={formatAmount(line.quantity * line.unitPrice)}
             />
           ))}
           <SpecRow
             className="border-t font-semibold"
-            label={`Total · ${units} units`}
+            label={`Total · ${formatNumber(units)} units`}
             value={formatAmount(order.total)}
           />
         </SpecGroup>
@@ -179,7 +184,7 @@ function OrderDetails({ order }: { order: Overview }) {
             value={
               customer.forcedDueDays === null
                 ? "As entered"
-                : `${days(customer.forcedDueDays)} after order`
+                : `${formatDays(customer.forcedDueDays)} after order`
             }
           />
           <SpecRow label="Reference on customer change" value="Dropped unless re-entered" />
@@ -192,8 +197,8 @@ function OrderDetails({ order }: { order: Overview }) {
 function paymentStat(order: Overview) {
   if (order.status === "Cancelled") return "Not due";
   if (order.status !== "Pending") return "Received";
-  if (order.risk.daysPastDue > 0) return `${days(order.risk.daysPastDue)} late`;
-  return `Due in ${days(differenceInCalendarDays(parseISO(order.dueDate), parseISO(order.asOf)))}`;
+  if (order.risk.daysPastDue > 0) return `${formatDays(order.risk.daysPastDue)} late`;
+  return `Due in ${formatDays(differenceInCalendarDays(parseISO(order.dueDate), parseISO(order.asOf)))}`;
 }
 
 /** Modifications shown before "View more": the rest expand in place. */
@@ -275,12 +280,12 @@ function CurrentState({ order }: { order: Overview }) {
           {
             label: "Open exposure",
             value: formatAmount(risk.openExposure),
-            hint: `${risk.creditUsedPct}% of ${formatAmount(customer.creditLimit)} limit`,
+            hint: `${formatPercent(risk.creditUsedPct)} of ${formatAmount(customer.creditLimit)} limit`,
           },
           {
             label: "Credit headroom",
             value: formatAmount(Math.max(0, customer.creditLimit - risk.openExposure)),
-            hint: `${days(customer.paymentTermsDays)} payment terms`,
+            hint: `${formatDays(customer.paymentTermsDays)} payment terms`,
           },
         ]}
       />
