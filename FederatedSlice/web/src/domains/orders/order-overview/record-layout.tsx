@@ -6,7 +6,6 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/shared/components/ui/collapsible";
-import { cn } from "@/shared/lib/utils";
 
 /**
  * The record page's building blocks, from the lending desk's contract page:
@@ -25,15 +24,10 @@ export type Stat = {
   hint?: ReactNode;
 };
 
-/** 4-up (or 3-up) on desktop, 2-up on mobile; tabular figures so amounts line up across the strip. */
-export function StatStrip({ stats, columns = 4 }: { stats: Stat[]; columns?: 3 | 4 }) {
+/** 4-up on desktop, 2-up on mobile; tabular figures so amounts line up across the strip. */
+export function StatStrip({ stats }: { stats: Stat[] }) {
   return (
-    <dl
-      className={cn(
-        "grid grid-cols-2 gap-x-6 gap-y-6",
-        columns === 3 ? "md:grid-cols-3" : "md:grid-cols-4",
-      )}
-    >
+    <dl className="grid grid-cols-2 gap-x-6 gap-y-6 md:grid-cols-4">
       {stats.map((stat) => (
         <div key={stat.label}>
           <dt className="text-xs font-medium tracking-wide text-muted-foreground uppercase">

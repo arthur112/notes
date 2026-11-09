@@ -37,41 +37,60 @@ const STATUS_HINT: Record<OrderStatus, string> = {
 
 const days = (n: number) => `${n} ${n === 1 ? "day" : "days"}`;
 const yesNo = (value: boolean) => (value ? "Yes" : "No");
-const mono = (value: string) => <span className="font-mono">{value}</span>;
 /** The payment term: order date to due date. */
 const termDays = (order: Overview) =>
   differenceInCalendarDays(parseISO(order.dueDate), parseISO(order.createdAt));
 
+const mono = (value: string) => <span className="font-mono">{value}</span>;
+
 /**
- * Identity (customer, status), then the record's three references and its three dates. Mirrors a
- * loan-insurance contract header: order N° ≈ loan N°, customer N° ≈ branch N°, customer reference
- * ≈ branch reference, order date ≈ booking date, due date ≈ effective date, term ≈ duration.
+ * A hero titled by the order N°, the customer under it, then the key facts in two lines: references,
+ * then dates. Mirrors a loan-insurance contract header: order N° ≈ loan N°, customer N° ≈ branch
+ * N°, customer reference ≈ branch reference, booked ≈ booking date, due ≈ effective date, term ≈
+ * duration.
  */
 function Hero({ order, action }: { order: Overview; action?: ReactNode }) {
+  const factLines: [label: string, value: ReactNode][][] = [
+    [
+      ["Customer N°", mono(order.customer.customerNo)],
+      ["Ref.", order.reference ? mono(order.reference) : "—"],
+    ],
+    [
+      ["Booked", formatDate(order.createdAt)],
+      ["Due", formatDate(order.dueDate)],
+      ["Term", days(termDays(order))],
+    ],
+  ];
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-          <h1 className="text-3xl font-semibold tracking-tight">{order.customer.name}</h1>
-          <span className="flex items-center gap-1.5 text-sm font-medium">
-            <span aria-hidden className={cn("size-2 rounded-full", STATUS_DOT[order.status])} />
-            {order.status}
-          </span>
+        <div>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+            <h1 className="font-mono text-3xl font-semibold tracking-tight">{order.orderNo}</h1>
+            <span className="flex items-center gap-1.5 text-sm font-medium">
+              <span aria-hidden className={cn("size-2 rounded-full", STATUS_DOT[order.status])} />
+              {order.status}
+            </span>
+          </div>
+          <p className="mt-1 text-lg">{order.customer.name}</p>
         </div>
         {action}
       </div>
-      <Separator />
-      <StatStrip
-        columns={3}
-        stats={[
-          { label: "Order N°", value: mono(order.orderNo) },
-          { label: "Customer N°", value: mono(order.customer.customerNo) },
-          { label: "Customer reference", value: order.reference ? mono(order.reference) : "—" },
-          { label: "Order date", value: formatDate(order.createdAt) },
-          { label: "Due date", value: formatDate(order.dueDate) },
-          { label: "Term", value: days(termDays(order)) },
-        ]}
-      />
+      <div className="space-y-1.5">
+        {factLines.map((facts) => (
+          <dl key={facts[0][0]} className="flex flex-wrap gap-x-6 gap-y-1">
+            {facts.map(([label, value]) => (
+              <div key={label} className="flex items-baseline gap-2">
+                <dt className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                  {label}
+                </dt>
+                <dd className="text-sm font-medium tabular-nums">{value}</dd>
+              </div>
+            ))}
+          </dl>
+        ))}
+      </div>
     </div>
   );
 }
