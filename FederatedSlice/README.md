@@ -15,7 +15,7 @@ aspire run
 
 The browser only talks to Vite. Vite proxies `/api` to the api resource (`services__api__http__0`, set by `WithReference(api)`), so there is no CORS and the front uses relative URLs.
 
-Topic docs, which follow one feature from the browser to SQL Server: [filtering](docs/filtering.md), [forms](docs/forms.md), [write rules](docs/rules.md), [OIDC](docs/oidc.md).
+Topic docs, which follow one feature from the browser to SQL Server: [filtering](docs/filtering.md), [forms](docs/forms.md), [write rules](docs/rules.md), [OIDC](docs/oidc.md), [API contract](docs/api-contract.md).
 
 ## The contract, point by point
 
