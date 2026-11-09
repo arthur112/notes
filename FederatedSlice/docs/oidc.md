@@ -22,7 +22,7 @@ Why a public client in the browser and not a BFF:
 | Route | Scope (the client app) | Role (the user) |
 | --- | --- | --- |
 | `GET /api/customers`, `GET /api/customers/options` | `customers.read` | |
-| `GET /api/orders`, `GET /api/orders/{orderNo}`, `GET /api/orders/reference-taken` | `orders.read` | |
+| `GET /api/orders`, `GET /api/orders/{orderNo}`, `GET /api/orders/{orderNo}/overview`, `GET /api/orders/reference-taken` | `orders.read` | |
 | `POST /api/orders`, `PUT /api/orders/{orderNo}` | `orders.write` | `order-editor` |
 
 Every requirement must pass. No valid token gets a `401`, and a valid token missing any requirement gets a `403`. Both are problem+json, like every other error.

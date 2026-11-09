@@ -11,6 +11,7 @@ public class CustomerEntityBuilder
     private string _country = "Germany";
     private bool _isVip;
     private bool _isOnHold;
+    private bool _isVerified;
     private DateOnly _createdAt = new(2025, 1, 1);
     private int _id;
     private CustomerSettingsEntity? _settings;
@@ -47,6 +48,12 @@ public class CustomerEntityBuilder
         return this;
     }
 
+    public CustomerEntityBuilder Verified()
+    {
+        _isVerified = true;
+        return this;
+    }
+
     public CustomerEntityBuilder WithCreatedAt(DateOnly createdAt)
     {
         _createdAt = createdAt;
@@ -80,6 +87,7 @@ public class CustomerEntityBuilder
             PaymentTermsDays = 30,
             IsVip = _isVip,
             IsOnHold = _isOnHold,
+            IsVerified = _isVerified,
             CreatedAt = _createdAt,
         };
 }

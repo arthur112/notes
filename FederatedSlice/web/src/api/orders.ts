@@ -2,6 +2,7 @@ import type { IGridifyQuery, Paging } from "gridify-client";
 
 import { createRequestLog } from "@/shared/filtering/request-log";
 
+import type { Segment } from "./customers";
 import { getJson, getPage, sendJson } from "./http";
 
 /**
@@ -41,6 +42,44 @@ export type OrderDetail = Omit<OrderInput, "reference"> & {
   createdAt: string;
 };
 
+/** `GET /api/orders/:orderNo/overview` (`GetOrderOverview.Response`): the record page's read model. */
+export type OrderOverview = {
+  orderNo: string;
+  status: OrderStatus;
+  reference: string | null;
+  createdAt: string; // YYYY-MM-DD
+  dueDate: string;
+  lines: OrderLine[];
+  total: number;
+  customer: {
+    customerNo: string;
+    name: string;
+    email: string;
+    segment: Segment;
+    country: string;
+    active: boolean;
+    isVerified: boolean;
+    isVip: boolean;
+    isOnHold: boolean;
+    creditLimit: number;
+    paymentTermsDays: number;
+  };
+  risk: {
+    grade: string;
+    /** 0 (A) to 5 (F). */
+    gradeIndex: number;
+    band: string;
+    /** What raised the grade, worst first. */
+    factors: string[];
+    daysPastDue: number;
+    /** The customer's unpaid (Pending) orders, this one included. */
+    openExposure: number;
+    creditUsedPct: number;
+  };
+  /** The server's today, which the risk was assessed on. */
+  asOf: string;
+};
+
 const requestLog = createRequestLog();
 
 /** Debug aid: the last list calls that came back, newest first (`useSyncExternalStore`). */
@@ -55,6 +94,10 @@ export function fetchOrders(query: IGridifyQuery): Promise<Paging<Order>> {
 /** A missing order is a 404, which throws: the route shows its error component. */
 export function fetchOrder(orderNo: string): Promise<OrderDetail> {
   return getJson(`/api/orders/${encodeURIComponent(orderNo)}`);
+}
+
+export function fetchOrderOverview(orderNo: string): Promise<OrderOverview> {
+  return getJson(`/api/orders/${encodeURIComponent(orderNo)}/overview`);
 }
 
 /** For the form's async field check; the order being edited doesn't count. */

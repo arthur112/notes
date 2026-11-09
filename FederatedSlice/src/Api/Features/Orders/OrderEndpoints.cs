@@ -17,6 +17,7 @@ public static class OrderEndpoints
         // A literal segment outranks {orderNo}, so this isn't read as an order number.
         group.MapGet("/reference-taken", IsReferenceTaken.Handle).RequireScope(Scopes.OrdersRead);
         group.MapGet("/{orderNo}", GetOrder.Handle).RequireScope(Scopes.OrdersRead);
+        group.MapGet("/{orderNo}/overview", GetOrderOverview.Handle).RequireScope(Scopes.OrdersRead);
         group
             .MapPut("/{orderNo}", UpdateOrder.Handle)
             .RequireScope(Scopes.OrdersWrite)

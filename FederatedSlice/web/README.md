@@ -69,12 +69,13 @@ mutation and reference check, so `order-form.tsx` only renders); the footer show
 
 ## Routes
 
-| URL                      | App 1 | App 2 | Page (`apps/<app>/…/pages.tsx`)   |
-| ------------------------ | ----- | ----- | --------------------------------- |
-| `/<app>/orders`          | ✓     | ✓     | `OrdersPage` (App 2: own columns) |
-| `/<app>/orders/new`      | ✓     |       | `NewOrderPage`                    |
-| `/<app>/orders/$orderNo` | ✓     | ✓     | `OrderPage` (the edit form)       |
-| `/<app>/customers`       | ✓     | ✓     | `CustomersPage` (domain defaults) |
+| URL                           | App 1 | App 2 | Page (`apps/<app>/…/pages.tsx`)   |
+| ----------------------------- | ----- | ----- | --------------------------------- |
+| `/<app>/orders`               | ✓     | ✓     | `OrdersPage` (App 2: own columns) |
+| `/<app>/orders/new`           | ✓     |       | `NewOrderPage`                    |
+| `/<app>/orders/$orderNo`      | ✓     | ✓     | `OrderPage` (the record page)     |
+| `/<app>/orders/$orderNo/edit` | ✓     | ✓     | `EditOrderPage` (the form)        |
+| `/<app>/customers`            | ✓     | ✓     | `CustomersPage` (domain defaults) |
 
 Both apps hit the same query keys (`["orders", search]`), so the cache and the request log are
 shared: an order saved in App 2 shows up in App 1's list.

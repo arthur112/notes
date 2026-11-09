@@ -18,11 +18,13 @@ import { Route as App2CustomersRouteRouteImport } from './routes/app2/customers/
 import { Route as App2OrdersRouteRouteImport } from './routes/app2/orders/route'
 import { Route as App1CustomersIndexRouteImport } from './routes/app1/customers/index'
 import { Route as App1OrdersIndexRouteImport } from './routes/app1/orders/index'
-import { Route as App1OrdersOrderNoRouteImport } from './routes/app1/orders/$orderNo'
 import { Route as App1OrdersNewRouteImport } from './routes/app1/orders/new'
 import { Route as App2CustomersIndexRouteImport } from './routes/app2/customers/index'
 import { Route as App2OrdersIndexRouteImport } from './routes/app2/orders/index'
-import { Route as App2OrdersOrderNoRouteImport } from './routes/app2/orders/$orderNo'
+import { Route as App1OrdersOrderNoIndexRouteImport } from './routes/app1/orders/$orderNo/index'
+import { Route as App1OrdersOrderNoEditRouteImport } from './routes/app1/orders/$orderNo/edit'
+import { Route as App2OrdersOrderNoIndexRouteImport } from './routes/app2/orders/$orderNo/index'
+import { Route as App2OrdersOrderNoEditRouteImport } from './routes/app2/orders/$orderNo/edit'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -69,11 +71,6 @@ const App1OrdersIndexRoute = App1OrdersIndexRouteImport.update({
   path: '/',
   getParentRoute: () => App1OrdersRouteRoute,
 } as any)
-const App1OrdersOrderNoRoute = App1OrdersOrderNoRouteImport.update({
-  id: '/$orderNo',
-  path: '/$orderNo',
-  getParentRoute: () => App1OrdersRouteRoute,
-} as any)
 const App1OrdersNewRoute = App1OrdersNewRouteImport.update({
   id: '/new',
   path: '/new',
@@ -89,9 +86,24 @@ const App2OrdersIndexRoute = App2OrdersIndexRouteImport.update({
   path: '/',
   getParentRoute: () => App2OrdersRouteRoute,
 } as any)
-const App2OrdersOrderNoRoute = App2OrdersOrderNoRouteImport.update({
-  id: '/$orderNo',
-  path: '/$orderNo',
+const App1OrdersOrderNoIndexRoute = App1OrdersOrderNoIndexRouteImport.update({
+  id: '/$orderNo/',
+  path: '/$orderNo/',
+  getParentRoute: () => App1OrdersRouteRoute,
+} as any)
+const App1OrdersOrderNoEditRoute = App1OrdersOrderNoEditRouteImport.update({
+  id: '/$orderNo/edit',
+  path: '/$orderNo/edit',
+  getParentRoute: () => App1OrdersRouteRoute,
+} as any)
+const App2OrdersOrderNoIndexRoute = App2OrdersOrderNoIndexRouteImport.update({
+  id: '/$orderNo/',
+  path: '/$orderNo/',
+  getParentRoute: () => App2OrdersRouteRoute,
+} as any)
+const App2OrdersOrderNoEditRoute = App2OrdersOrderNoEditRouteImport.update({
+  id: '/$orderNo/edit',
+  path: '/$orderNo/edit',
   getParentRoute: () => App2OrdersRouteRoute,
 } as any)
 
@@ -103,25 +115,29 @@ export interface FileRoutesByFullPath {
   '/app1/orders': typeof App1OrdersRouteRouteWithChildren
   '/app2/customers': typeof App2CustomersRouteRouteWithChildren
   '/app2/orders': typeof App2OrdersRouteRouteWithChildren
-  '/app1/orders/$orderNo': typeof App1OrdersOrderNoRoute
   '/app1/orders/new': typeof App1OrdersNewRoute
-  '/app2/orders/$orderNo': typeof App2OrdersOrderNoRoute
   '/app1/customers/': typeof App1CustomersIndexRoute
   '/app1/orders/': typeof App1OrdersIndexRoute
   '/app2/customers/': typeof App2CustomersIndexRoute
   '/app2/orders/': typeof App2OrdersIndexRoute
+  '/app1/orders/$orderNo/edit': typeof App1OrdersOrderNoEditRoute
+  '/app2/orders/$orderNo/edit': typeof App2OrdersOrderNoEditRoute
+  '/app1/orders/$orderNo/': typeof App1OrdersOrderNoIndexRoute
+  '/app2/orders/$orderNo/': typeof App2OrdersOrderNoIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/app1': typeof App1RouteRouteWithChildren
   '/app2': typeof App2RouteRouteWithChildren
-  '/app1/orders/$orderNo': typeof App1OrdersOrderNoRoute
   '/app1/orders/new': typeof App1OrdersNewRoute
-  '/app2/orders/$orderNo': typeof App2OrdersOrderNoRoute
   '/app1/customers': typeof App1CustomersIndexRoute
   '/app1/orders': typeof App1OrdersIndexRoute
   '/app2/customers': typeof App2CustomersIndexRoute
   '/app2/orders': typeof App2OrdersIndexRoute
+  '/app1/orders/$orderNo/edit': typeof App1OrdersOrderNoEditRoute
+  '/app2/orders/$orderNo/edit': typeof App2OrdersOrderNoEditRoute
+  '/app1/orders/$orderNo': typeof App1OrdersOrderNoIndexRoute
+  '/app2/orders/$orderNo': typeof App2OrdersOrderNoIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -132,13 +148,15 @@ export interface FileRoutesById {
   '/app1/orders': typeof App1OrdersRouteRouteWithChildren
   '/app2/customers': typeof App2CustomersRouteRouteWithChildren
   '/app2/orders': typeof App2OrdersRouteRouteWithChildren
-  '/app1/orders/$orderNo': typeof App1OrdersOrderNoRoute
   '/app1/orders/new': typeof App1OrdersNewRoute
-  '/app2/orders/$orderNo': typeof App2OrdersOrderNoRoute
   '/app1/customers/': typeof App1CustomersIndexRoute
   '/app1/orders/': typeof App1OrdersIndexRoute
   '/app2/customers/': typeof App2CustomersIndexRoute
   '/app2/orders/': typeof App2OrdersIndexRoute
+  '/app1/orders/$orderNo/edit': typeof App1OrdersOrderNoEditRoute
+  '/app2/orders/$orderNo/edit': typeof App2OrdersOrderNoEditRoute
+  '/app1/orders/$orderNo/': typeof App1OrdersOrderNoIndexRoute
+  '/app2/orders/$orderNo/': typeof App2OrdersOrderNoIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -150,25 +168,29 @@ export interface FileRouteTypes {
     | '/app1/orders'
     | '/app2/customers'
     | '/app2/orders'
-    | '/app1/orders/$orderNo'
     | '/app1/orders/new'
-    | '/app2/orders/$orderNo'
     | '/app1/customers/'
     | '/app1/orders/'
     | '/app2/customers/'
     | '/app2/orders/'
+    | '/app1/orders/$orderNo/edit'
+    | '/app2/orders/$orderNo/edit'
+    | '/app1/orders/$orderNo/'
+    | '/app2/orders/$orderNo/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/app1'
     | '/app2'
-    | '/app1/orders/$orderNo'
     | '/app1/orders/new'
-    | '/app2/orders/$orderNo'
     | '/app1/customers'
     | '/app1/orders'
     | '/app2/customers'
     | '/app2/orders'
+    | '/app1/orders/$orderNo/edit'
+    | '/app2/orders/$orderNo/edit'
+    | '/app1/orders/$orderNo'
+    | '/app2/orders/$orderNo'
   id:
     | '__root__'
     | '/'
@@ -178,13 +200,15 @@ export interface FileRouteTypes {
     | '/app1/orders'
     | '/app2/customers'
     | '/app2/orders'
-    | '/app1/orders/$orderNo'
     | '/app1/orders/new'
-    | '/app2/orders/$orderNo'
     | '/app1/customers/'
     | '/app1/orders/'
     | '/app2/customers/'
     | '/app2/orders/'
+    | '/app1/orders/$orderNo/edit'
+    | '/app2/orders/$orderNo/edit'
+    | '/app1/orders/$orderNo/'
+    | '/app2/orders/$orderNo/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -258,13 +282,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof App1OrdersIndexRouteImport
       parentRoute: typeof App1OrdersRouteRoute
     }
-    '/app1/orders/$orderNo': {
-      id: '/app1/orders/$orderNo'
-      path: '/$orderNo'
-      fullPath: '/app1/orders/$orderNo'
-      preLoaderRoute: typeof App1OrdersOrderNoRouteImport
-      parentRoute: typeof App1OrdersRouteRoute
-    }
     '/app1/orders/new': {
       id: '/app1/orders/new'
       path: '/new'
@@ -286,11 +303,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof App2OrdersIndexRouteImport
       parentRoute: typeof App2OrdersRouteRoute
     }
-    '/app2/orders/$orderNo': {
-      id: '/app2/orders/$orderNo'
+    '/app1/orders/$orderNo/': {
+      id: '/app1/orders/$orderNo/'
       path: '/$orderNo'
-      fullPath: '/app2/orders/$orderNo'
-      preLoaderRoute: typeof App2OrdersOrderNoRouteImport
+      fullPath: '/app1/orders/$orderNo/'
+      preLoaderRoute: typeof App1OrdersOrderNoIndexRouteImport
+      parentRoute: typeof App1OrdersRouteRoute
+    }
+    '/app1/orders/$orderNo/edit': {
+      id: '/app1/orders/$orderNo/edit'
+      path: '/$orderNo/edit'
+      fullPath: '/app1/orders/$orderNo/edit'
+      preLoaderRoute: typeof App1OrdersOrderNoEditRouteImport
+      parentRoute: typeof App1OrdersRouteRoute
+    }
+    '/app2/orders/$orderNo/': {
+      id: '/app2/orders/$orderNo/'
+      path: '/$orderNo'
+      fullPath: '/app2/orders/$orderNo/'
+      preLoaderRoute: typeof App2OrdersOrderNoIndexRouteImport
+      parentRoute: typeof App2OrdersRouteRoute
+    }
+    '/app2/orders/$orderNo/edit': {
+      id: '/app2/orders/$orderNo/edit'
+      path: '/$orderNo/edit'
+      fullPath: '/app2/orders/$orderNo/edit'
+      preLoaderRoute: typeof App2OrdersOrderNoEditRouteImport
       parentRoute: typeof App2OrdersRouteRoute
     }
   }
@@ -308,15 +346,17 @@ const App1CustomersRouteRouteWithChildren =
   App1CustomersRouteRoute._addFileChildren(App1CustomersRouteRouteChildren)
 
 interface App1OrdersRouteRouteChildren {
-  App1OrdersOrderNoRoute: typeof App1OrdersOrderNoRoute
   App1OrdersNewRoute: typeof App1OrdersNewRoute
   App1OrdersIndexRoute: typeof App1OrdersIndexRoute
+  App1OrdersOrderNoEditRoute: typeof App1OrdersOrderNoEditRoute
+  App1OrdersOrderNoIndexRoute: typeof App1OrdersOrderNoIndexRoute
 }
 
 const App1OrdersRouteRouteChildren: App1OrdersRouteRouteChildren = {
-  App1OrdersOrderNoRoute: App1OrdersOrderNoRoute,
   App1OrdersNewRoute: App1OrdersNewRoute,
   App1OrdersIndexRoute: App1OrdersIndexRoute,
+  App1OrdersOrderNoEditRoute: App1OrdersOrderNoEditRoute,
+  App1OrdersOrderNoIndexRoute: App1OrdersOrderNoIndexRoute,
 }
 
 const App1OrdersRouteRouteWithChildren = App1OrdersRouteRoute._addFileChildren(
@@ -349,13 +389,15 @@ const App2CustomersRouteRouteWithChildren =
   App2CustomersRouteRoute._addFileChildren(App2CustomersRouteRouteChildren)
 
 interface App2OrdersRouteRouteChildren {
-  App2OrdersOrderNoRoute: typeof App2OrdersOrderNoRoute
   App2OrdersIndexRoute: typeof App2OrdersIndexRoute
+  App2OrdersOrderNoEditRoute: typeof App2OrdersOrderNoEditRoute
+  App2OrdersOrderNoIndexRoute: typeof App2OrdersOrderNoIndexRoute
 }
 
 const App2OrdersRouteRouteChildren: App2OrdersRouteRouteChildren = {
-  App2OrdersOrderNoRoute: App2OrdersOrderNoRoute,
   App2OrdersIndexRoute: App2OrdersIndexRoute,
+  App2OrdersOrderNoEditRoute: App2OrdersOrderNoEditRoute,
+  App2OrdersOrderNoIndexRoute: App2OrdersOrderNoIndexRoute,
 }
 
 const App2OrdersRouteRouteWithChildren = App2OrdersRouteRoute._addFileChildren(

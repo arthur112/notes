@@ -15,6 +15,7 @@ namespace Api.Json;
 [JsonSerializable(typeof(PagedResult<ListOrders.Response>), TypeInfoPropertyName = "OrdersPage")]
 [JsonSerializable(typeof(OrderInput))]
 [JsonSerializable(typeof(OrderDetail))]
+[JsonSerializable(typeof(GetOrderOverview.Response), TypeInfoPropertyName = "OrderOverview")]
 [JsonSerializable(typeof(bool))]
 [JsonSerializable(typeof(Microsoft.AspNetCore.Mvc.ProblemDetails))]
 [JsonSerializable(typeof(Microsoft.AspNetCore.Http.HttpValidationProblemDetails))]

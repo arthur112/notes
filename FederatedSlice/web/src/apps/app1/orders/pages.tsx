@@ -4,6 +4,7 @@ import { ORDER_WRITE } from "@/domains/orders/access";
 import { orderColumns, orderLinkClass } from "@/domains/orders/columns";
 import { OrdersList } from "@/domains/orders/orders-list";
 import { EditOrder, NewOrder } from "@/domains/orders/order-form/order-pages";
+import { OrderOverview } from "@/domains/orders/order-overview/order-overview";
 import { buttonVariants } from "@/shared/components/ui/button";
 import { useShell } from "@/shell/shell-provider";
 
@@ -53,10 +54,38 @@ export function NewOrderPage() {
   return <NewOrder onDone={() => void navigate({ to: ".." })} />;
 }
 
-const orderRoute = getRouteApi("/app1/orders/$orderNo");
+const orderRoute = getRouteApi("/app1/orders/$orderNo/");
 
 export function OrderPage() {
   const { orderNo } = orderRoute.useParams();
-  const navigate = orderRoute.useNavigate();
-  return <EditOrder orderNo={orderNo} onDone={() => void navigate({ to: ".." })} />;
+  const canEdit = useShell().can(ORDER_WRITE);
+  return (
+    <OrderOverview
+      orderNo={orderNo}
+      action={
+        canEdit && (
+          <Link
+            to="/app1/orders/$orderNo/edit"
+            params={{ orderNo }}
+            className={buttonVariants({ variant: "outline", size: "lg" })}
+          >
+            Edit
+          </Link>
+        )
+      }
+    />
+  );
+}
+
+const editRoute = getRouteApi("/app1/orders/$orderNo/edit");
+
+export function EditOrderPage() {
+  const { orderNo } = editRoute.useParams();
+  const navigate = editRoute.useNavigate();
+  return (
+    <EditOrder
+      orderNo={orderNo}
+      onDone={() => void navigate({ to: "/app1/orders/$orderNo", params: { orderNo } })}
+    />
+  );
 }

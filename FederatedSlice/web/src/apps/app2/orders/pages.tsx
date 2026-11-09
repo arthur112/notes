@@ -8,7 +8,11 @@ import {
   totalColumn,
 } from "@/domains/orders/columns";
 import { OrdersList } from "@/domains/orders/orders-list";
+import { ORDER_WRITE } from "@/domains/orders/access";
 import { EditOrder } from "@/domains/orders/order-form/order-pages";
+import { OrderOverview } from "@/domains/orders/order-overview/order-overview";
+import { buttonVariants } from "@/shared/components/ui/button";
+import { useShell } from "@/shell/shell-provider";
 
 /**
  * App 2's orders differ where it needs them to: its own, leaner column set
@@ -40,10 +44,38 @@ export function OrdersPage() {
   );
 }
 
-const orderRoute = getRouteApi("/app2/orders/$orderNo");
+const orderRoute = getRouteApi("/app2/orders/$orderNo/");
 
 export function OrderPage() {
   const { orderNo } = orderRoute.useParams();
-  const navigate = orderRoute.useNavigate();
-  return <EditOrder orderNo={orderNo} onDone={() => void navigate({ to: ".." })} />;
+  const canEdit = useShell().can(ORDER_WRITE);
+  return (
+    <OrderOverview
+      orderNo={orderNo}
+      action={
+        canEdit && (
+          <Link
+            to="/app2/orders/$orderNo/edit"
+            params={{ orderNo }}
+            className={buttonVariants({ variant: "outline", size: "lg" })}
+          >
+            Edit
+          </Link>
+        )
+      }
+    />
+  );
+}
+
+const editRoute = getRouteApi("/app2/orders/$orderNo/edit");
+
+export function EditOrderPage() {
+  const { orderNo } = editRoute.useParams();
+  const navigate = editRoute.useNavigate();
+  return (
+    <EditOrder
+      orderNo={orderNo}
+      onDone={() => void navigate({ to: "/app2/orders/$orderNo", params: { orderNo } })}
+    />
+  );
 }

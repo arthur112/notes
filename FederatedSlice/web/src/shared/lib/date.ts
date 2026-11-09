@@ -8,6 +8,7 @@ import { parseISO } from "date-fns/parseISO";
  * The app's date-fns, one subpath per function: the `date-fns` root barrel
  * loads every function, which slows the tests' imports. Import from here.
  */
+export { addDays } from "date-fns/addDays";
 export { addMonths } from "date-fns/addMonths";
 export { differenceInCalendarDays } from "date-fns/differenceInCalendarDays";
 export { eachDayOfInterval } from "date-fns/eachDayOfInterval";

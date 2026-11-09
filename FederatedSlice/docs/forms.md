@@ -1,6 +1,6 @@
 # Forms
 
-The order form (create at `/app1/orders/new`, edit at `/<app>/orders/$orderNo`) is the project's one form. Its pieces are generic, so the next form reuses the kit and copies the shape:
+The order form (create at `/app1/orders/new`, edit at `/<app>/orders/$orderNo/edit`) is the project's one form. Its pieces are generic, so the next form reuses the kit and copies the shape:
 
 | Piece | File | Role |
 | --- | --- | --- |

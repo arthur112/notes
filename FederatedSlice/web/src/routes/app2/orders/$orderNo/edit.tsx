@@ -1,9 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { OrderPage } from "@/apps/app1/orders/pages";
+import { EditOrderPage } from "@/apps/app2/orders/pages";
 import { orderRouteLoader } from "@/domains/orders/use-orders";
 
-export const Route = createFileRoute("/app1/orders/$orderNo")({
+export const Route = createFileRoute("/app2/orders/$orderNo/edit")({
   loader: orderRouteLoader,
-  component: OrderPage,
+  component: EditOrderPage,
 });

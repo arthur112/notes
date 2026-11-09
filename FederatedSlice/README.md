@@ -5,7 +5,7 @@ The federated React shell (`web/`) on a real .NET 10 back end (`src/Api`), start
 | Front (`web/src/`) | Back (`src/Api/Features/`) | Endpoints |
 | --- | --- | --- |
 | `domains/customers/`, `api/customers.ts` | `Customers/` | `GET /api/customers` (filtered list), `GET /api/customers/options` (picker) |
-| `domains/orders/`, `api/orders.ts` | `Orders/` | `GET /api/orders`, `GET /api/orders/{orderNo}`, `POST /api/orders`, `PUT /api/orders/{orderNo}`, `GET /api/orders/reference-taken` |
+| `domains/orders/`, `api/orders.ts` | `Orders/` | `GET /api/orders`, `GET /api/orders/{orderNo}`, `GET /api/orders/{orderNo}/overview`, `POST /api/orders`, `PUT /api/orders/{orderNo}`, `GET /api/orders/reference-taken` |
 
 ```text
 aspire run
@@ -52,6 +52,19 @@ var result = await Maybe<OrderEntity>
     .Map(order => order.ToDetail());
 ```
 
+### The order record page
+
+Opening an order shows its record page (`/<app>/orders/$orderNo`), and **Edit** leads to the form (`…/edit`). The page reads `GET /api/orders/{orderNo}/overview` (`GetOrderOverview`), a read model of its own, so the form's `OrderDetail` stays the form's payload. The page has a hero with four key figures, an **Order** section (terms, risk assessment, customer, lines, as label-left / value-right groups), and a **Current state** section (status, payment, open exposure, credit headroom, a credit-hold banner, and a collapsible modification log). The log is **mocked on the front** (`order-overview/modifications.ts`): orders keep no history, so it is made up from the order's own data.
+
+The risk grade is computed on the server from data it already holds. Each factor adds points, and the sum (capped at 5) is the position on the A–F scale (`risk-grade-scale.tsx`):
+
+| Factor | Points |
+| --- | --- |
+| Customer on credit hold | 3 |
+| Unpaid (Pending) after the due date | 1, or 2 past 30 days |
+| Customer's unpaid orders vs. its credit limit | 1 from 50%, 2 from 90% |
+| Unverified / inactive customer, Startup segment | 1 each |
+
 ## Sign-in and permissions
 
 | Route | Scope (the app) | Role (the user) |
@@ -60,7 +73,7 @@ var result = await Maybe<OrderEntity>
 | `GET /api/orders…` | `orders.read` | |
 | `POST` / `PUT /api/orders…` | `orders.write` | `order-editor` |
 
-The realm has two users: `editor` / `editor` holds `order-editor`, and `viewer` / `viewer` doesn't. Both get the three scopes through the shell's client, so the viewer can read everything, but sees no **New order** and gets a read-only order form. The API would answer `403` anyway. Without Keycloak, `dotnet user-jwts` mints tokens the API also accepts ([OIDC](docs/oidc.md)).
+The realm has two users: `editor` / `editor` holds `order-editor`, and `viewer` / `viewer` doesn't. Both get the three scopes through the shell's client, so the viewer can read everything, but sees no **New order** or **Edit**, and gets a read-only order form. The API would answer `403` anyway. Without Keycloak, `dotnet user-jwts` mints tokens the API also accepts ([OIDC](docs/oidc.md)).
 
 ## Structure
 
@@ -96,6 +109,7 @@ FederatedSlice/
 | `OrderMapperTests` | Unit | A fully filled input leaves no entity property at its default. |
 | `OrdersAuthorizationTests` | Integration | `401` problem without a token, read scope per area, the scope × role matrix on create, the space-delimited `scope` claim. |
 | `CustomersTests` | Integration | The front's own filter strings (multi-select with spaces, flags over several columns, inclusive day range, search + select), sorted options, settings columns (sorted), unknown field → `400`. |
+| `OrderOverviewTests` | Unit + integration | The risk grade: a clean customer is an A, factors add up worst first and cap at F, a settled order is never past due, exposure over half the limit. The endpoint sums the customer's unpaid orders; unknown order → `404`. |
 | `OrdersTests` | Integration | Create (number, Location), line errors on the form's paths, missing due date, credit hold, customer settings overriding the entered status and due date, a customer change dropping the old reference, reference uniqueness and `reference-taken`, `PUT` replacing lines, `404`s, filtering and sorting on `lineCount` / `total` / `customer.customerNo`. |
 | `SmokeTests` | Aspire | The real AppHost: grate created and seeded the database (12 customers, 6 orders, 2 settings rows), and the api is healthy. |
 
@@ -123,8 +137,8 @@ cd web && bun run build && bun run lint && bun run test   # the front's own chec
 Try it, signed in as `editor`:
 
 - In App 1 → Orders, set Lines = 1 and Order total ≥ 100. The table now shows only the matching rows, because the API applies the filter.
-- Open ORD-100104 (Umbrella) and save it: the form shows "Umbrella is on credit hold." under Customer.
-- Open ORD-100102 (Globex, due 25-01-2026) and save it: it saves, and reopening it shows a due date of 10-02-2026, because Globex's contract fixes it at 30 days after the order date.
+- Open ORD-100104 (Umbrella): the record page grades it E (High) on the A–F scale and shows the credit-hold banner. Edit and save it: the form shows "Umbrella is on credit hold." under Customer.
+- Open ORD-100102 (Globex, due 25-01-2026): unpaid for months, so it is a C. Edit and save it: it saves, and reopening it shows a due date of 10-02-2026, because Globex's contract fixes it at 30 days after the order date.
 - Typing `PO-1001` as the reference of another order flags it before you save.
 
-Sign out and in as `viewer`: no **New order**, and the order form is read-only.
+Sign out and in as `viewer`: no **New order** and no **Edit**, and the order form (still reachable at `…/edit`) is read-only.

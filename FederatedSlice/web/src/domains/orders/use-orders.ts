@@ -6,7 +6,7 @@ import {
   type QueryClient,
 } from "@tanstack/react-query";
 
-import { fetchOrder, fetchOrders } from "@/api/orders";
+import { fetchOrder, fetchOrderOverview, fetchOrders } from "@/api/orders";
 
 import { ordersSearchSchema, toGridifyQuery, type OrdersSearch } from "./filter";
 
@@ -42,7 +42,26 @@ export function orderQueryOptions(orderNo: string) {
   });
 }
 
+/**
+ * One order's record page. Under the `["order", orderNo]` key, so a save (which
+ * invalidates `["order"]`) refreshes it too.
+ */
+export function orderOverviewQueryOptions(orderNo: string) {
+  return queryOptions({
+    queryKey: ["order", orderNo, "overview"],
+    queryFn: () => fetchOrderOverview(orderNo),
+    staleTime: 30_000,
+  });
+}
+
 type LoaderContext = { context: { queryClient: QueryClient } };
+
+/** The record page's loader: awaited, so a missing order is the route's error, not an empty page. */
+export const orderOverviewRouteLoader = ({
+  context,
+  params,
+}: LoaderContext & { params: { orderNo: string } }) =>
+  context.queryClient.query(orderOverviewQueryOptions(params.orderNo));
 
 /**
  * Every app's orders list route spreads these: `createFileRoute(…)({ ...ordersListRoute, component })`.
