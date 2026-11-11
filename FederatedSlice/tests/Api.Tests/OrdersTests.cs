@@ -229,4 +229,30 @@ public class OrdersTests : DatabaseTestBase
         await Assert.That(byNumber.Data.Single().Customer).IsEqualTo("Acme Corp");
         await Assert.That(bySearch.Count).IsEqualTo(2);
     }
+
+    [Test]
+    [Arguments("(isUrgent=true,isInvoiced=true)", "urgent invoiced")]
+    [Arguments("(isUrgent=true,customer.isOnHold=true)", "urgent held")]
+    [Arguments("(isUrgent=true,customer.hasFixedDueDate=true)", "urgent fixed")]
+    public async Task Flags_Must_All_Match_Across_Order_And_Customer_Columns(string filter, string expected)
+    {
+        var plain = await SeedCustomerAsync("Plain");
+        var held = await SeedAsync(CustomerEntityBuilder.Create().OnHold().Build());
+        var fixedDue = await SeedAsync(CustomerEntityBuilder.Create().WithSettings(forcedDueDays: 30).Build());
+        var invoiced = new DateOnly(2026, 1, 2);
+        OrderEntity[] orders =
+        [
+            await SeedAsync(OrderEntityBuilder.For(plain).WithReference("urgent invoiced").Urgent().InvoicedOn(invoiced).Build()),
+            await SeedAsync(OrderEntityBuilder.For(plain).WithReference("urgent").Urgent().Build()),
+            await SeedAsync(OrderEntityBuilder.For(plain).WithReference("invoiced").InvoicedOn(invoiced).Build()),
+            await SeedAsync(OrderEntityBuilder.For(held).WithReference("urgent held").Urgent().Build()),
+            await SeedAsync(OrderEntityBuilder.For(held).WithReference("held").Build()),
+            await SeedAsync(OrderEntityBuilder.For(fixedDue).WithReference("urgent fixed").Urgent().Build()),
+        ];
+
+        var page = await ListAsync(Filter(filter));
+
+        var matched = page.Data.Select(row => orders.Single(o => o.OrderNo == row.OrderNo).Reference!);
+        await Assert.That(matched).IsEquivalentTo([expected]);
+    }
 }

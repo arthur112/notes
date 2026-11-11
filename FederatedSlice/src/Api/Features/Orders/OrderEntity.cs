@@ -12,6 +12,10 @@ public class OrderEntity
     public CustomerEntity Customer { get; set; } = null!;
     public OrderStatus Status { get; set; }
     public DateOnly DueDate { get; set; }
+    public bool IsUrgent { get; set; }
+
+    /// <summary>When the order was invoiced; <c>null</c> until it is.</summary>
+    public DateOnly? InvoicedAt { get; set; }
 
     /// <summary>The customer's purchase-order number; unique across orders.</summary>
     public string? Reference { get; set; }

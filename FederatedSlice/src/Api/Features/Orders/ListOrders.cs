@@ -25,6 +25,12 @@ public static class ListOrders
         .AddMap("orderNo", o => o.OrderNo)
         .AddMap("customer.name", o => o.Customer.Name)
         .AddMap("customer.customerNo", o => o.Customer.CustomerNo)
+        // The front's flags multi-select: every flag is a boolean field, wherever its column is
+        // and whatever its type. A nullable column becomes "is set".
+        .AddMap("isUrgent", o => o.IsUrgent)
+        .AddMap("isInvoiced", o => o.InvoicedAt != null)
+        .AddMap("customer.isOnHold", o => o.Customer.IsOnHold)
+        .AddMap("customer.hasFixedDueDate", o => o.Customer.Settings!.ForcedDueDays != null)
         .AddMap("status", o => o.Status)
         .AddMap("lineCount", o => o.Lines.Count)
         .AddMap("total", o => o.Lines.Sum(l => l.Quantity * l.UnitPrice))

@@ -23,6 +23,8 @@ public class OrderEntityConfiguration : IEntityTypeConfiguration<OrderEntity>
             .HasMaxLength(20)
             .HasConversion<string>();
         builder.Property(o => o.DueDate).HasColumnName("due_date");
+        builder.Property(o => o.IsUrgent).HasColumnName("is_urgent");
+        builder.Property(o => o.InvoicedAt).HasColumnName("invoiced_at");
         builder.Property(o => o.Reference).HasColumnName("reference").HasMaxLength(50);
         builder
             .Property(o => o.CreatedAt)

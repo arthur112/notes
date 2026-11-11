@@ -89,7 +89,7 @@ The realm has two users: `editor` / `editor` holds `order-editor`, and `viewer` 
 ```text
 FederatedSlice/
 ├── AppHost/                  # sql → migrations → api; keycloak; web (AddViteApp + WithBun, :5173)
-├── db/up/                    # grate: 0001 customers, 0002 orders + order_lines, 0003 demo data, 0004 customer_settings
+├── db/up/                    # grate: 0001 customers, 0002 orders + order_lines, 0003 demo data, 0004 customer_settings, 0005 order flags
 ├── keycloak/realms/          # realm `federated`: clients, scopes, role, users
 ├── src/
 │   ├── ServiceDefaults/
@@ -119,7 +119,7 @@ FederatedSlice/
 | `OrdersAuthorizationTests` | Integration | `401` problem without a token, read scope per area, the scope × role matrix on create, the space-delimited `scope` claim. |
 | `CustomersTests` | Integration | The front's own filter strings (multi-select with spaces, flags over several columns, inclusive day range, search + select), sorted options, settings columns (sorted), unknown field → `400`. |
 | `OrderOverviewTests` | Unit + integration | The risk grade: a clean customer is an A, factors add up worst first and cap at F, a settled order is never past due, exposure over half the limit. The endpoint sums the customer's unpaid orders; unknown order → `404`. |
-| `OrdersTests` | Integration | Create (number, Location), line errors on the form's paths, missing due date, credit hold, customer settings overriding the entered status and due date, a customer change dropping the old reference, reference uniqueness and `reference-taken`, `PUT` replacing lines, `404`s, filtering and sorting on `lineCount` / `total` / `customer.customerNo`. |
+| `OrdersTests` | Integration | Create (number, Location), line errors on the form's paths, missing due date, credit hold, customer settings overriding the entered status and due date, a customer change dropping the old reference, reference uniqueness and `reference-taken`, `PUT` replacing lines, `404`s, filtering and sorting on `lineCount` / `total` / `customer.customerNo`, flags that must all match across order and customer columns (bit, nullable, through navigations). |
 | `SmokeTests` | Aspire | The real AppHost: grate created and seeded the database (12 customers, 6 orders, 2 settings rows), and the api is healthy. |
 
 Each integration test gets its own schema, built from the EF model, so `db/up` and the EF configurations must agree. They run against the Aspire SQL Server container, or against `ConnectionStrings:TestDatabase` when it is set. Tests carry real signed tokens (`TestTokens`), and the real JwtBearer validation runs on them. The AppHost also starts Keycloak and the shell during a full run, but the tests only wait for the api.

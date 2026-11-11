@@ -8,6 +8,8 @@ public class OrderEntityBuilder
     private readonly int _customerId;
     private OrderStatus _status = OrderStatus.Pending;
     private string? _reference;
+    private bool _isUrgent;
+    private DateOnly? _invoicedAt;
     private DateOnly _dueDate = new(2026, 2, 1);
     private DateOnly _createdAt;
     private readonly List<OrderLineEntity> _lines = [];
@@ -26,6 +28,18 @@ public class OrderEntityBuilder
     public OrderEntityBuilder WithReference(string reference)
     {
         _reference = reference;
+        return this;
+    }
+
+    public OrderEntityBuilder Urgent()
+    {
+        _isUrgent = true;
+        return this;
+    }
+
+    public OrderEntityBuilder InvoicedOn(DateOnly invoicedAt)
+    {
+        _invoicedAt = invoicedAt;
         return this;
     }
 
@@ -54,6 +68,8 @@ public class OrderEntityBuilder
             CustomerId = _customerId,
             Status = _status,
             DueDate = _dueDate,
+            IsUrgent = _isUrgent,
+            InvoicedAt = _invoicedAt,
             CreatedAt = _createdAt,
             Reference = _reference,
             Lines = _lines.Count > 0 ? _lines : [new() { Product = "Anvil", Quantity = 1, UnitPrice = 10 }],

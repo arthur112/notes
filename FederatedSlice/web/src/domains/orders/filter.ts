@@ -7,6 +7,7 @@ import {
 } from "@/shared/filtering/definition";
 import {
   dateRangeField,
+  flagsField,
   numberRangeField,
   searchField,
   selectField,
@@ -49,6 +50,21 @@ export const ordersFilter = defineFilter({
       comboboxProps: { itemToStringLabel: statusLabel },
       placeholder: "Any status",
       ariaLabel: "Status",
+    }),
+    // States kept in their own columns, on the order or on its customer, every
+    // pick required (`(isUrgent=true,customer.isOnHold=true)`). Each is a boolean
+    // field; the API maps it to its column, a nullable one as "is set".
+    flags: flagsField({
+      label: "Flags",
+      match: "all",
+      flags: {
+        urgent: { label: "Urgent", field: "isUrgent" },
+        invoiced: { label: "Invoiced", field: "isInvoiced" },
+        onHold: { label: "Customer on hold", field: "customer.isOnHold" },
+        fixedDueDate: { label: "Customer fixes the due date", field: "customer.hasFixedDueDate" },
+      },
+      placeholder: "Any flag",
+      ariaLabel: "Flags",
     }),
     // Object items from a query: the name is shown, only the customer number is stored.
     customer: selectField({

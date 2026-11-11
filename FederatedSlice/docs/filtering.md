@@ -21,6 +21,7 @@ export const ordersFilter = defineFilter({
   fields: {
     q: searchField({ fields: ["orderNo", "customer.name"], … }),
     status: selectField({ field: "status", source: { options: STATUSES }, schema: z.enum(STATUSES), … }),
+    flags: flagsField({ match: "all", flags: { urgent: { field: "isUrgent" }, onHold: { field: "customer.isOnHold" }, … } }),
     customer: selectField({ field: "customer.customerNo", source: { useOptions: useCustomerOptions }, … }),
     lineCount: selectField({ field: "lineCount", source: { options: LINE_COUNTS }, schema: z.number(), … }),
     total: numberRangeField({ field: "total", … }),
@@ -54,7 +55,7 @@ The query half (schema + `apply`) is in `shared/filtering/field-queries.ts`, apa
 | `selectField` | `status=Paid` | `status=Paid` |
 | `multiSelectField` | `countries=["Germany","Sweden"]` | `(country=Germany\|country=Sweden)` |
 | `booleanSelectField` | `active=true` | `active=true` |
-| `flagsField` | `flags=["vip","released"]` | `(isVip=true\|isOnHold=false)`. Several boolean columns, any of them matching. |
+| `flagsField` | `flags=["vip","released"]` | `(isVip=true\|isOnHold=false)`. Several boolean fields, any of them matching, or all with `match: "all"`. See [flags across tables](#flags-across-tables). |
 | `numberRangeField` | `total={"min":"100","max":"500"}` | `total>=100,total<=500` |
 | `dateRangeField` | `created={"from":"01-01-2026","to":"31-01-2026"}` | `createdAt>=2026-01-01T00:00:00Z,createdAt<=2026-01-31T23:59:59.999Z` |
 
@@ -99,6 +100,10 @@ private static readonly IGridifyMapper<OrderEntity> Mapper = new GridifyMapper<O
     .AddMap("customer.name", o => o.Customer.Name)
     .AddMap("customer.customerNo", o => o.Customer.CustomerNo)
     .AddMap("status", o => o.Status)
+    .AddMap("isUrgent", o => o.IsUrgent)
+    .AddMap("isInvoiced", o => o.InvoicedAt != null)
+    .AddMap("customer.isOnHold", o => o.Customer.IsOnHold)
+    .AddMap("customer.hasFixedDueDate", o => o.Customer.Settings!.ForcedDueDays != null)
     .AddMap("lineCount", o => o.Lines.Count)
     .AddMap("total", o => o.Lines.Sum(l => l.Quantity * l.UnitPrice))
     .AddMap("createdAt", o => o.CreatedAt, UtcDay.Parse);
@@ -106,6 +111,8 @@ private static readonly IGridifyMapper<OrderEntity> Mapper = new GridifyMapper<O
 
 - **Field names are the contract.** The front's `field:` values and these keys must match. The mapper is also an allowlist: any other name throws a Gridify exception, which `GlobalExceptionHandler` turns into a `400` problem (`"Mapping 'bogus' not found"`).
 - **Computed fields filter and sort in SQL.** `lineCount` and `total` are not columns. EF translates them to subqueries, so `total>=100` and `orderBy=total desc` run on the server for the whole table, not only the current page.
+- **Linked entities** are paths through navigations (`o.Customer.IsOnHold`). EF adds the join, so the front only sees a field name.
+- **Nullable columns as flags.** `o.InvoicedAt != null` is a boolean field, so `isInvoiced=true` means "has a date".
 - **Enums** parse by name (`status=Paid`). The column holds the name (`HasConversion<string>()`).
 - **Day ranges.** `CreatedAt` is a `DateOnly` (`date` column). `UtcDay.Parse` converts the bound `2026-01-31T23:59:59.999Z` into its UTC day, `2026-01-31`, so both ends stay inclusive. `UtcDayTests` checks this.
 - **Customers** (`ListCustomers.cs`) uses `new GridifyMapper<CustomerEntity>(autoGenerateMappings: true)` and overrides only `createdAt`, because the customers filter already uses the entity's property names.
@@ -139,6 +146,47 @@ App 1 → Orders. Pick **Status: Paid**, then type `100` in **Order total min**:
    ```
 
 6. `{ data, count }` comes back. The table renders it, and the Requests panel logs `page=1&pageSize=5&filter=status=Paid,total>=100`.
+
+## Flags across tables
+
+The orders **Flags** control is one multi-select whose options are each a column, not a value of a column. The columns are spread over two tables and have different types:
+
+| Option | Gridify field | Column |
+| --- | --- | --- |
+| Urgent | `isUrgent` | `orders.is_urgent` (bit) |
+| Invoiced | `isInvoiced` | `orders.invoiced_at` (date, `NULL` until invoiced) |
+| Customer on hold | `customer.isOnHold` | `customers.is_on_hold` (bit), through `Order.Customer` |
+| Customer fixes the due date | `customer.hasFixedDueDate` | `customer_settings.forced_due_days` (int, nullable), through `Order.Customer.Settings` |
+
+The two sides each own one half:
+
+- **Front:** every option is a boolean field, so it is a plain `flagsField`. `match: "all"` requires every pick.
+
+  ```ts
+  flags: flagsField({
+    label: "Flags",
+    match: "all",
+    flags: {
+      urgent: { label: "Urgent", field: "isUrgent" },
+      invoiced: { label: "Invoiced", field: "isInvoiced" },
+      onHold: { label: "Customer on hold", field: "customer.isOnHold" },
+      fixedDueDate: { label: "Customer fixes the due date", field: "customer.hasFixedDueDate" },
+    },
+  }),
+  ```
+
+- **Back:** the mapper decides where each field lives and how it becomes a boolean. A bit column maps as is. A nullable column maps as `!= null`. A linked entity's column is a navigation path.
+
+`?flags=["urgent","onHold"]` → `(isUrgent=true,customer.isOnHold=true)` → roughly:
+
+```sql
+SELECT … FROM orders o
+INNER JOIN customers c ON o.customer_id = c.id
+LEFT JOIN customer_settings s ON c.id = s.customer_id -- only when hasFixedDueDate is picked
+WHERE o.is_urgent = 1 AND c.is_on_hold = 1
+```
+
+The front never learns a column's table or type. Moving `invoiced_at` to another table, or turning it into a bit, changes only its `AddMap`. A new flag is one entry in `filter.ts` plus one `AddMap`. `OrdersTests.Flags_Must_All_Match_Across_Order_And_Customer_Columns` sends the strings the front builds, one pair per kind of column.
 
 ## Adding a filter field
 
