@@ -4,31 +4,50 @@ using Api.Auth;
 using Api.Features.Customers;
 using Api.Features.Orders;
 using Api.Tests.Builders;
+using Microsoft.EntityFrameworkCore;
 
 namespace Api.Tests;
 
-/// <summary>The risk grading on hand-built entities, then the endpoint against the database.</summary>
+/// <summary>The computations on hand-built read models, then the projection and the endpoint against the database.</summary>
 public class OrderOverviewTests : DatabaseTestBase
 {
     private static readonly DateOnly Today = new(2026, 3, 1);
 
-    private static GetOrderOverview.RiskAssessment Assess(
-        CustomerEntityBuilder customer,
-        OrderStatus status = OrderStatus.Pending,
-        DateOnly? dueDate = null,
-        decimal openExposure = 0
-    )
-    {
-        var c = customer.WithId(1001).Build();
-        var order = OrderEntityBuilder.For(c).WithStatus(status).WithDueDate(dueDate ?? Today).Build();
-        order.Customer = c;
-        return GetOrderOverview.Assess(order, openExposure, Today);
-    }
+    /// <summary>Verified, active, SMB, 10,000 credit limit, 30-day terms, since 2025-01-01.</summary>
+    private static readonly GetOrderOverview.CustomerFacts Clean = new(
+        "CUS-1001",
+        "Acme",
+        "acme@example.com",
+        Segment.SMB,
+        "BE",
+        Active: true,
+        IsVerified: true,
+        IsVip: false,
+        IsOnHold: false,
+        CreditLimit: 10_000,
+        PaymentTermsDays: 30,
+        Since: new(2025, 1, 1),
+        InitialStatus: null,
+        ForcedDueDays: null
+    );
+
+    /// <summary>A 1,000 Pending order due today, for <see cref="Clean"/>.</summary>
+    private static readonly GetOrderOverview.OrderFacts Order = new(
+        "ORD-100101",
+        OrderStatus.Pending,
+        Reference: null,
+        CreatedAt: Today.AddDays(-30),
+        DueDate: Today,
+        Lines: [new("Anvil", 1, 1_000)],
+        Total: 1_000,
+        Clean,
+        OpenExposure: 0
+    );
 
     [Test]
     public async Task Clean_Customer_Within_Terms_Is_An_A()
     {
-        var risk = Assess(CustomerEntityBuilder.Create().Verified());
+        var risk = GetOrderOverview.Assess(Order, Today);
 
         await Assert.That(risk.Grade).IsEqualTo("A");
         await Assert.That(risk.Band).IsEqualTo("Minimal");
@@ -39,7 +58,10 @@ public class OrderOverviewTests : DatabaseTestBase
     public async Task Factors_Add_Up_Worst_First()
     {
         // Hold (3) + 31 days late (2) + unverified (1) = 6, capped at F.
-        var risk = Assess(CustomerEntityBuilder.Create().OnHold(), dueDate: Today.AddDays(-31));
+        var risk = GetOrderOverview.Assess(
+            Order with { DueDate = Today.AddDays(-31), Customer = Clean with { IsOnHold = true, IsVerified = false } },
+            Today
+        );
 
         await Assert.That(risk.Grade).IsEqualTo("F");
         await Assert.That(risk.GradeIndex).IsEqualTo(5);
@@ -52,7 +74,7 @@ public class OrderOverviewTests : DatabaseTestBase
     [Test]
     public async Task A_Settled_Order_Is_Never_Past_Due()
     {
-        var risk = Assess(CustomerEntityBuilder.Create().Verified(), OrderStatus.Paid, Today.AddDays(-90));
+        var risk = GetOrderOverview.Assess(Order with { Status = OrderStatus.Paid, DueDate = Today.AddDays(-90) }, Today);
 
         await Assert.That(risk.DaysPastDue).IsEqualTo(0);
         await Assert.That(risk.Grade).IsEqualTo("A");
@@ -61,8 +83,7 @@ public class OrderOverviewTests : DatabaseTestBase
     [Test]
     public async Task Exposure_Over_Half_The_Limit_Raises_The_Grade()
     {
-        // The builder's credit limit is 10,000.
-        var risk = Assess(CustomerEntityBuilder.Create().Verified(), openExposure: 6_000);
+        var risk = GetOrderOverview.Assess(Order with { OpenExposure = 6_000 }, Today);
 
         await Assert.That(risk.CreditUsedPct).IsEqualTo(60m);
         await Assert.That(risk.Grade).IsEqualTo("B");
@@ -72,34 +93,30 @@ public class OrderOverviewTests : DatabaseTestBase
     public async Task Value_Ignores_What_The_Risk_Grade_Reads()
     {
         // Same order and customer, but on hold, unverified and a startup: the grade moves, the value doesn't.
-        var clean = CustomerEntityBuilder.Create().Verified().Build();
-        var risky = CustomerEntityBuilder.Create().OnHold().WithSegment(Segment.Startup).Build();
+        var risky = Clean with { IsOnHold = true, IsVerified = false, Segment = Segment.Startup };
 
         await Assert
             .That(GetOrderOverview.Value(risky, 300, Today))
-            .IsEquivalentTo(GetOrderOverview.Value(clean, 300, Today));
+            .IsEquivalentTo(GetOrderOverview.Value(Clean, 300, Today));
     }
 
     [Test]
     public async Task Value_Adds_Size_Terms_Tenure_And_Vip()
     {
-        // 1,000+ order 30 + 30-day terms 20 + 1 full year (builder: since 2025-01-01) 4 + VIP 20 = 74.
-        var value = GetOrderOverview.Value(CustomerEntityBuilder.Create().Vip().Build(), 1_200, Today);
+        // 1,000+ order 30 + 30-day terms 20 + 1 full year (since 2025-01-01) 4 + VIP 20 = 74.
+        var value = GetOrderOverview.Value(Clean with { IsVip = true }, 1_200, Today);
 
         await Assert.That(value.Score).IsEqualTo(74);
         await Assert.That(value.Band).IsEqualTo("Good");
         await Assert.That(value.Drivers[0]).IsEqualTo("Order of 1,200.00");
     }
 
-    private static GetOrderOverview.Receivable Owed(int daysPastDue, OrderStatus status = OrderStatus.Pending)
-    {
-        var order = OrderEntityBuilder
-            .For(CustomerEntityBuilder.Create().Build())
-            .WithStatus(status)
-            .WithDueDate(Today.AddDays(-daysPastDue))
-            .Build();
-        return GetOrderOverview.Owed(order, 1_000, Math.Max(0, daysPastDue), Today);
-    }
+    private static GetOrderOverview.Receivable Owed(int daysPastDue, OrderStatus status = OrderStatus.Pending) =>
+        GetOrderOverview.Owed(
+            Order with { Status = status, DueDate = Today.AddDays(-daysPastDue) },
+            Math.Max(0, daysPastDue),
+            Today
+        );
 
     [Test]
     public async Task On_Time_Order_Owes_Only_Its_Schedule()
@@ -161,6 +178,17 @@ public class OrderOverviewTests : DatabaseTestBase
         await Assert.That(overview!.Total).IsEqualTo(300m);
         await Assert.That(overview.Customer.CustomerNo).IsEqualTo(customer.CustomerNo);
         await Assert.That(overview.Risk.OpenExposure).IsEqualTo(350m);
+    }
+
+    [Test]
+    public async Task Projection_Translates_To_Sql()
+    {
+        await using var db = CreateDbContext();
+
+        // Throws if any part of the projection can't become SQL.
+        var sql = db.Orders.Select(GetOrderOverview.Projection(db)).ToQueryString();
+
+        await Assert.That(sql).Contains("SUM");
     }
 
     [Test]

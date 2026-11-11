@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Linq.Expressions;
 using Api.Data;
 using Api.Features.Customers;
 using Microsoft.AspNetCore.Http.HttpResults;
@@ -43,6 +44,20 @@ public static class GetOrderOverview
         DateOnly Since,
         OrderStatus? InitialStatus,
         int? ForcedDueDays
+    );
+
+    /// <summary>Everything the page computes from, read in one query (<see cref="Projection"/>). No entity past this point.</summary>
+    /// <param name="OpenExposure">The total of the customer's unpaid (Pending) orders, this one included.</param>
+    public record OrderFacts(
+        string OrderNo,
+        OrderStatus Status,
+        string? Reference,
+        DateOnly CreatedAt,
+        DateOnly DueDate,
+        OrderLine[] Lines,
+        decimal Total,
+        CustomerFacts Customer,
+        decimal OpenExposure
     );
 
     /// <param name="GradeIndex">0 (A) to 5 (F): the front's scale position.</param>
@@ -106,58 +121,69 @@ public static class GetOrderOverview
         [FromServices] TimeProvider clock
     )
     {
-        var order = await db
-            .Orders.Include(o => o.Customer)
-            .ThenInclude(c => c.Settings)
-            .Include(o => o.Lines)
-            .FirstOrDefaultAsync(o => o.OrderNo == orderNo);
-        if (order is null)
+        var facts = await db
+            .Orders.Where(o => o.OrderNo == orderNo)
+            .Select(Projection(db))
+            .FirstOrDefaultAsync();
+        if (facts is null)
             return TypedResults.NotFound();
 
         var today = DateOnly.FromDateTime(clock.GetUtcNow().UtcDateTime);
-        return TypedResults.Ok(ToOverview(order, await OpenExposureAsync(db, order.CustomerId), today));
+        return TypedResults.Ok(ToOverview(facts, today));
     }
 
-    // SelectMany, not Sum(o => o.Lines.Sum(…)): SQL Server can't aggregate over a subquery.
-    private static Task<decimal> OpenExposureAsync(AppDbContext db, int customerId) =>
-        db
-            .Orders.Where(o => o.CustomerId == customerId && o.Status == OrderStatus.Pending)
-            .SelectMany(o => o.Lines)
-            .SumAsync(l => l.Quantity * l.UnitPrice);
-
-    /// <summary>Needs <see cref="OrderEntity.Customer"/> and <see cref="OrderEntity.Lines"/> loaded.</summary>
-    private static OrderOverview ToOverview(OrderEntity order, decimal openExposure, DateOnly today)
-    {
-        var c = order.Customer;
-        var total = order.Lines.Sum(l => l.Quantity * l.UnitPrice);
-        var risk = Assess(order, openExposure, today);
-        return new(
-            order.OrderNo,
-            order.Status,
-            order.Reference,
-            order.CreatedAt,
-            order.DueDate,
-            [.. order.Lines.Select(l => new OrderLine(l.Product, l.Quantity, l.UnitPrice))],
-            total,
-            new(
-                c.CustomerNo,
-                c.Name,
-                c.Email,
-                c.Segment,
-                c.Country,
-                c.Active,
-                c.IsVerified,
-                c.IsVip,
-                c.IsOnHold,
-                c.CreditLimit,
-                c.PaymentTermsDays,
-                c.CreatedAt,
-                c.Settings?.InitialStatus,
-                c.Settings?.ForcedDueDays
+    /// <summary>
+    /// The one query the page reads: columns, lines and both sums, in a single round trip. Only
+    /// member access, <c>Sum</c>/<c>Count</c> and <c>new</c> of records in here: a call to one of
+    /// our own methods would make EF fetch whole entities and run it in memory. Takes
+    /// <paramref name="db"/> for the exposure subquery, since a customer has no <c>Orders</c>.
+    /// </summary>
+    public static Expression<Func<OrderEntity, OrderFacts>> Projection(AppDbContext db) =>
+        o => new OrderFacts(
+            o.OrderNo,
+            o.Status,
+            o.Reference,
+            o.CreatedAt,
+            o.DueDate,
+            o.Lines.Select(l => new OrderLine(l.Product, l.Quantity, l.UnitPrice)).ToArray(),
+            o.Lines.Sum(l => l.Quantity * l.UnitPrice),
+            new CustomerFacts(
+                o.Customer.CustomerNo,
+                o.Customer.Name,
+                o.Customer.Email,
+                o.Customer.Segment,
+                o.Customer.Country,
+                o.Customer.Active,
+                o.Customer.IsVerified,
+                o.Customer.IsVip,
+                o.Customer.IsOnHold,
+                o.Customer.CreditLimit,
+                o.Customer.PaymentTermsDays,
+                o.Customer.CreatedAt,
+                o.Customer.Settings!.InitialStatus,
+                o.Customer.Settings.ForcedDueDays
             ),
+            // SelectMany, not Sum(p => p.Lines.Sum(…)): SQL Server can't aggregate over a subquery.
+            db.Orders.Where(p => p.CustomerId == o.CustomerId && p.Status == OrderStatus.Pending)
+                .SelectMany(p => p.Lines)
+                .Sum(l => l.Quantity * l.UnitPrice)
+        );
+
+    private static OrderOverview ToOverview(OrderFacts f, DateOnly today)
+    {
+        var risk = Assess(f, today);
+        return new(
+            f.OrderNo,
+            f.Status,
+            f.Reference,
+            f.CreatedAt,
+            f.DueDate,
+            f.Lines,
+            f.Total,
+            f.Customer,
             risk,
-            Value(order.Customer, total, today),
-            Owed(order, total, risk.DaysPastDue, today),
+            Value(f.Customer, f.Total, today),
+            Owed(f, risk.DaysPastDue, today),
             today
         );
     }
@@ -166,13 +192,13 @@ public static class GetOrderOverview
     /// Points per risk factor, summed and capped at F. A credit hold alone is a D; a clean,
     /// verified, active customer within its terms is an A.
     /// </summary>
-    public static RiskAssessment Assess(OrderEntity order, decimal openExposure, DateOnly today)
+    public static RiskAssessment Assess(OrderFacts order, DateOnly today)
     {
         var customer = order.Customer;
         var daysPastDue =
             order.Status == OrderStatus.Pending ? Math.Max(0, today.DayNumber - order.DueDate.DayNumber) : 0;
         var creditUsedPct =
-            customer.CreditLimit > 0 ? Math.Round(openExposure / customer.CreditLimit * 100, 1) : 100m;
+            customer.CreditLimit > 0 ? Math.Round(order.OpenExposure / customer.CreditLimit * 100, 1) : 100m;
 
         (int Points, string Factor)[] checks =
         [
@@ -192,7 +218,7 @@ public static class GetOrderOverview
             Bands[index],
             [.. hits.Select(c => c.Factor)],
             daysPastDue,
-            openExposure,
+            order.OpenExposure,
             creditUsedPct
         );
     }
@@ -202,15 +228,15 @@ public static class GetOrderOverview
     /// independently: a risky order can be valuable, a safe one worth little. Four parts that add up
     /// to at most 100: order size and payment terms up to 30 each, tenure and VIP up to 20 each.
     /// </summary>
-    public static ValueScore Value(CustomerEntity customer, decimal total, DateOnly today)
+    public static ValueScore Value(CustomerFacts customer, decimal total, DateOnly today)
     {
         var terms = customer.PaymentTermsDays;
-        var years = (today.DayNumber - customer.CreatedAt.DayNumber) / 365;
+        var years = (today.DayNumber - customer.Since.DayNumber) / 365;
         (int Points, string Driver)[] parts =
         [
             (total >= 1_000 ? 30 : total >= 250 ? 20 : total >= 50 ? 10 : 0, $"Order of {total.ToString("N2", CultureInfo.InvariantCulture)}"),
             (terms <= 15 ? 30 : terms <= 30 ? 20 : terms <= 60 ? 10 : 0, $"{terms}-day terms"),
-            (Math.Min(years, 5) * 4, $"Customer since {customer.CreatedAt.Year}"),
+            (Math.Min(years, 5) * 4, $"Customer since {customer.Since.Year}"),
             (customer.IsVip ? 20 : 0, "VIP"),
         ];
         var hits = parts.Where(p => p.Points > 0).OrderByDescending(p => p.Points).ToArray();
@@ -223,8 +249,9 @@ public static class GetOrderOverview
     /// <paramref name="daysPastDue"/> comes from <see cref="Assess"/>: 0 unless the order is
     /// Pending after its due date, so a settled order never shows arrears.
     /// </summary>
-    public static Receivable Owed(OrderEntity order, decimal total, int daysPastDue, DateOnly today)
+    public static Receivable Owed(OrderFacts order, int daysPastDue, DateOnly today)
     {
+        var total = order.Total;
         var overdue = daysPastDue > 0 ? total : (decimal?)null;
         var atRisk = daysPastDue > RiskThresholdDays;
         return new(

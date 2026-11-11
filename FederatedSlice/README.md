@@ -74,6 +74,8 @@ The risk grade is computed on the server from data it already holds. Each factor
 
 The receivable figures are computed on the server too (`GetOrderOverview.Owed`) and come back `null` until they exist. An unpaid order is overdue from the day after its due date and accrues 12% simple interest a year. Once it is more than 30 days late it is at risk, and a provision is set aside: 25% of the overdue amount, 50% from 61 days, all of it from 91.
 
+The read happens in two stages, so EF can't make it go wrong as the page grows. First, one SQL projection (`GetOrderOverview.Projection`, an `Expression<Func<OrderEntity, OrderFacts>>`) reads the columns, the lines, the order total and the customer's open exposure in a single round trip. It doesn't need `Include` and loads no tracked graph. Second, `Assess`, `Value` and `Owed` are pure functions over the resulting `OrderFacts` record. They never see an entity, so they can't depend on what happened to be loaded, and the tests build them from plain records. The projection holds only member access, `Sum`/`Count` and `new` of records: a call to one of our own methods in there would make EF fetch whole entities and run the call in memory.
+
 ## Sign-in and permissions
 
 | Route | Scope (the app) | Role (the user) |
@@ -118,7 +120,7 @@ FederatedSlice/
 | `OrderMapperTests` | Unit | A fully filled input leaves no entity property at its default. |
 | `OrdersAuthorizationTests` | Integration | `401` problem without a token, read scope per area, the scope × role matrix on create, the space-delimited `scope` claim. |
 | `CustomersTests` | Integration | The front's own filter strings (multi-select with spaces, flags over several columns, inclusive day range, search + select), sorted options, settings columns (sorted), unknown field → `400`. |
-| `OrderOverviewTests` | Unit + integration | The risk grade: a clean customer is an A, factors add up worst first and cap at F, a settled order is never past due, exposure over half the limit. The endpoint sums the customer's unpaid orders; unknown order → `404`. |
+| `OrderOverviewTests` | Unit + integration | On hand-built `OrderFacts`. The risk grade: a clean customer is an A, factors add up worst first and cap at F, a settled order is never past due, exposure over half the limit. The value score and the receivable. The projection translates to SQL. The endpoint sums the customer's unpaid orders; unknown order → `404`. |
 | `OrdersTests` | Integration | Create (number, Location), line errors on the form's paths, missing due date, credit hold, customer settings overriding the entered status and due date, a customer change dropping the old reference, reference uniqueness and `reference-taken`, `PUT` replacing lines, `404`s, filtering and sorting on `lineCount` / `total` / `customer.customerNo`, flags that must all match across order and customer columns (bit, nullable, through navigations). |
 | `SmokeTests` | Aspire | The real AppHost: grate created and seeded the database (12 customers, 6 orders, 2 settings rows), and the api is healthy. |
 
