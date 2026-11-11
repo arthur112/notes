@@ -41,7 +41,8 @@ public class OrderOverviewTests : DatabaseTestBase
         Lines: [new("Anvil", 1, 1_000)],
         Total: 1_000,
         Clean,
-        OpenExposure: 0
+        OpenExposure: 0,
+        RelatedOrders: []
     );
 
     [Test]
@@ -178,6 +179,29 @@ public class OrderOverviewTests : DatabaseTestBase
         await Assert.That(overview!.Total).IsEqualTo(300m);
         await Assert.That(overview.Customer.CustomerNo).IsEqualTo(customer.CustomerNo);
         await Assert.That(overview.Risk.OpenExposure).IsEqualTo(350m);
+    }
+
+    [Test]
+    public async Task Overview_Links_The_Customers_Other_Orders_Newest_First()
+    {
+        var customer = await SeedAsync(CustomerEntityBuilder.Create().Build());
+        var order = await SeedAsync(OrderEntityBuilder.For(customer).WithLine("Anvil", 1, 100).Build());
+        var older = await SeedAsync(
+            OrderEntityBuilder.For(customer).WithCreatedAt(new(2026, 1, 1)).WithLine("Hammock", 2, 25).Build()
+        );
+        var newer = await SeedAsync(
+            OrderEntityBuilder.For(customer).WithCreatedAt(new(2026, 2, 1)).WithLine("Stapler", 1, 10).Build()
+        );
+        var stranger = await SeedAsync(CustomerEntityBuilder.Create().Build());
+        await SeedAsync(OrderEntityBuilder.For(stranger).WithLine("Anvil", 1, 100).Build());
+
+        var overview = await CreateClient(Scopes.OrdersRead)
+            .GetFromJsonAsync<GetOrderOverview.OrderOverview>($"/api/orders/{order.OrderNo}/overview");
+
+        await Assert
+            .That(overview!.RelatedOrders.Select(r => r.OrderNo))
+            .IsEquivalentTo([newer.OrderNo, older.OrderNo]);
+        await Assert.That(overview.RelatedOrders[1].Total).IsEqualTo(50m);
     }
 
     [Test]

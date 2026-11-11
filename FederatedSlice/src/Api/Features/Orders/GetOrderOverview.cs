@@ -26,8 +26,12 @@ public static class GetOrderOverview
         RiskAssessment Risk,
         ValueScore Value,
         Receivable Receivable,
+        RelatedOrder[] RelatedOrders,
         DateOnly AsOf
     );
+
+    /// <summary>One of the customer's other orders: the page links to each.</summary>
+    public record RelatedOrder(string OrderNo, OrderStatus Status, DateOnly CreatedAt, decimal Total);
 
     public record CustomerFacts(
         string CustomerNo,
@@ -48,6 +52,7 @@ public static class GetOrderOverview
 
     /// <summary>Everything the page computes from, read in one query (<see cref="Projection"/>). No entity past this point.</summary>
     /// <param name="OpenExposure">The total of the customer's unpaid (Pending) orders, this one included.</param>
+    /// <param name="RelatedOrders">The customer's other orders, newest first.</param>
     public record OrderFacts(
         string OrderNo,
         OrderStatus Status,
@@ -57,7 +62,8 @@ public static class GetOrderOverview
         OrderLine[] Lines,
         decimal Total,
         CustomerFacts Customer,
-        decimal OpenExposure
+        decimal OpenExposure,
+        RelatedOrder[] RelatedOrders
     );
 
     /// <param name="GradeIndex">0 (A) to 5 (F): the front's scale position.</param>
@@ -136,7 +142,8 @@ public static class GetOrderOverview
     /// The one query the page reads: columns, lines and both sums, in a single round trip. Only
     /// member access, <c>Sum</c>/<c>Count</c> and <c>new</c> of records in here: a call to one of
     /// our own methods would make EF fetch whole entities and run it in memory. Takes
-    /// <paramref name="db"/> for the exposure subquery, since a customer has no <c>Orders</c>.
+    /// <paramref name="db"/> for the exposure and related-orders subqueries, since a customer has no
+    /// <c>Orders</c>.
     /// </summary>
     public static Expression<Func<OrderEntity, OrderFacts>> Projection(AppDbContext db) =>
         o => new OrderFacts(
@@ -166,7 +173,17 @@ public static class GetOrderOverview
             // SelectMany, not Sum(p => p.Lines.Sum(…)): SQL Server can't aggregate over a subquery.
             db.Orders.Where(p => p.CustomerId == o.CustomerId && p.Status == OrderStatus.Pending)
                 .SelectMany(p => p.Lines)
-                .Sum(l => l.Quantity * l.UnitPrice)
+                .Sum(l => l.Quantity * l.UnitPrice),
+            db.Orders.Where(p => p.CustomerId == o.CustomerId && p.Id != o.Id)
+                .OrderByDescending(p => p.CreatedAt)
+                .ThenByDescending(p => p.Id)
+                .Select(p => new RelatedOrder(
+                    p.OrderNo,
+                    p.Status,
+                    p.CreatedAt,
+                    p.Lines.Sum(l => l.Quantity * l.UnitPrice)
+                ))
+                .ToArray()
         );
 
     private static OrderOverview ToOverview(OrderFacts f, DateOnly today)
@@ -184,6 +201,7 @@ public static class GetOrderOverview
             risk,
             Value(f.Customer, f.Total, today),
             Owed(f, risk.DaysPastDue, today),
+            f.RelatedOrders,
             today
         );
     }

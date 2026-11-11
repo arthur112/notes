@@ -8,16 +8,19 @@ import { OrderOverview } from "@/domains/orders/order-overview/order-overview";
 import { buttonVariants } from "@/shared/components/ui/button";
 import { useShell } from "@/shell/shell-provider";
 
+/** An order number leading to its record page: the list's column and the related orders. */
+const orderLink = (orderNo: string) => (
+  <Link to="/app1/orders/$orderNo" params={{ orderNo }} className={orderLinkClass}>
+    {orderNo}
+  </Link>
+);
+
 /**
  * App 1's orders: everything from the domain defaults. The app only supplies
  * what depends on its routes (where an order number and "New order" lead,
  * where "done" goes).
  */
-const columns = orderColumns((orderNo) => (
-  <Link to="/app1/orders/$orderNo" params={{ orderNo }} className={orderLinkClass}>
-    {orderNo}
-  </Link>
-));
+const columns = orderColumns(orderLink);
 
 const listRoute = getRouteApi("/app1/orders/");
 
@@ -62,6 +65,7 @@ export function OrderPage() {
   return (
     <OrderOverview
       orderNo={orderNo}
+      orderLink={orderLink}
       action={
         canEdit && (
           <Link

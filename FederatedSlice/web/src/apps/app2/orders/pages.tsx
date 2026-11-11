@@ -14,20 +14,19 @@ import { OrderOverview } from "@/domains/orders/order-overview/order-overview";
 import { buttonVariants } from "@/shared/components/ui/button";
 import { useShell } from "@/shell/shell-provider";
 
+/** An order number leading to its record page: the list's column and the related orders. */
+const orderLink = (orderNo: string) => (
+  <Link to="/app2/orders/$orderNo" params={{ orderNo }} className={orderLinkClass}>
+    {orderNo}
+  </Link>
+);
+
 /**
  * App 2's orders differ where it needs them to: its own, leaner column set
  * (and no "New order"). The filter, list, table and form are still the
  * domain's; replacing one of those is the same move (import yours instead).
  */
-const columns = orderColumnHelper.columns([
-  orderNoColumn((orderNo) => (
-    <Link to="/app2/orders/$orderNo" params={{ orderNo }} className={orderLinkClass}>
-      {orderNo}
-    </Link>
-  )),
-  customerColumn,
-  totalColumn,
-]);
+const columns = orderColumnHelper.columns([orderNoColumn(orderLink), customerColumn, totalColumn]);
 
 const listRoute = getRouteApi("/app2/orders/");
 
@@ -52,6 +51,7 @@ export function OrderPage() {
   return (
     <OrderOverview
       orderNo={orderNo}
+      orderLink={orderLink}
       action={
         canEdit && (
           <Link

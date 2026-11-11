@@ -330,18 +330,69 @@ function CurrentState({ order }: { order: Overview }) {
   );
 }
 
+/** The customer's other orders, newest first, each a link to its own record page. */
+function RelatedOrders({
+  order,
+  orderLink,
+}: {
+  order: Overview;
+  orderLink: (orderNo: string) => ReactNode;
+}) {
+  const related = order.relatedOrders;
+  return (
+    <RecordSection
+      id="order-related"
+      title="Related orders"
+      note={`${related.length} other ${related.length === 1 ? "order" : "orders"} · ${order.customer.name}`}
+    >
+      {related.length === 0 ? (
+        <p className="text-sm text-muted-foreground">No other orders for this customer.</p>
+      ) : (
+        <ul>
+          {related.map((other) => (
+            <li
+              key={other.orderNo}
+              className="flex flex-wrap items-baseline gap-x-6 gap-y-1 py-2 text-sm"
+            >
+              <span className="font-mono">{orderLink(other.orderNo)}</span>
+              <span className="flex items-center gap-1.5">
+                <span aria-hidden className={cn("size-2 rounded-full", STATUS_DOT[other.status])} />
+                {other.status}
+              </span>
+              <time className="text-muted-foreground tabular-nums">
+                {formatDate(other.createdAt)}
+              </time>
+              <span className="ml-auto font-medium tabular-nums">{formatAmount(other.total)}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </RecordSection>
+  );
+}
+
 /**
  * An order's record page: hero, the order as placed (with its risk grade on the
- * A–F scale), its current state, then its modifications. The route's loader awaited the overview
- * (`orderOverviewRouteLoader`). `action` is the app's: only it knows its routes.
+ * A–F scale), its current state, the customer's other orders, then its modifications. The route's
+ * loader awaited the overview (`orderOverviewRouteLoader`). `action` and `orderLink` are the
+ * app's: only it knows its routes.
  */
-export function OrderOverview({ orderNo, action }: { orderNo: string; action?: ReactNode }) {
+export function OrderOverview({
+  orderNo,
+  action,
+  orderLink,
+}: {
+  orderNo: string;
+  action?: ReactNode;
+  orderLink: (orderNo: string) => ReactNode;
+}) {
   const { data: order } = useSuspenseQuery(orderOverviewQueryOptions(orderNo));
   return (
     <div className="mx-auto max-w-5xl space-y-12 p-6">
       <Hero order={order} action={action} />
       <OrderDetails order={order} />
       <CurrentState order={order} />
+      <RelatedOrders order={order} orderLink={orderLink} />
       <Modifications modifications={mockModifications(order)} />
     </div>
   );

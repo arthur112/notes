@@ -104,6 +104,8 @@ export type OrderOverview = {
     /** The share of `overdue` set aside once at risk. */
     provision: number | null;
   };
+  /** The customer's other orders, newest first: the page links to each. */
+  relatedOrders: { orderNo: string; status: OrderStatus; createdAt: string; total: number }[];
   /** The server's today, which the risk was assessed on. */
   asOf: string;
 };
