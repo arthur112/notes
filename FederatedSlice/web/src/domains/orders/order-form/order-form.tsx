@@ -101,6 +101,9 @@ export function OrderForm({ order, onDone }: { order?: OrderDetail; onDone: () =
               <field.TextField label="Customer PO (optional)" placeholder="e.g. PO-2042" />
             )}
           </form.AppField>
+          <form.AppField name="isUrgent">
+            {(field) => <field.CheckboxField label="Urgent" />}
+          </form.AppField>
         </div>
 
         <OrderLines form={form} />

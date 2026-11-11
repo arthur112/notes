@@ -4,7 +4,8 @@ namespace Api.Features.Orders;
 
 /// <summary>
 /// Plain 1:1 copies, no business logic (that lives in <see cref="OrderRules"/>). <c>Id</c>,
-/// <c>OrderNo</c> and <c>CreatedAt</c> are never written here: the database owns them.
+/// <c>OrderNo</c> and <c>CreatedAt</c> are never written here: the database owns them. Nor is
+/// <c>InvoicedAt</c>: invoicing sets it, not the form.
 /// <c>OrderMapperTests</c> checks that a fully filled input leaves no other property at its default.
 /// </summary>
 public static class OrderMapper
@@ -20,6 +21,7 @@ public static class OrderMapper
             // [Required] has run before any handler, so the value is there.
             target.DueDate = input.DueDate!.Value;
             target.Reference = input.Reference;
+            target.IsUrgent = input.IsUrgent!.Value;
             target.Lines.Clear();
             target.Lines.AddRange(
                 input.Lines.Select(l => new OrderLineEntity
@@ -39,6 +41,7 @@ public static class OrderMapper
                 target.Status,
                 target.DueDate,
                 target.Reference,
+                target.IsUrgent,
                 [.. target.Lines.Select(l => new OrderLine(l.Product, l.Quantity, l.UnitPrice))],
                 target.CreatedAt
             );

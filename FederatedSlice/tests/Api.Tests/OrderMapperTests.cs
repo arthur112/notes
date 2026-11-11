@@ -5,13 +5,16 @@ namespace Api.Tests;
 
 public class OrderMapperTests
 {
-    // Set by the database, never by the mapper. With hand-written mapping, this test is what
-    // catches a column MapFrom forgot.
+    // Not the form's to write, each for its reason. With hand-written mapping, this test is what
+    // catches a column MapFrom forgot: a new one fails here until it is mapped or listed.
     private static readonly string[] NotMapped =
     [
+        // Set by the database.
         nameof(OrderEntity.Id),
         nameof(OrderEntity.OrderNo),
         nameof(OrderEntity.CreatedAt),
+        // Set by invoicing (seed data only, for now), so a PUT keeps it.
+        nameof(OrderEntity.InvoicedAt),
     ];
 
     [Test]
@@ -21,7 +24,7 @@ public class OrderMapperTests
         var entity = new OrderEntity();
 
         entity.MapFrom(
-            OrderInputBuilder.For(customer.Name).WithStatus(OrderStatus.Shipped).WithReference("PO-1").Build(),
+            OrderInputBuilder.For(customer.Name).WithStatus(OrderStatus.Shipped).WithReference("PO-1").WithUrgent().Build(),
             customer
         );
 

@@ -8,6 +8,7 @@ public class OrderInputBuilder
     private OrderStatus _status = OrderStatus.Pending;
     private string? _reference;
     private DateOnly? _dueDate = new(2026, 2, 1);
+    private bool? _isUrgent = false;
     private List<OrderLine> _lines = [new("Anvil", 1, 10)];
 
     private OrderInputBuilder(string customer) => _customer = customer;
@@ -33,11 +34,17 @@ public class OrderInputBuilder
         return this;
     }
 
+    public OrderInputBuilder WithUrgent(bool? isUrgent = true)
+    {
+        _isUrgent = isUrgent;
+        return this;
+    }
+
     public OrderInputBuilder WithLines(params OrderLine[] lines)
     {
         _lines = [.. lines];
         return this;
     }
 
-    public OrderInput Build() => new(_customer, _status, _dueDate, _reference, _lines);
+    public OrderInput Build() => new(_customer, _status, _dueDate, _reference, _isUrgent, _lines);
 }

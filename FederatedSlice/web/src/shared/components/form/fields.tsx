@@ -146,6 +146,24 @@ export function DateField({ label, className }: FieldProps) {
   );
 }
 
+/** A box beside its label: a yes/no has no "not picked", so no placeholder and no error line. */
+export function CheckboxField({ label, className }: FieldProps) {
+  const field = useFieldContext<boolean>();
+  return (
+    <label className={cn("flex items-center gap-2 self-end py-2 text-sm", className)}>
+      <input
+        type="checkbox"
+        name={field.name}
+        checked={field.state.value}
+        onChange={(event) => field.handleChange(event.target.checked)}
+        onBlur={field.handleBlur}
+        className="size-4 accent-primary"
+      />
+      {label}
+    </label>
+  );
+}
+
 /**
  * Disabled only while submitting, not on `!canSubmit`: clicking it on an
  * invalid form is what reveals the errors, and a stale error never locks it.

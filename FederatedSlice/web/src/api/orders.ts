@@ -32,6 +32,7 @@ export type OrderInput = {
   dueDate: string; // YYYY-MM-DD
   /** The customer's purchase-order number; unique across orders. */
   reference?: string;
+  isUrgent: boolean;
   lines: OrderLine[];
 };
 

@@ -141,16 +141,16 @@ public class OrdersTests : DatabaseTestBase
     }
 
     [Test]
-    public async Task Missing_Due_Date_Is_A_Due_Date_Error()
+    public async Task Missing_Due_Date_And_Urgency_Are_Field_Errors()
     {
         await SeedCustomerAsync("Acme");
 
         var response = await CreateEditorClient()
-            .PostAsJsonAsync("/api/orders", OrderInputBuilder.For("Acme").WithDueDate(null).Build());
+            .PostAsJsonAsync("/api/orders", OrderInputBuilder.For("Acme").WithDueDate(null).WithUrgent(null).Build());
 
         var problem = await response.Content.ReadFromJsonAsync<HttpValidationProblemDetails>();
         await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.BadRequest);
-        await Assert.That(problem!.Errors.Keys).IsEquivalentTo(["dueDate"]);
+        await Assert.That(problem!.Errors.Keys).IsEquivalentTo(["dueDate", "isUrgent"]);
     }
 
     [Test]

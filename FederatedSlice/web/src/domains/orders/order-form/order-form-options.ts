@@ -21,6 +21,7 @@ export type OrderFormValues = {
   status: OrderStatus;
   dueDate: string | null; // YYYY-MM-DD
   reference: string;
+  isUrgent: boolean;
   lines: OrderFormLine[];
 };
 
@@ -49,6 +50,7 @@ export const orderFormSchema = z.object({
     .string()
     .trim()
     .transform((reference) => reference || undefined),
+  isUrgent: z.boolean(),
   lines: z
     .array(
       z.object({
@@ -68,6 +70,7 @@ export const emptyOrderForm = (): OrderFormValues => ({
   status: "Pending",
   dueDate: null,
   reference: "",
+  isUrgent: false,
   lines: [blankLine()],
 });
 
@@ -79,6 +82,7 @@ export function toFormValues(order: OrderDetail): OrderFormValues {
     status: order.status,
     dueDate: order.dueDate,
     reference: order.reference ?? "",
+    isUrgent: order.isUrgent,
     lines: order.lines.map((line) => ({
       product: line.product,
       quantity: String(line.quantity),

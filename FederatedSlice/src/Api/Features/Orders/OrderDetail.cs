@@ -7,6 +7,7 @@ public record OrderDetail(
     OrderStatus Status,
     DateOnly DueDate,
     string? Reference,
+    bool IsUrgent,
     OrderLine[] Lines,
     DateOnly CreatedAt
 );
